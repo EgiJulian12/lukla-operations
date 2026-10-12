@@ -1,0 +1,161 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\OrderStatus;
+use App\Enums\SampleStatus;
+use App\Enums\UserRole;
+use App\Models\Client;
+use App\Models\Invoice;
+use App\Models\Order;
+use App\Models\OutputEntry;
+use App\Models\PayrollPeriod;
+use App\Models\PurchaseOrder;
+use App\Models\QcRecord;
+use App\Models\RateCard;
+use App\Models\Sample;
+use App\Models\SampleRevision;
+use App\Models\User;
+use Database\Seeders\RoleSeeder;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+/**
+ * Matriks RBAC: batas wewenang antar peran (FR-021, FR-023, FR-025).
+ *
+ * Yang diuji di sini adalah pemisahan tugas, bukan sekadar "siapa boleh":
+ * penjahit tidak memverifikasi pekerjaannya sendiri, produksi tidak menyentuh
+ * penggajian, QC tidak menyentuh order, dan klien tidak melihat data klien lain.
+ */
+class RoleAccessMatrixTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RoleSeeder::class);
+    }
+
+    public function test_rate_cards_belong_to_production_finance_and_the_owner(): void
+    {
+        $this->assertTrue($this->userWithRole(UserRole::FINANCE_PAYROLL)->can('create', RateCard::class));
+        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('create', RateCard::class));
+        $this->assertTrue($this->userWithRole(UserRole::PRODUCTION_LEAD)->can('create', RateCard::class));
+        $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('create', RateCard::class));
+    }
+
+    public function test_a_tailor_cannot_verify_their_own_output(): void
+    {
+        $entry = OutputEntry::factory()->create();
+
+        $this->assertTrue($this->userWithRole(UserRole::PRODUCTION_LEAD)->can('verify', $entry));
+        $this->assertFalse($this->userWithRole(UserRole::TAILOR_OPERATOR)->can('verify', $entry));
+        $this->assertFalse($this->userWithRole(UserRole::QC_INSPECTOR)->can('verify', $entry));
+    }
+
+    public function test_only_qc_may_record_an_inspection(): void
+    {
+        $this->assertTrue($this->userWithRole(UserRole::QC_INSPECTOR)->can('create', QcRecord::class));
+        $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('create', QcRecord::class));
+        $this->assertFalse($this->userWithRole(UserRole::PRODUCTION_LEAD)->can('create', QcRecord::class));
+    }
+
+    public function test_payroll_is_visible_only_to_finance_and_the_owner(): void
+    {
+        $this->assertTrue($this->userWithRole(UserRole::FINANCE_PAYROLL)->can('viewAny', PayrollPeriod::class));
+        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('viewAny', PayrollPeriod::class));
+        $this->assertFalse($this->userWithRole(UserRole::QC_INSPECTOR)->can('viewAny', PayrollPeriod::class));
+        $this->assertFalse($this->userWithRole(UserRole::TAILOR_OPERATOR)->can('viewAny', PayrollPeriod::class));
+    }
+
+    public function test_sample_conversion_needs_both_an_approved_revision_and_authority(): void
+    {
+        $sample = Sample::factory()->create();
+        $revision = SampleRevision::factory()->create([
+            'sample_id' => $sample->getKey(),
+            'client_id' => $sample->client_id,
+            'version' => 1,
+        ]);
+
+        $sample->update([
+            'status' => SampleStatus::APPROVED,
+            'approved_revision_id' => $revision->getKey(),
+        ]);
+
+        $this->assertTrue($this->userWithRole(UserRole::SAMPLE_TEAM)->can('convertToOrder', $sample->refresh()));
+        $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('convertToOrder', $sample->refresh()));
+    }
+
+    public function test_the_sample_team_and_the_owner_may_approve_a_sample(): void
+    {
+        $sample = Sample::factory()->create();
+
+        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('approve', $sample));
+        $this->assertTrue($this->userWithRole(UserRole::SAMPLE_TEAM)->can('approve', $sample));
+        $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('approve', $sample));
+    }
+
+    public function test_purchase_orders_and_invoices_belong_to_finance(): void
+    {
+        $this->assertTrue($this->userWithRole(UserRole::FINANCE_PAYROLL)->can('create', PurchaseOrder::class));
+        $this->assertTrue($this->userWithRole(UserRole::FINANCE_PAYROLL)->can('create', Invoice::class));
+        $this->assertFalse($this->userWithRole(UserRole::PRODUCTION_LEAD)->can('create', PurchaseOrder::class));
+        $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('create', Invoice::class));
+
+        // Owner melihat dokumen keuangan tanpa ikut menerbitkannya.
+        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('viewAny', Invoice::class));
+        $this->assertFalse($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('create', Invoice::class));
+    }
+
+    public function test_a_client_account_sees_only_its_own_orders(): void
+    {
+        $mine = Client::factory()->create();
+        $other = Client::factory()->create();
+
+        Order::factory()->create(['client_id' => $mine->getKey()]);
+        Order::factory()->create(['client_id' => $other->getKey()]);
+
+        $user = User::factory()->create(['client_id' => $mine->getKey()]);
+        $user->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $this->actingAs($user);
+
+        $this->assertSame(1, Order::query()->count());
+        $this->assertSame($mine->getKey(), Order::query()->firstOrFail()->client_id);
+    }
+
+    public function test_a_client_account_may_enter_the_portal_but_not_the_admin_panel(): void
+    {
+        $user = User::factory()->create(['client_id' => Client::factory()->create()->getKey()]);
+        $user->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $this->assertTrue($user->canAccessPanel(Filament::getPanel('portal')));
+        $this->assertFalse($user->canAccessPanel(Filament::getPanel('admin')));
+    }
+
+    public function test_an_internal_account_may_enter_the_admin_panel_but_not_the_portal(): void
+    {
+        $user = $this->userWithRole(UserRole::PRODUCTION_LEAD);
+
+        $this->assertTrue($user->canAccessPanel(Filament::getPanel('admin')));
+        $this->assertFalse($user->canAccessPanel(Filament::getPanel('portal')));
+    }
+
+    public function test_a_completed_order_is_locked_against_edits(): void
+    {
+        $order = Order::factory()->create(['status' => OrderStatus::COMPLETED]);
+
+        $this->assertFalse($this->userWithRole(UserRole::SAMPLE_TEAM)->can('update', $order));
+    }
+
+    private function userWithRole(UserRole $role): User
+    {
+        $user = User::factory()->create();
+        $user->assignRole($role->value);
+
+        return $user;
+    }
+}
