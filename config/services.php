@@ -35,4 +35,39 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Amazon Bedrock RAG Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Native Laravel RAG implementation using the AWS SDK. Documents are
+    | loaded from S3 into Laravel's cache, then relevant chunks are injected
+    | into the prompt before calling the Bedrock Converse API.
+    |
+    */
+
+    'bedrock' => [
+        // AWS credentials (shared with the rest of the app)
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+
+        // S3 bucket is in ap-southeast-1; Bedrock Converse runs in us-east-1
+        's3_region' => env('AWS_DEFAULT_REGION', 'ap-southeast-1'),
+        'bedrock_region' => env('BEDROCK_REGION', 'us-east-1'),
+        'bucket' => env('AWS_BUCKET'),
+
+        // Model and inference settings
+        'model_id' => env('BEDROCK_MODEL_ID', 'amazon.nova-lite-v1:0'),
+        'max_tokens' => (int) env('BEDROCK_MAX_TOKENS', 4000),
+        'temperature' => (float) env('BEDROCK_TEMPERATURE', 0.1),
+
+        // RAG retrieval settings
+        'top_k' => (int) env('RAG_TOP_K', 5),
+        'chunk_size' => (int) env('RAG_CHUNK_SIZE', 600),
+        'chunk_overlap' => (int) env('RAG_CHUNK_OVERLAP', 100),
+
+        // How long to keep loaded document chunks in Laravel cache (seconds)
+        'cache_ttl' => (int) env('RAG_CACHE_TTL', 3600),
+    ],
+
 ];

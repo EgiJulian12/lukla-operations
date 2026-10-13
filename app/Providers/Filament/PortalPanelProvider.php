@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Portal\Widgets\PortalChatWidget;
 use App\Models\Client;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -45,6 +46,7 @@ class PortalPanelProvider extends PanelProvider
             ])
             ->widgets([
                 AccountWidget::class,
+                PortalChatWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
