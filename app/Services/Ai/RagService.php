@@ -2,233 +2,353 @@
 
 namespace App\Services\Ai;
 
-use Exception;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
+use App\Helpers\MarkdownToText;
+use Aws\BedrockRuntime\BedrockRuntimeClient;
+use Aws\S3\S3Client;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
- * Service untuk komunikasi dengan FastAPI RAG endpoint.
- * Menangani query AI, upload dokumen, dan status health check.
+ * Native PHP RAG service — no external Python process required.
+ *
+ * Flow for askQuestion():
+ *  1. Load document chunks from S3DocumentLoader (cached in Laravel cache).
+ *  2. Score each chunk against the query with keyword overlap (TF-style).
+ *  3. Inject the top-k chunks as context into the prompt.
+ *  4. Call the Amazon Bedrock Converse API and return the answer.
  */
 class RagService
 {
-    private string $baseUrl;
+    private const SYSTEM_PROMPT = <<<'PROMPT'
+You are an AI assistant for Lukla Operations Engine, a manufacturing operations
+platform for garment production. You have access to the system's business
+requirements, process flows, and operational documentation.
 
-    private int $timeout;
+IMPORTANT RULES:
+1. You MUST ONLY answer based on the provided context. Do NOT use your own knowledge.
+2. If the context does not contain relevant information, respond with:
+   "Maaf, informasi tentang [pertanyaan Anda] tidak tersedia dalam dokumentasi. Silakan hubungi admin untuk pertanyaan lebih lanjut."
+3. Answer in the same language as the question (Indonesian or English).
+4. Format your answer with clear paragraphs and bullet points, but write in plain text:
+   - Use blank lines between paragraphs
+   - Use bullets (•) for lists
+   - Do NOT use any markdown syntax like **bold**, *, _, #, or ---
+   - Do NOT include any information not explicitly in the context
+5. Always cite your source(s) at the end of your answer
 
-    private bool $enabled;
+PROMPT;
 
-    public function __construct()
+    private BedrockRuntimeClient $bedrock;
+
+    private S3Client $s3;
+
+    private S3DocumentLoader $loader;
+
+    private string $bucket;
+
+    private string $modelId;
+
+    private int $maxTokens;
+
+    private float $temperature;
+
+    private int $topK;
+
+    public function __construct(S3DocumentLoader $loader)
     {
-        $this->baseUrl = config('services.rag_api.url');
-        $this->timeout = config('services.rag_api.timeout');
-        $this->enabled = config('services.rag_api.enabled');
+        $cfg = config('services.bedrock');
+
+        $this->loader = $loader;
+        $this->bucket = $cfg['bucket'];
+        $this->modelId = $cfg['model_id'];
+        $this->maxTokens = $cfg['max_tokens'];
+        $this->temperature = $cfg['temperature'];
+        $this->topK = $cfg['top_k'];
+
+        $credentials = [
+            'key' => $cfg['key'],
+            'secret' => $cfg['secret'],
+        ];
+
+        $this->bedrock = new BedrockRuntimeClient([
+            'version' => 'latest',
+            'region' => $cfg['bedrock_region'],
+            'credentials' => $credentials,
+            'http' => [
+                'verify' => false,  // Bypass SSL cert verification for dev
+            ],
+        ]);
+
+        $this->s3 = new S3Client([
+            'version' => 'latest',
+            'region' => $cfg['s3_region'],
+            'credentials' => $credentials,
+        ]);
     }
 
     /**
-     * Mengirim pertanyaan ke RAG endpoint dan mendapatkan respons.
+     * Ask a question, optionally enriched with portal client context.
      *
-     * @param  string  $query  Pertanyaan yang akan dikirim
-     * @param  string  $mode  Mode operasi ('generate_only' atau mode lainnya)
-     * @param  array  $context  Konteks tambahan (untuk portal: client info, dll)
-     * @return array Response dari RAG API
+     * @param  array<string, mixed>  $context  Client context passed from the portal widget.
+     * @return array{answer: string, sources: list<array<string, mixed>>, model_id: string, session_id: string}
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function askQuestion(string $query, string $mode = 'generate_only', array $context = []): array
     {
-        if (! $this->enabled) {
-            throw new Exception('RAG API is disabled');
-        }
+        $enrichedQuery = $this->enrichQueryWithContext($query, $context);
 
-        try {
-            $payload = [
-                'query' => $query,
-                'mode' => $mode,
-            ];
+        $chunks = $this->retrieveRelevantChunks($enrichedQuery);
 
-            // Tambahkan konteks jika ada (untuk portal chat)
-            if (! empty($context)) {
-                $payload['context'] = $context;
-            }
+        [$prompt, $sources] = $this->buildPromptWithContext($enrichedQuery, $chunks);
 
-            $response = $this->makeRequest()
-                ->post('/ask', $payload);
+        $answer = MarkdownToText::convert($this->invokeModel($prompt));
 
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            Log::error('RAG API request failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'query' => $query,
-            ]);
-
-            throw new Exception('RAG API returned error: '.$response->status());
-        } catch (ConnectionException $e) {
-            Log::error('RAG API connection failed', [
-                'message' => $e->getMessage(),
-                'query' => $query,
-            ]);
-
-            throw new Exception('Unable to connect to RAG API service');
-        } catch (RequestException $e) {
-            Log::error('RAG API request exception', [
-                'message' => $e->getMessage(),
-                'query' => $query,
-            ]);
-
-            throw new Exception('RAG API returned error: '.$e->response?->status());
-        }
+        return [
+            'answer' => $answer,
+            'sources' => $sources,
+            'model_id' => $this->modelId,
+            'session_id' => (string) Str::uuid(),
+        ];
     }
 
     /**
-     * Mengecek status health RAG API.
+     * Returns a health status array.
+     * Never throws — used by monitoring / the portal widget.
      *
-     * @return array Status health dari API
-     *
-     * @throws Exception
+     * @return array{status: string, message?: string}
      */
     public function getHealthStatus(): array
     {
-        if (! $this->enabled) {
-            return ['status' => 'disabled', 'message' => 'RAG API is disabled'];
-        }
-
         try {
-            $response = $this->makeRequest()
-                ->get('/health');
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            return [
-                'status' => 'error',
-                'message' => 'Health check failed with status: '.$response->status(),
-            ];
-        } catch (ConnectionException $e) {
-            Log::error('RAG API health check failed', [
-                'message' => $e->getMessage(),
+            // Light-weight check: just verify Bedrock accepts a tiny request.
+            $this->bedrock->converse([
+                'modelId' => $this->modelId,
+                'messages' => [['role' => 'user', 'content' => [['text' => 'ping']]]],
+                'inferenceConfig' => ['maxTokens' => 1],
             ]);
 
-            return [
-                'status' => 'error',
-                'message' => 'Unable to connect to RAG API service',
-            ];
+            return ['status' => 'healthy', 'model_id' => $this->modelId];
+        } catch (\Throwable $e) {
+            Log::warning('RagService health check failed.', ['error' => $e->getMessage()]);
+
+            return ['status' => 'degraded', 'message' => $e->getMessage()];
         }
     }
 
     /**
-     * Upload dokumen ke RAG service untuk indexing.
+     * Upload a file to S3 and invalidate the document cache so new content
+     * is available on the next question.
      *
-     * @param  UploadedFile  $file  File yang akan diupload
-     * @return array Response dari upload API
+     * @return array{success: bool, message: string, s3_key?: string, file_name: string}
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function uploadDocument(UploadedFile $file): array
     {
-        if (! $this->enabled) {
-            throw new Exception('RAG API is disabled');
-        }
+        $s3Key = 'documents/'.$file->getClientOriginalName();
 
-        try {
-            $response = $this->makeRequest()
-                ->attach('file', $file->getContent(), $file->getClientOriginalName())
-                ->post('/upload');
+        $this->s3->putObject([
+            'Bucket' => $this->bucket,
+            'Key' => $s3Key,
+            'Body' => $file->getContent(),
+            'ContentType' => $file->getMimeType() ?? 'application/octet-stream',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json();
-            }
+        // Bust the chunk cache so the new document is indexed immediately.
+        $this->loader->reload();
 
-            Log::error('RAG API upload failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'filename' => $file->getClientOriginalName(),
-            ]);
+        Log::info('RagService: document uploaded.', ['key' => $s3Key]);
 
-            throw new Exception('Document upload failed: '.$response->status());
-        } catch (ConnectionException $e) {
-            Log::error('RAG API upload connection failed', [
-                'message' => $e->getMessage(),
-                'filename' => $file->getClientOriginalName(),
-            ]);
-
-            throw new Exception('Unable to connect to RAG API service for upload');
-        }
+        return [
+            'success' => true,
+            'message' => 'Document uploaded successfully.',
+            's3_key' => $s3Key,
+            'file_name' => $file->getClientOriginalName(),
+        ];
     }
 
     /**
-     * Mendapatkan list model yang tersedia.
+     * Returns an empty array — model listing is not available for this
+     * AWS account (ListFoundationModels is denied by IAM policy).
      *
-     * @return array List model dari API
-     *
-     * @throws Exception
+     * @return array<int, mixed>
      */
     public function getAvailableModels(): array
     {
-        if (! $this->enabled) {
-            return [];
-        }
-
-        try {
-            $response = $this->makeRequest()
-                ->get('/models');
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            Log::error('RAG API models request failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            return [];
-        } catch (ConnectionException $e) {
-            Log::error('RAG API models connection failed', [
-                'message' => $e->getMessage(),
-            ]);
-
-            return [];
-        }
+        return [];
     }
 
     /**
-     * Helper untuk membuat HTTP request dengan konfigurasi yang konsisten.
-     */
-    private function makeRequest(): PendingRequest
-    {
-        return Http::baseUrl($this->baseUrl)
-            ->timeout($this->timeout)
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ]);
-    }
-
-    /**
-     * Check apakah RAG service aktif dan dapat diakses.
+     * Quick liveness check used by the portal widget badge.
      */
     public function isAvailable(): bool
     {
-        if (! $this->enabled) {
-            return false;
+        $health = $this->getHealthStatus();
+
+        return $health['status'] === 'healthy';
+    }
+
+    // -----------------------------------------------------------------------
+    // Private helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * When portal client context is provided, prepend a brief description
+     * so the model can give personalised answers.
+     */
+    private function enrichQueryWithContext(string $query, array $context): string
+    {
+        if (empty($context)) {
+            return $query;
         }
 
-        try {
-            $health = $this->getHealthStatus();
+        $lines = [];
 
-            return $health['status'] === 'healthy' || $health['status'] === 'ok';
-        } catch (Exception $e) {
-            return false;
+        if (isset($context['client_name'])) {
+            $lines[] = "Client: {$context['client_name']}";
         }
+        if (isset($context['active_orders'])) {
+            $lines[] = "Active orders: {$context['active_orders']}";
+        }
+        if (isset($context['client_type'])) {
+            $lines[] = "Client type: {$context['client_type']}";
+        }
+
+        if (empty($lines)) {
+            return $query;
+        }
+
+        $contextHeader = implode(' | ', $lines);
+
+        return "[Context: {$contextHeader}]\n{$query}";
+    }
+
+    /**
+     * Score every cached chunk against the query with keyword overlap,
+     * applying a 1.5× boost for chunks whose opening line looks like a
+     * Markdown heading (mirrors the Python scoring).
+     *
+     * @return list<array{content: string, source: string, chunk_index: int, score: float}>
+     */
+    private function retrieveRelevantChunks(string $query): array
+    {
+        $allChunks = $this->loader->getChunks();
+
+        if (empty($allChunks)) {
+            return [];
+        }
+
+        preg_match_all('/\b\w{3,}\b/u', mb_strtolower($query), $qm);
+        $queryTerms = array_flip($qm[0]);   // set-like: O(1) lookup
+
+        $scored = [];
+
+        foreach ($allChunks as $s3Key => $chunks) {
+            foreach ($chunks as $idx => $chunk) {
+                preg_match_all('/\b\w{3,}\b/u', mb_strtolower($chunk), $cm);
+                $chunkTerms = array_unique($cm[0]);
+
+                $overlap = 0;
+                foreach ($chunkTerms as $term) {
+                    if (isset($queryTerms[$term])) {
+                        $overlap++;
+                    }
+                }
+
+                if ($overlap === 0) {
+                    continue;
+                }
+
+                // Boost chunks that start with a Markdown heading.
+                $headerBoost = preg_match('/^#+\s/m', substr($chunk, 0, 50)) ? 1.5 : 1.0;
+                $score = $overlap * $headerBoost;
+
+                $scored[] = [
+                    'content' => $chunk,
+                    'source' => $s3Key,
+                    'chunk_index' => $idx,
+                    'score' => round($score, 2),
+                ];
+            }
+        }
+
+        usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        return array_slice($scored, 0, $this->topK);
+    }
+
+    /**
+     * Build the final prompt string with context injected and return the
+     * source list for the response payload.
+     *
+     * @param  list<array{content: string, source: string, chunk_index: int, score: float}>  $chunks
+     * @return array{0: string, 1: list<array<string, mixed>>}
+     */
+    private function buildPromptWithContext(string $query, array $chunks): array
+    {
+        if (empty($chunks)) {
+            Log::debug('RagService: no matching chunks — using model general knowledge.');
+
+            return [$query, []];
+        }
+
+        $contextParts = [];
+        $sources = [];
+
+        foreach ($chunks as $i => $chunk) {
+            $n = $i + 1;
+            $contextParts[] = "[Source {$n} — {$chunk['source']}]\n{$chunk['content']}";
+            $sources[] = [
+                'source' => $chunk['source'],
+                'chunk_index' => $chunk['chunk_index'],
+                'score' => $chunk['score'],
+                'uri' => "s3://{$this->bucket}/{$chunk['source']}",
+            ];
+        }
+
+        $contextBlock = implode("\n\n---\n\n", $contextParts);
+
+        $prompt = <<<TEXT
+        Use the following context from the Lukla Operations documentation to answer the question.
+
+        === CONTEXT ===
+        {$contextBlock}
+        === END CONTEXT ===
+
+        Question: {$query}
+        TEXT;
+
+        Log::debug('RagService: built prompt with document context.', [
+            'chunks' => count($chunks),
+            'sources' => array_column($sources, 'source'),
+        ]);
+
+        return [$prompt, $sources];
+    }
+
+    /**
+     * Call the Bedrock Converse API and return the text response.
+     *
+     * @throws \Exception
+     */
+    private function invokeModel(string $prompt): string
+    {
+        $result = $this->bedrock->converse([
+            'modelId' => $this->modelId,
+            'messages' => [
+                ['role' => 'user', 'content' => [['text' => $prompt]]],
+            ],
+            'system' => [
+                ['text' => self::SYSTEM_PROMPT],
+            ],
+            'inferenceConfig' => [
+                'maxTokens' => $this->maxTokens,
+                'temperature' => $this->temperature,
+            ],
+        ]);
+
+        return $result['output']['message']['content'][0]['text'];
     }
 }

@@ -2,267 +2,333 @@
 
 namespace Tests\Unit;
 
+use App\Services\Ai\DocumentChunker;
 use App\Services\Ai\RagService;
-use Exception;
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\Ai\S3DocumentLoader;
+use Aws\BedrockRuntime\BedrockRuntimeClient;
+use Aws\Result;
+use Aws\S3\S3Client;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Http;
+use Mockery;
 use Tests\TestCase;
 
 class RagServiceTest extends TestCase
 {
-    private RagService $ragService;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Set up configuration for testing
-        Config::set('services.rag_api.url', 'http://localhost:8080');
-        Config::set('services.rag_api.timeout', 30);
-        Config::set('services.rag_api.enabled', true);
-
-        $this->ragService = new RagService;
-    }
-
-    public function test_ask_question_returns_successful_response(): void
-    {
-        // Arrange
-        $expectedResponse = [
-            'answer' => 'This is a test answer about manufacturing processes.',
-            'status' => 'success',
-        ];
-
-        Http::fake([
-            'http://localhost:8080/*' => Http::response($expectedResponse, 200),
+        Config::set('services.bedrock', [
+            'key' => 'test-key',
+            'secret' => 'test-secret',
+            's3_region' => 'ap-southeast-1',
+            'bedrock_region' => 'us-east-1',
+            'bucket' => 'test-bucket',
+            'model_id' => 'amazon.nova-lite-v1:0',
+            'max_tokens' => 100,
+            'temperature' => 0.1,
+            'top_k' => 3,
+            'chunk_size' => 600,
+            'chunk_overlap' => 100,
+            'cache_ttl' => 60,
         ]);
-
-        // Act
-        $result = $this->ragService->askQuestion('What is manufacturing?');
-
-        // Assert
-        $this->assertEquals($expectedResponse, $result);
     }
 
-    public function test_ask_question_with_context_includes_context_in_request(): void
+    // ------------------------------------------------------------------
+    // DocumentChunker unit tests (pure PHP, no AWS)
+    // ------------------------------------------------------------------
+
+    public function test_chunker_splits_text_into_chunks(): void
     {
-        // Arrange
-        $context = [
-            'client_id' => 123,
-            'client_name' => 'Test Client',
-            'active_orders' => 5,
-        ];
+        $chunker = new DocumentChunker(chunkSize: 100, overlap: 20);
+        $text = "First paragraph with some content here.\n\nSecond paragraph is also here.\n\nThird paragraph.";
 
-        Http::fake([
-            'http://localhost:8080/*' => Http::response(['answer' => 'Contextualized answer'], 200),
-        ]);
+        $chunks = $chunker->chunk($text);
 
-        // Act
-        $result = $this->ragService->askQuestion('What are my orders?', 'generate_only', $context);
-
-        // Assert
-        $this->assertEquals(['answer' => 'Contextualized answer'], $result);
-    }
-
-    public function test_ask_question_throws_exception_when_api_disabled(): void
-    {
-        // Arrange
-        Config::set('services.rag_api.enabled', false);
-        $ragService = new RagService;
-
-        // Act & Assert
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('RAG API is disabled');
-
-        $ragService->askQuestion('Test question');
-    }
-
-    public function test_ask_question_throws_exception_on_connection_failure(): void
-    {
-        // Arrange
-        Http::fake(function () {
-            throw new ConnectionException('Connection failed');
-        });
-
-        // Act & Assert
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Unable to connect to RAG API service');
-
-        $this->ragService->askQuestion('Test question');
-    }
-
-    public function test_ask_question_throws_exception_on_api_error(): void
-    {
-        // Arrange
-        Http::fake([
-            'http://localhost:8080/*' => Http::response(['error' => 'Internal server error'], 500),
-        ]);
-
-        // Act & Assert
-        $this->expectException(Exception::class);
-
-        try {
-            $this->ragService->askQuestion('Test question');
-        } catch (Exception $e) {
-            // The service should catch and convert HTTP exceptions to our custom message
-            $this->assertStringContainsString('RAG API returned error', $e->getMessage());
-            throw $e;
+        $this->assertNotEmpty($chunks);
+        foreach ($chunks as $chunk) {
+            $this->assertLessThanOrEqual(120, strlen($chunk)); // slight tolerance
         }
     }
 
-    public function test_get_health_status_returns_successful_response(): void
+    public function test_chunker_returns_single_chunk_for_short_text(): void
     {
-        // Arrange
-        $expectedResponse = ['status' => 'healthy', 'service' => 'rag-api'];
+        $chunker = new DocumentChunker(chunkSize: 600, overlap: 100);
+        $text = 'Short text that fits in one chunk.';
 
-        Http::fake([
-            'http://localhost:8080/*' => Http::response($expectedResponse, 200),
-        ]);
+        $chunks = $chunker->chunk($text);
 
-        // Act
-        $result = $this->ragService->getHealthStatus();
-
-        // Assert
-        $this->assertEquals($expectedResponse, $result);
+        $this->assertCount(1, $chunks);
+        $this->assertSame($text, $chunks[0]);
     }
 
-    public function test_get_health_status_returns_disabled_when_api_disabled(): void
+    public function test_chunker_detects_supported_extensions(): void
     {
-        // Arrange
-        Config::set('services.rag_api.enabled', false);
-        $ragService = new RagService;
-
-        // Act
-        $result = $ragService->getHealthStatus();
-
-        // Assert
-        $this->assertEquals([
-            'status' => 'disabled',
-            'message' => 'RAG API is disabled',
-        ], $result);
+        $this->assertTrue(DocumentChunker::isSupportedExtension('docs/guide.md'));
+        $this->assertTrue(DocumentChunker::isSupportedExtension('README.txt'));
+        $this->assertTrue(DocumentChunker::isSupportedExtension('data.csv'));
+        $this->assertFalse(DocumentChunker::isSupportedExtension('image.png'));
+        $this->assertFalse(DocumentChunker::isSupportedExtension('archive.zip'));
     }
 
-    public function test_get_health_status_handles_connection_failure(): void
+    // ------------------------------------------------------------------
+    // RagService with mocked S3DocumentLoader + AWS clients
+    // ------------------------------------------------------------------
+
+    private function makeService(array $chunks = [], ?string $bedrockAnswer = null): RagService
     {
-        // Arrange
-        Http::fake(function () {
-            throw new ConnectionException('Connection failed');
-        });
+        // Mock S3DocumentLoader to return provided chunks without hitting S3.
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $loader->shouldReceive('getChunks')->andReturn($chunks);
+        $loader->shouldReceive('reload')->andReturn($chunks);
 
-        // Act
-        $result = $this->ragService->getHealthStatus();
+        $service = new RagService($loader);
 
-        // Assert
-        $this->assertEquals([
-            'status' => 'error',
-            'message' => 'Unable to connect to RAG API service',
-        ], $result);
+        // If a Bedrock answer is supplied, swap in a mock BedrockRuntimeClient.
+        if ($bedrockAnswer !== null) {
+            $converseResult = new Result([
+                'output' => [
+                    'message' => [
+                        'content' => [['text' => $bedrockAnswer]],
+                    ],
+                ],
+            ]);
+
+            $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+            $bedrockMock->shouldReceive('converse')->andReturn($converseResult);
+
+            // Inject via reflection (private property).
+            $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+            $ref->setAccessible(true);
+            $ref->setValue($service, $bedrockMock);
+        }
+
+        return $service;
     }
 
-    public function test_upload_document_returns_successful_response(): void
+    public function test_ask_question_returns_answer_from_bedrock(): void
     {
-        // Arrange
-        $file = UploadedFile::fake()->create('test.pdf', 100);
-        $expectedResponse = [
-            'message' => 'Document uploaded successfully',
-            'document_id' => 'doc_123',
+        $service = $this->makeService(
+            chunks: [],
+            bedrockAnswer: 'Manufacturing involves transforming raw materials.',
+        );
+
+        $result = $service->askQuestion('What is manufacturing?');
+
+        $this->assertSame('Manufacturing involves transforming raw materials.', $result['answer']);
+        $this->assertArrayHasKey('model_id', $result);
+        $this->assertArrayHasKey('session_id', $result);
+    }
+
+    public function test_ask_question_injects_document_chunks_as_context(): void
+    {
+        $chunks = [
+            'lukla-ops.md' => [
+                'Lukla Operations Engine menyatukan produksi dan payroll.',
+                'Sistem mengelola inventory klien secara terpisah.',
+            ],
         ];
 
-        Http::fake([
-            'http://localhost:8080/*' => Http::response($expectedResponse, 200),
+        $capturedPrompt = null;
+
+        $converseResult = new Result([
+            'output' => ['message' => ['content' => [['text' => 'Answer based on docs.']]]],
         ]);
 
-        // Act
-        $result = $this->ragService->uploadDocument($file);
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')
+            ->once()
+            ->withArgs(function (array $args) use (&$capturedPrompt) {
+                $capturedPrompt = $args['messages'][0]['content'][0]['text'];
 
-        // Assert
-        $this->assertEquals($expectedResponse, $result);
+                return true;
+            })
+            ->andReturn($converseResult);
+
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $loader->shouldReceive('getChunks')->andReturn($chunks);
+
+        $service = new RagService($loader);
+
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $service->askQuestion('operasi lukla');
+
+        $this->assertNotNull($capturedPrompt);
+        $this->assertStringContainsString('CONTEXT', $capturedPrompt);
+        $this->assertStringContainsString('lukla-ops.md', $capturedPrompt);
     }
 
-    public function test_upload_document_throws_exception_when_api_disabled(): void
+    public function test_ask_question_includes_client_context_in_enriched_query(): void
     {
-        // Arrange
-        Config::set('services.rag_api.enabled', false);
-        $ragService = new RagService;
-        $file = UploadedFile::fake()->create('test.pdf', 100);
+        $capturedPrompt = null;
 
-        // Act & Assert
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('RAG API is disabled');
+        $converseResult = new Result([
+            'output' => ['message' => ['content' => [['text' => 'Your 3 active orders are on track.']]]],
+        ]);
 
-        $ragService->uploadDocument($file);
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')
+            ->once()
+            ->withArgs(function (array $args) use (&$capturedPrompt) {
+                $capturedPrompt = $args['messages'][0]['content'][0]['text'];
+
+                return true;
+            })
+            ->andReturn($converseResult);
+
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $loader->shouldReceive('getChunks')->andReturn([]);
+
+        $service = new RagService($loader);
+
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $service->askQuestion('berapa pesanan saya?', 'generate_only', [
+            'client_name' => 'PT Maju Jaya',
+            'active_orders' => 3,
+        ]);
+
+        $this->assertStringContainsString('PT Maju Jaya', $capturedPrompt);
+        $this->assertStringContainsString('3', $capturedPrompt);
     }
 
-    public function test_get_available_models_returns_models_list(): void
+    public function test_ask_question_returns_sources_when_chunks_match(): void
     {
-        // Arrange
-        $expectedResponse = [
-            'models' => ['claude-3-sonnet', 'claude-3-haiku'],
+        $chunks = [
+            'guide.md' => ['Inventory management menjaga stok klien.'],
         ];
 
-        Http::fake([
-            'http://localhost:8080/*' => Http::response($expectedResponse, 200),
+        $service = $this->makeService($chunks, 'Answer about inventory.');
+
+        $result = $service->askQuestion('inventory klien');
+
+        $this->assertNotEmpty($result['sources']);
+        $this->assertSame('guide.md', $result['sources'][0]['source']);
+    }
+
+    public function test_ask_question_returns_empty_sources_when_no_chunks_match(): void
+    {
+        $service = $this->makeService(
+            chunks: ['guide.md' => ['Totally unrelated content about astronomy.']],
+            bedrockAnswer: 'General answer.',
+        );
+
+        $result = $service->askQuestion('xyz123nomatch');
+
+        $this->assertEmpty($result['sources']);
+    }
+
+    public function test_get_health_status_returns_healthy_on_success(): void
+    {
+        $converseResult = new Result([
+            'output' => ['message' => ['content' => [['text' => 'ok']]]],
         ]);
 
-        // Act
-        $result = $this->ragService->getAvailableModels();
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')->andReturn($converseResult);
 
-        // Assert
-        $this->assertEquals($expectedResponse, $result);
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $service = new RagService($loader);
+
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $result = $service->getHealthStatus();
+
+        $this->assertSame('healthy', $result['status']);
     }
 
-    public function test_get_available_models_returns_empty_array_when_disabled(): void
+    public function test_get_health_status_returns_degraded_on_failure(): void
     {
-        // Arrange
-        Config::set('services.rag_api.enabled', false);
-        $ragService = new RagService;
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')->andThrow(new \RuntimeException('Connection refused'));
 
-        // Act
-        $result = $ragService->getAvailableModels();
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $service = new RagService($loader);
 
-        // Assert
-        $this->assertEquals([], $result);
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $result = $service->getHealthStatus();
+
+        $this->assertSame('degraded', $result['status']);
+        $this->assertArrayHasKey('message', $result);
     }
 
-    public function test_is_available_returns_true_when_service_healthy(): void
+    public function test_is_available_returns_true_when_bedrock_responds(): void
     {
-        // Arrange
-        Http::fake([
-            'http://localhost:8080/*' => Http::response(['status' => 'healthy'], 200),
+        $converseResult = new Result([
+            'output' => ['message' => ['content' => [['text' => 'ok']]]],
         ]);
 
-        // Act
-        $result = $this->ragService->isAvailable();
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')->andReturn($converseResult);
 
-        // Assert
-        $this->assertTrue($result);
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $service = new RagService($loader);
+
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $this->assertTrue($service->isAvailable());
     }
 
-    public function test_is_available_returns_false_when_service_disabled(): void
+    public function test_is_available_returns_false_when_bedrock_fails(): void
     {
-        // Arrange
-        Config::set('services.rag_api.enabled', false);
-        $ragService = new RagService;
+        $bedrockMock = Mockery::mock(BedrockRuntimeClient::class);
+        $bedrockMock->shouldReceive('converse')->andThrow(new \RuntimeException('Timeout'));
 
-        // Act
-        $result = $ragService->isAvailable();
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $service = new RagService($loader);
 
-        // Assert
-        $this->assertFalse($result);
+        $ref = new \ReflectionProperty(RagService::class, 'bedrock');
+        $ref->setAccessible(true);
+        $ref->setValue($service, $bedrockMock);
+
+        $this->assertFalse($service->isAvailable());
     }
 
-    public function test_is_available_returns_false_on_connection_failure(): void
+    public function test_get_available_models_returns_empty_array(): void
     {
-        // Arrange
-        Http::fake(function () {
-            throw new ConnectionException('Connection failed');
-        });
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $service = new RagService($loader);
 
-        // Act
-        $result = $this->ragService->isAvailable();
+        $this->assertSame([], $service->getAvailableModels());
+    }
 
-        // Assert
-        $this->assertFalse($result);
+    public function test_upload_document_puts_object_to_s3_and_reloads_cache(): void
+    {
+        $s3Mock = Mockery::mock(S3Client::class);
+        $s3Mock->shouldReceive('putObject')
+            ->once()
+            ->withArgs(function (array $args) {
+                return $args['Bucket'] === 'test-bucket'
+                    && str_starts_with($args['Key'], 'documents/');
+            });
+
+        $loader = Mockery::mock(S3DocumentLoader::class);
+        $loader->shouldReceive('reload')->once()->andReturn([]);
+
+        $service = new RagService($loader);
+
+        $refS3 = new \ReflectionProperty(RagService::class, 's3');
+        $refS3->setAccessible(true);
+        $refS3->setValue($service, $s3Mock);
+
+        $file = UploadedFile::fake()->create('specs.pdf', 50, 'application/pdf');
+        $result = $service->uploadDocument($file);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('specs.pdf', $result['file_name']);
+        $this->assertStringContainsString('specs.pdf', $result['s3_key']);
     }
 }
