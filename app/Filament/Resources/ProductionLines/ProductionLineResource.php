@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductionLines;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\ProductionLines\Pages\CreateProductionLine;
 use App\Filament\Resources\ProductionLines\Pages\EditProductionLine;
 use App\Filament\Resources\ProductionLines\Pages\ListProductionLines;
@@ -9,6 +10,7 @@ use App\Filament\Resources\ProductionLines\RelationManagers\AssignmentsRelationM
 use App\Filament\Resources\ProductionLines\Schemas\ProductionLineForm;
 use App\Filament\Resources\ProductionLines\Tables\ProductionLinesTable;
 use App\Models\ProductionLine;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -62,5 +64,20 @@ class ProductionLineResource extends Resource
             'create' => CreateProductionLine::route('/create'),
             'edit' => EditProductionLine::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance tidak mengatur line produksi; itu domain Kepala Produksi.
+     * Tim Sample tidak mengatur line produksi.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

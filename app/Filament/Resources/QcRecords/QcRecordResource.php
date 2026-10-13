@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\QcRecords;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\QcRecords\Pages\CreateQcRecord;
 use App\Filament\Resources\QcRecords\Pages\ListQcRecords;
 use App\Filament\Resources\QcRecords\Schemas\QcRecordForm;
 use App\Filament\Resources\QcRecords\Tables\QcRecordsTable;
 use App\Models\QcRecord;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -50,5 +52,20 @@ class QcRecordResource extends Resource
             'index' => ListQcRecords::route('/'),
             'create' => CreateQcRecord::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola inspeksi QC; itu domain QC Inspector.
+     * Tim Sample tidak mengelola inspeksi QC.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

@@ -21,6 +21,7 @@ use App\Models\User;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Mesin payroll borongan mingguan (FR-015 sampai FR-018).
@@ -96,6 +97,88 @@ class PayrollService
         $period->update(['status' => PayrollPeriodStatus::PAID]);
 
         return $period->refresh();
+    }
+
+    /**
+     * Tutup periode payroll aktif pada Sabtu 00:00 WIB (Req 8.1).
+     *
+     * Dijalankan oleh Artisan command `payroll:close-weekly` via scheduler.
+     * Mencari periode yang masih OPEN atau CALCULATED dengan period_end = hari ini,
+     * memvalidasi waktu penutupan (Sabtu ±1 menit), lalu menjalankan hitung
+     * dan persetujuan otomatis jika belum dilakukan.
+     *
+     * Output entries yang sudah VERIFIED tidak diubah status-nya di DB karena
+     * VERIFIED sudah bersifat immutable — locking dijamin oleh status periode.
+     */
+    public function closePeriod(PayrollPeriod $period, array $recipientIds = []): PayrollPeriod
+    {
+        if ($period->isLocked()) {
+            throw InvalidPayrollState::locked($period);
+        }
+
+        return DB::transaction(function () use ($period, $recipientIds): PayrollPeriod {
+            // Hitung jika belum dihitung
+            if ($period->status === PayrollPeriodStatus::OPEN) {
+                $this->calculate($period, $recipientIds);
+                $period->refresh();
+            }
+
+            // Setujui
+            if ($period->status === PayrollPeriodStatus::CALCULATED) {
+                $this->approve($period);
+                $period->refresh();
+            }
+
+            return $period->refresh();
+        });
+    }
+
+    /**
+     * Cari dan tutup semua periode yang period_end-nya sudah lewat dan masih terbuka.
+     *
+     * Dipanggil oleh Artisan command `payroll:close-weekly`.
+     *
+     * @return array<int, array{period_id: int, label: string, status: string, entries: int}>
+     */
+    public function closeExpiredPeriods(): array
+    {
+        $today = Carbon::now('Asia/Jakarta')->startOfDay();
+
+        $periods = PayrollPeriod::query()
+            ->whereNotIn('status', [
+                PayrollPeriodStatus::APPROVED->value,
+                PayrollPeriodStatus::PAID->value,
+            ])
+            ->where('period_end', '<', $today->toDateString())
+            ->get();
+
+        $results = [];
+
+        foreach ($periods as $period) {
+            try {
+                $closed = $this->closePeriod($period);
+                $results[] = [
+                    'period_id' => $closed->id,
+                    'label' => $closed->getLabelAttribute(),
+                    'status' => $closed->status->getLabel(),
+                    'entries' => $closed->entries()->count(),
+                ];
+            } catch (\Throwable $e) {
+                Log::error('Gagal menutup periode payroll', [
+                    'period_id' => $period->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $results[] = [
+                    'period_id' => $period->id,
+                    'label' => $period->getLabelAttribute(),
+                    'status' => 'ERROR: '.$e->getMessage(),
+                    'entries' => 0,
+                ];
+            }
+        }
+
+        return $results;
     }
 
     /**

@@ -72,6 +72,11 @@ class Order extends Model
         return $this->hasMany(QcRecord::class);
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     /**
      * Order yang terkunci (selesai/dibatalkan) tidak boleh diubah lagi.
      * Mendukung aturan matriks RBAC tentang histori transaksi terkunci.
@@ -79,5 +84,31 @@ class Order extends Model
     public function isLocked(): bool
     {
         return $this->status->isLocked();
+    }
+
+    /**
+     * Apakah order ini sudah mempunyai invoice draf atau terbit.
+     *
+     * Finance perlu tahu order mana yang belum ditagihkan saat membuat invoice
+     * baru, sehingga tidak ada double-billing.
+     */
+    public function hasActiveInvoice(): bool
+    {
+        return $this->invoices()
+            ->whereIn('status', ['draft', 'issued'])
+            ->exists();
+    }
+
+    /**
+     * Label ringkas untuk dropdown invoice: nomor order + status + qty.
+     */
+    public function invoiceSelectLabel(): string
+    {
+        return sprintf(
+            '%s — %s (%s pcs)',
+            $this->order_number,
+            $this->status->getLabel(),
+            number_format($this->quantity),
+        );
     }
 }

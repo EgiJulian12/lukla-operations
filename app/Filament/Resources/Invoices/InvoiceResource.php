@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Invoices;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Resources\Invoices\Schemas\InvoiceForm;
 use App\Filament\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -54,5 +56,18 @@ class InvoiceResource extends Resource
             'create' => CreateInvoice::route('/create'),
             'edit' => EditInvoice::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola invoice; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

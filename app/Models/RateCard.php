@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
 use App\Concerns\BelongsToClient;
 use App\Enums\RateType;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class RateCard extends Model
 {
+    use Auditable;
     use BelongsToClient;
     use HasFactory;
 

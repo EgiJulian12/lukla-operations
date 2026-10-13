@@ -33,6 +33,16 @@ class PurchaseOrder extends Model
         'notes',
     ];
 
+    /**
+     * Status default untuk model baru yang belum disimpan, agar policy
+     * tidak menemui null saat authorization dievaluasi.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'draft',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -53,9 +63,14 @@ class PurchaseOrder extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    /**
+     * PO yang sudah disetujui terkunci dan tidak dapat disunting lagi (NFR-005).
+     *
+     * Null-safe: status bisa null pada model yang belum disimpan saat policy dievaluasi.
+     */
     public function isLocked(): bool
     {
-        return $this->status->isLocked();
+        return $this->status?->isLocked() ?? false;
     }
 
     public function totalAmount(): float
