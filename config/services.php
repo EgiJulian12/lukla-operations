@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'rag_api' => [
+        'url' => env('RAG_API_URL', 'http://localhost:8080'),
+        'timeout' => env('RAG_API_TIMEOUT', 30),
+        'enabled' => env('RAG_API_ENABLED', true),
+    ],
+
 ];
