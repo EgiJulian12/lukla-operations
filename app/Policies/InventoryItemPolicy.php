@@ -25,7 +25,13 @@ class InventoryItemPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageInventory()
+            || $role->canConfigureSystem()
+            || $role->canManagePayroll()
+            || $role->canManageSamples()
+            || $role->canManageProduction()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, InventoryItem $item): bool

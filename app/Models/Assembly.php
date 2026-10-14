@@ -57,4 +57,36 @@ class Assembly extends Model
     {
         return $this->hasMany(QcRecord::class);
     }
+
+    /**
+     * Jumlah unit yang sudah diperiksa QC.
+     */
+    public function inspectedQuantity(): int
+    {
+        return (int) $this->qcRecords()->sum('quantity');
+    }
+
+    /**
+     * Sisa unit yang masih menunggu pemeriksaan QC.
+     */
+    public function remainingQuantity(): int
+    {
+        return max(0, $this->quantity - $this->inspectedQuantity());
+    }
+
+    /**
+     * Apakah seluruh kuantitas perakitan telah selesai diperiksa.
+     */
+    public function isFullyInspected(): bool
+    {
+        return $this->remainingQuantity() === 0;
+    }
+
+    /**
+     * Filter hanya perakitan yang masih memiliki unit belum diperiksa QC.
+     */
+    public function scopePendingQc($query)
+    {
+        return $query->whereRaw('quantity > (SELECT COALESCE(SUM(quantity), 0) FROM qc_records WHERE qc_records.assembly_id = assemblies.id)');
+    }
 }

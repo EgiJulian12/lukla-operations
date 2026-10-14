@@ -17,7 +17,13 @@ class OrderPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canConfigureSystem()
+            || $role->canManageOrders()
+            || $role->canManageProduction()
+            || $role->canManageInventory()
+            || $role->canManageInvoices()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Order $order): bool

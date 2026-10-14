@@ -5,17 +5,27 @@ namespace Tests\Feature;
 use App\Enums\OrderStatus;
 use App\Enums\SampleStatus;
 use App\Enums\UserRole;
+use App\Models\Article;
+use App\Models\Assembly;
 use App\Models\Client;
+use App\Models\Component;
+use App\Models\DefectCategory;
+use App\Models\InventoryItem;
+use App\Models\InventoryMovement;
 use App\Models\Invoice;
+use App\Models\Material;
 use App\Models\Order;
 use App\Models\OutputEntry;
 use App\Models\PayrollPeriod;
+use App\Models\ProductionLine;
 use App\Models\PurchaseOrder;
 use App\Models\QcRecord;
 use App\Models\RateCard;
+use App\Models\Repair;
 use App\Models\Sample;
 use App\Models\SampleRevision;
 use App\Models\User;
+use App\Models\WasteRecord;
 use Database\Seeders\RoleSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,6 +71,37 @@ class RoleAccessMatrixTest extends TestCase
         $this->assertTrue($this->userWithRole(UserRole::QC_INSPECTOR)->can('create', QcRecord::class));
         $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('create', QcRecord::class));
         $this->assertFalse($this->userWithRole(UserRole::PRODUCTION_LEAD)->can('create', QcRecord::class));
+    }
+
+    public function test_qc_inspector_can_only_view_qc_and_repair_menus(): void
+    {
+        $qcUser = $this->userWithRole(UserRole::QC_INSPECTOR);
+
+        // Hanya boleh mengakses menu murni QC (Inspeksi QC & Perbaikan):
+        $this->assertTrue($qcUser->can('viewAny', QcRecord::class));
+        $this->assertTrue($qcUser->can('viewAny', Repair::class));
+
+        // Tidak boleh mengakses menu perakitan dan kategori cacat (bukan bagian flow harian QC):
+        $this->assertFalse($qcUser->can('viewAny', Assembly::class));
+        $this->assertFalse($qcUser->can('viewAny', DefectCategory::class));
+
+        // Tidak boleh mengakses resource lainnya di sidebar/panel:
+        $this->assertFalse($qcUser->can('viewAny', Order::class));
+        $this->assertFalse($qcUser->can('viewAny', Article::class));
+        $this->assertFalse($qcUser->can('viewAny', Client::class));
+        $this->assertFalse($qcUser->can('viewAny', Component::class));
+        $this->assertFalse($qcUser->can('viewAny', Material::class));
+        $this->assertFalse($qcUser->can('viewAny', InventoryItem::class));
+        $this->assertFalse($qcUser->can('viewAny', InventoryMovement::class));
+        $this->assertFalse($qcUser->can('viewAny', ProductionLine::class));
+        $this->assertFalse($qcUser->can('viewAny', OutputEntry::class));
+        $this->assertFalse($qcUser->can('viewAny', RateCard::class));
+        $this->assertFalse($qcUser->can('viewAny', Sample::class));
+        $this->assertFalse($qcUser->can('viewAny', SampleRevision::class));
+        $this->assertFalse($qcUser->can('viewAny', WasteRecord::class));
+        $this->assertFalse($qcUser->can('viewAny', PayrollPeriod::class));
+        $this->assertFalse($qcUser->can('viewAny', Invoice::class));
+        $this->assertFalse($qcUser->can('viewAny', PurchaseOrder::class));
     }
 
     public function test_payroll_is_visible_only_to_finance_and_the_owner(): void

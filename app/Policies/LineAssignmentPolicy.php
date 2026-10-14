@@ -16,7 +16,7 @@ class LineAssignmentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $this->canManage($user) || $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canConfigureSystem());
     }
 
     public function view(User $user, LineAssignment $assignment): bool

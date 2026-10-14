@@ -46,11 +46,15 @@ class QcRecordResource extends Resource
         return QcRecordsTable::configure($table);
     }
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListQcRecords::route('/'),
-            'create' => CreateQcRecord::route('/create'),
         ];
     }
 

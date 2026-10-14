@@ -5,6 +5,7 @@ namespace App\Filament\Resources\QcRecords\Schemas;
 use App\Enums\QcResult;
 use App\Models\Assembly;
 use App\Models\DefectCategory;
+use App\Models\Order;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -23,24 +24,53 @@ class QcRecordForm
     {
         return $schema
             ->components([
-                Select::make('assembly_id')
-                    ->label('Perakitan')
-                    ->options(fn (): array => Assembly::query()
-                        ->with('order')
-                        ->latest('assembled_at')
-                        ->limit(200)
-                        ->get()
-                        ->mapWithKeys(fn (Assembly $assembly): array => [
-                            $assembly->getKey() => sprintf(
-                                '%s · %d unit · %s',
-                                $assembly->order?->order_number ?? '-',
-                                $assembly->quantity,
-                                $assembly->assembled_at->format('d/m H:i'),
-                            ),
-                        ])
+                Select::make('order_id')
+                    ->label('Filter Berdasarkan Order')
+                    ->placeholder('Pilih order terlebih dahulu...')
+                    ->options(fn (): array => Order::query()
+                        ->whereHas('assemblies', fn ($q) => $q->pendingQc())
+                        ->latest()
+                        ->pluck('order_number', 'id')
                         ->all())
                     ->searchable()
-                    ->required(),
+                    ->live()
+                    ->afterStateUpdated(fn ($set) => $set('assembly_id', null))
+                    ->dehydrated(false),
+                Select::make('assembly_id')
+                    ->label('Perakitan yang Siap Diperiksa')
+                    ->placeholder('Pilih perakitan...')
+                    ->options(function (Get $get): array {
+                        $orderId = $get('order_id');
+                        $query = Assembly::query()
+                            ->with('order')
+                            ->pendingQc()
+                            ->latest('assembled_at');
+
+                        if ($orderId) {
+                            $query->where('order_id', $orderId);
+                        }
+
+                        return $query->limit(200)
+                            ->get()
+                            ->mapWithKeys(fn (Assembly $assembly): array => [
+                                $assembly->getKey() => sprintf(
+                                    '%s · %d unit siap cek (total: %d) · %s',
+                                    $assembly->order?->order_number ?? '-',
+                                    $assembly->remainingQuantity(),
+                                    $assembly->quantity,
+                                    $assembly->assembled_at->format('d/m H:i'),
+                                ),
+                            ])
+                            ->all();
+                    })
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($set, $state) {
+                        if ($state && ($assembly = Assembly::find($state))) {
+                            $set('quantity', $assembly->remainingQuantity());
+                        }
+                    }),
                 Select::make('result')
                     ->label('Hasil')
                     ->options(QcResult::class)
