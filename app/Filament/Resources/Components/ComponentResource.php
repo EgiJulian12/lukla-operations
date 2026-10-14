@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Components;
 
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Components\Pages\CreateComponent;
 use App\Filament\Resources\Components\Pages\EditComponent;
 use App\Filament\Resources\Components\Pages\ListComponents;
@@ -23,6 +24,8 @@ use UnitEnum;
  */
 class ComponentResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Component::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPuzzlePiece;

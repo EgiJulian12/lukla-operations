@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\QcRecords;
 
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\QcRecords\Pages\CreateQcRecord;
 use App\Filament\Resources\QcRecords\Pages\ListQcRecords;
 use App\Filament\Resources\QcRecords\Schemas\QcRecordForm;
@@ -22,6 +23,8 @@ use UnitEnum;
  */
 class QcRecordResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = QcRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCheckBadge;

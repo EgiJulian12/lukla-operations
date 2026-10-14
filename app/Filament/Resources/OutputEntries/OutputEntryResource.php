@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OutputEntries;
 
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OutputEntries\Pages\CreateOutputEntry;
 use App\Filament\Resources\OutputEntries\Pages\ListOutputEntries;
 use App\Filament\Resources\OutputEntries\Schemas\OutputEntryForm;
@@ -23,6 +24,8 @@ use UnitEnum;
  */
 class OutputEntryResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = OutputEntry::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;

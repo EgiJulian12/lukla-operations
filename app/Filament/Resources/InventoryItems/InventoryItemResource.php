@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\InventoryItems;
 
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\InventoryItems\Pages\CreateInventoryItem;
 use App\Filament\Resources\InventoryItems\Pages\EditInventoryItem;
 use App\Filament\Resources\InventoryItems\Pages\ListInventoryItems;
@@ -27,6 +28,8 @@ use UnitEnum;
  */
 class InventoryItemResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = InventoryItem::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
