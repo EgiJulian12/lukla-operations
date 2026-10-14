@@ -2,8 +2,10 @@
 
 namespace App\Filament\Portal\Resources\Orders;
 
+use App\Filament\Portal\Resources\Orders\Pages\CreatePortalOrder;
 use App\Filament\Portal\Resources\Orders\Pages\ListPortalOrders;
 use App\Filament\Portal\Resources\Orders\Pages\ViewPortalOrder;
+use App\Filament\Portal\Resources\Orders\Schemas\PortalOrderForm;
 use App\Filament\Portal\Resources\Orders\Schemas\PortalOrderInfolist;
 use App\Filament\Portal\Resources\Orders\Tables\PortalOrdersTable;
 use App\Models\Order;
@@ -16,8 +18,9 @@ use Filament\Tables\Table;
 /**
  * Pesanan milik klien yang sedang login (FR-025).
  *
- * Hanya-baca: klien memantau status dan progres, tanpa akses ke data klien
- * lain maupun ke data internal pabrik.
+ * Klien dapat mengajukan permintaan baru dan menyetujui penawaran atas
+ * pesanannya sendiri, lalu memantau progres tanpa akses ke data klien lain
+ * maupun data internal pabrik.
  */
 class PortalOrderResource extends Resource
 {
@@ -33,6 +36,11 @@ class PortalOrderResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    public static function form(Schema $schema): Schema
+    {
+        return PortalOrderForm::configure($schema);
+    }
+
     public static function infolist(Schema $schema): Schema
     {
         return PortalOrderInfolist::configure($schema);
@@ -47,6 +55,7 @@ class PortalOrderResource extends Resource
     {
         return [
             'index' => ListPortalOrders::route('/'),
+            'create' => CreatePortalOrder::route('/create'),
             'view' => ViewPortalOrder::route('/{record}'),
         ];
     }

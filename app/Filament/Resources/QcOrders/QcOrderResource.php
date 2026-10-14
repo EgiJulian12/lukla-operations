@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\QcOrders;
 
-use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Filament\Resources\QcOrders\Pages\ListQcOrders;
 use App\Filament\Resources\QcOrders\Tables\QcOrdersTable;
@@ -53,7 +52,7 @@ class QcOrderResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['client', 'assemblies.qcRecords', 'qcRecords'])
-            ->where('status', '!=', OrderStatus::CANCELLED->value);
+            ->productionStage();
     }
 
     public static function table(Table $table): Table

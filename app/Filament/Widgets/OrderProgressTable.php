@@ -28,6 +28,7 @@ class OrderProgressTable extends TableWidget
             ->query(
                 Order::query()
                     ->with('client')
+                    ->productionStage()
                     ->whereNotIn('status', [OrderStatus::COMPLETED->value, OrderStatus::CANCELLED->value])
                     ->limit(10),
             )
