@@ -4,7 +4,6 @@ namespace App\Services\Payroll;
 
 use App\Enums\OutputStatus;
 use App\Enums\PayrollPeriodStatus;
-use App\Enums\QcResult;
 use App\Enums\RateType;
 use App\Enums\UserRole;
 use App\Exceptions\InvalidPayrollState;
@@ -14,9 +13,6 @@ use App\Models\OverheadAllocation;
 use App\Models\OverheadRecord;
 use App\Models\PayrollEntry;
 use App\Models\PayrollPeriod;
-use App\Models\QcBonusDistribution;
-use App\Models\QcBonusPool;
-use App\Models\QcRecord;
 use App\Models\User;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
@@ -305,49 +301,15 @@ class PayrollService
 
     /**
      * Pool bonus QC dari seluruh unit lolos lintas klien pada periode (FR-017).
+     * Dipanggil lewat QcBonusDistributionService sebagai satu-satunya jalur.
      *
      * @param  array<int, int>  $recipientIds
      */
     private function calculateQcBonusPool(PayrollPeriod $period, array $recipientIds): void
     {
-        $passedUnits = (int) QcRecord::query()
-            ->withoutGlobalScope('client')
-            ->where('result', QcResult::PASS->value)
-            ->whereBetween('inspected_at', [
-                $period->period_start->copy()->startOfDay(),
-                $period->period_end->copy()->endOfDay(),
-            ])
-            ->sum('quantity');
-
-        $ratePerUnit = (float) ($period->qc_bonus_rate_per_unit ?? 0);
-        $totalPool = round($passedUnits * $ratePerUnit, 2);
-
-        $recipients = $recipientIds !== []
-            ? array_values(array_unique(array_map('intval', $recipientIds)))
-            : self::defaultBonusRecipients();
-
-        $pool = QcBonusPool::updateOrCreate(
-            ['payroll_period_id' => $period->getKey()],
-            [
-                'total_passed_units' => $passedUnits,
-                'rate_per_unit' => $ratePerUnit,
-                'total_pool' => $totalPool,
-                'recipient_count' => count($recipients),
-                'amount_per_recipient' => count($recipients) > 0 ? round($totalPool / count($recipients), 2) : 0,
-            ],
-        );
-
-        $pool->distributions()->delete();
-
-        $amounts = $pool->splitEqually();
-
-        foreach ($recipients as $index => $userId) {
-            QcBonusDistribution::create([
-                'qc_bonus_pool_id' => $pool->getKey(),
-                'user_id' => $userId,
-                'amount' => $amounts[$index] ?? '0.00',
-            ]);
-        }
+        $distributionService = app(QcBonusDistributionService::class);
+        $pool = $distributionService->finalizeBonusPool($period);
+        $distributionService->distributeBonus($pool, $recipientIds);
     }
 
     /**

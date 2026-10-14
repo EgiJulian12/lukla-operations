@@ -35,6 +35,7 @@ class Order extends Model
         'due_date',
         'notes',
         'created_by',
+        'completed_at',
     ];
 
     protected function casts(): array

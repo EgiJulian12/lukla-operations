@@ -86,11 +86,7 @@ class InvoiceService
         $overheadPeriod = null;
 
         if ($overheadApplicable && $overheadQty > 0) {
-            // Cari alokasi overhead bulan yang sama dengan created_at order
-            $periodMonth = $order->created_at->startOfMonth()->toDateString();
-            $allocation = OverheadAllocation::query()
-                ->where('period_month', $periodMonth)
-                ->first();
+            $allocation = $this->getOverheadAllocationForOrder($order);
 
             if ($allocation) {
                 $overheadPerUnit = (float) $allocation->overhead_per_unit;
@@ -207,5 +203,17 @@ class InvoiceService
             'unrated_entries' => $unratedEntries,
             'breakdown' => array_values($breakdown),
         ];
+    }
+
+    /**
+     * Ambil alokasi overhead untuk bulan pembuatan order (optimasi lookup).
+     */
+    private function getOverheadAllocationForOrder(Order $order): ?OverheadAllocation
+    {
+        $periodMonth = $order->created_at->startOfMonth()->toDateString();
+
+        return OverheadAllocation::query()
+            ->where('period_month', $periodMonth)
+            ->first();
     }
 }
