@@ -59,8 +59,8 @@ class ComponentResource extends Resource
     }
 
     /**
-     * Finance tidak mengelola komponen; itu domain Tim Sample.
-     * Finance dapat melihat komponen hanya dari konteks Rate Card.
+     * Finance, Owner, dan Production Lead dapat melihat komponen untuk invoice dan rate.
+     * Warehouse, Penjahit, dan Client tidak memerlukan akses Master Data komponen.
      */
     public static function canAccess(): bool
     {
@@ -68,7 +68,9 @@ class ComponentResource extends Resource
         $user = auth()->user();
 
         return ! $user->hasRoleSatisfying(
-            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+            fn (UserRole $role): bool => $role === UserRole::WAREHOUSE
+                || $role === UserRole::TAILOR_OPERATOR
+                || $role === UserRole::CLIENT_MAKLON,
         );
     }
 }

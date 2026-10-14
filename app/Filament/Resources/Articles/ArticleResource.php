@@ -59,7 +59,8 @@ class ArticleResource extends Resource
     }
 
     /**
-     * Finance tidak mengelola artikel; itu domain Tim Sample.
+     * Finance dan Owner dapat melihat artikel untuk keperluan invoice dan reporting.
+     * Warehouse, Penjahit, dan Client tidak memerlukan akses Master Data artikel.
      */
     public static function canAccess(): bool
     {
@@ -67,7 +68,9 @@ class ArticleResource extends Resource
         $user = auth()->user();
 
         return ! $user->hasRoleSatisfying(
-            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+            fn (UserRole $role): bool => $role === UserRole::WAREHOUSE
+                || $role === UserRole::TAILOR_OPERATOR
+                || $role === UserRole::CLIENT_MAKLON,
         );
     }
 }

@@ -50,29 +50,4 @@ class QcBonusPool extends Model
     {
         return $this->hasMany(QcBonusDistribution::class);
     }
-
-    /**
-     * Menghitung pembagian rata ke seluruh penerima (FR-017).
-     *
-     * Pembulatan dikerahkan ke penerima terakhir agar total distribusi
-     * selalu sama persis dengan total pool — tidak ada rupiah yang hilang.
-     *
-     * @return array<int, string> jumlah per penerima, dalam urutan penerima
-     */
-    public function splitEqually(): array
-    {
-        $count = max(1, (int) $this->recipient_count);
-        $pool = (float) $this->total_pool;
-
-        $base = round($pool / $count, 2);
-        $amounts = array_fill(0, $count, number_format($base, 2, '.', ''));
-
-        // Selisih pembulatan dibebankan ke penerima terakhir.
-        $remainder = round($pool - ($base * $count), 2);
-        if ($remainder !== 0.0) {
-            $amounts[$count - 1] = number_format($base + $remainder, 2, '.', '');
-        }
-
-        return $amounts;
-    }
 }
