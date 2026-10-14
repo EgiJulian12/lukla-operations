@@ -33,9 +33,9 @@ class PurchaseOrderResource extends Resource
 
     protected static ?int $navigationSort = 30;
 
-    protected static ?string $modelLabel = 'PO Bahan';
+    protected static ?string $modelLabel = 'Pengajuan PO Gudang';
 
-    protected static ?string $pluralModelLabel = 'PO Bahan';
+    protected static ?string $pluralModelLabel = 'Pengajuan PO Gudang';
 
     protected static ?string $recordTitleAttribute = 'po_number';
 

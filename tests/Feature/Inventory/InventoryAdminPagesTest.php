@@ -102,6 +102,37 @@ class InventoryAdminPagesTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_warehouse_staff_can_open_the_material_dispatches(): void
+    {
+        $this->actingAs($this->warehouseUser())
+            ->get('/admin/material-dispatches')
+            ->assertOk();
+    }
+
+    public function test_production_lead_can_open_create_dispatch_but_warehouse_cannot(): void
+    {
+        $productionLead = User::factory()->create();
+        $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
+
+        $this->actingAs($productionLead)
+            ->get('/admin/material-dispatches/create')
+            ->assertOk();
+
+        $this->actingAs($this->warehouseUser())
+            ->get('/admin/material-dispatches/create')
+            ->assertForbidden();
+    }
+
+    public function test_warehouse_staff_can_view_print_tag_label(): void
+    {
+        $item = $this->itemFor(Client::factory()->create());
+
+        $this->actingAs($this->warehouseUser())
+            ->get("/admin/inventory-items/{$item->getKey()}/print-tag")
+            ->assertOk()
+            ->assertSee($item->tag_id);
+    }
+
     public function test_client_user_cannot_reach_the_admin_panel_at_all(): void
     {
         $client = Client::factory()->create();

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\OrderMaterialStatus;
 use App\Enums\OrderStatus;
 use App\Enums\WorkScheme;
 use App\Models\Client;
@@ -26,6 +27,7 @@ class OrderFactory extends Factory
             'work_scheme' => WorkScheme::CMT,
             'quantity' => fake()->numberBetween(50, 500),
             'status' => OrderStatus::CONFIRMED,
+            'warehouse_material_status' => OrderMaterialStatus::EMPTY,
             'due_date' => fake()->dateTimeBetween('+1 week', '+2 months'),
             'notes' => null,
             'created_by' => null,

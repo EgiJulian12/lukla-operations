@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToClient;
+use App\Enums\MaterialResponsibility;
+use App\Enums\OrderMaterialStatus;
 use App\Enums\OrderStatus;
 use App\Enums\QcResult;
 use App\Enums\WorkScheme;
@@ -15,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Order â€” dari permintaan klien sampai produksi massal (FR-004).
+ * Order — dari permintaan klien sampai produksi massal (FR-004).
  *
  * Order membawa revisi sample yang disetujui dan skema maklon yang dipilih,
  * sehingga spesifikasi yang diproduksi massal selalu dapat ditelusuri kembali
@@ -46,10 +48,20 @@ class Order extends Model
         'quote_approved_at',
         'sample_requested_at',
         'status',
+        'warehouse_material_status',
+        'po_requested_at',
+        'client_confirmed_at',
+        'cutting_started_at',
+        'dispatched_to_production_at',
+        'received_by_production_at',
         'due_date',
         'notes',
         'created_by',
         'completed_at',
+    ];
+
+    protected $attributes = [
+        'warehouse_material_status' => 'kosong',
     ];
 
     protected function casts(): array
@@ -57,6 +69,12 @@ class Order extends Model
         return [
             'work_scheme' => WorkScheme::class,
             'status' => OrderStatus::class,
+            'warehouse_material_status' => OrderMaterialStatus::class,
+            'po_requested_at' => 'datetime',
+            'client_confirmed_at' => 'datetime',
+            'cutting_started_at' => 'datetime',
+            'dispatched_to_production_at' => 'datetime',
+            'received_by_production_at' => 'datetime',
             'quantity' => 'integer',
             'design_images' => 'array',
             'estimated_cost' => 'decimal:2',
@@ -85,6 +103,11 @@ class Order extends Model
     public function sampleRevision(): BelongsTo
     {
         return $this->belongsTo(SampleRevision::class, 'sample_revision_id');
+    }
+
+    public function materialRequirements(): HasMany
+    {
+        return $this->hasMany(OrderMaterialRequirement::class);
     }
 
     public function inventoryItems(): HasMany
@@ -243,10 +266,70 @@ class Order extends Model
     public function invoiceSelectLabel(): string
     {
         return sprintf(
-            '%s ï¿½ %s (%s pcs)',
+            '%s ? %s (%s pcs)',
             $this->order_number,
             $this->status->getLabel(),
             number_format($this->quantity),
         );
+    }
+
+    /**
+     * Apakah order memiliki bahan/aksesoris yang ditanggung oleh perusahaan.
+     */
+    public function hasCompanyMaterials(): bool
+    {
+        return $this->work_scheme === WorkScheme::FULL_PACKAGE
+            || $this->work_scheme === WorkScheme::SEMI_CMT
+            || $this->materialRequirements()->whereIn('responsibility', [
+                MaterialResponsibility::COMPANY,
+                MaterialResponsibility::PARTIAL,
+            ])->exists();
+    }
+
+    /**
+     * Apakah order memiliki bahan/aksesoris yang ditanggung oleh klien.
+     */
+    public function hasClientMaterials(): bool
+    {
+        return $this->work_scheme === WorkScheme::CMT
+            || $this->work_scheme === WorkScheme::SEMI_CMT
+            || $this->materialRequirements()->whereIn('responsibility', [
+                MaterialResponsibility::CLIENT,
+                MaterialResponsibility::PARTIAL,
+            ])->exists();
+    }
+
+    /**
+     * Apakah seluruh kebutuhan bahan & aksesoris telah terpenuhi kuantitasnya.
+     */
+    public function isAllMaterialsFulfilled(): bool
+    {
+        $requirements = $this->materialRequirements;
+
+        if ($requirements->isEmpty()) {
+            return false;
+        }
+
+        return $requirements->every(fn (OrderMaterialRequirement $req): bool => $req->isFulfilled());
+    }
+
+    /**
+     * Persentase pemenuhan kuantitas material pesanan (0-100%).
+     */
+    public function materialFulfillmentPercentage(): float
+    {
+        $requirements = $this->materialRequirements;
+        if ($requirements->isEmpty()) {
+            return 0.0;
+        }
+
+        $totalRequired = (float) $requirements->sum('required_quantity');
+        if ($totalRequired <= 0) {
+            return 100.0;
+        }
+
+        $totalReceived = (float) $requirements->sum('received_quantity');
+
+        return min(100.0, round(($totalReceived / $totalRequired) * 100, 1));
     }
 }

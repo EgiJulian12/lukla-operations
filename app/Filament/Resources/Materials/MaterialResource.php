@@ -34,9 +34,9 @@ class MaterialResource extends Resource
 
     protected static ?int $navigationSort = 40;
 
-    protected static ?string $modelLabel = 'Bahan';
+    protected static ?string $modelLabel = 'Bahan & Aksesoris';
 
-    protected static ?string $pluralModelLabel = 'Bahan';
+    protected static ?string $pluralModelLabel = 'Bahan & Aksesoris';
 
     protected static ?string $recordTitleAttribute = 'name';
 

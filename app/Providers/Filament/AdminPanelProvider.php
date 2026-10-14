@@ -3,6 +3,11 @@
 namespace App\Providers\Filament;
 
 use App\Enums\UserRole;
+use App\Filament\Resources\InventoryItems\InventoryItemResource;
+use App\Filament\Resources\InventoryMovements\InventoryMovementResource;
+use App\Filament\Resources\Materials\MaterialResource;
+use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
+use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
 use App\Filament\Resources\QcOrders\QcOrderResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
 use App\Filament\Resources\Repairs\RepairResource;
@@ -58,7 +63,27 @@ class AdminPanelProvider extends PanelProvider
                         );
                 }
 
-                // All other roles (Finance, Production Lead, Warehouse, etc.)
+                if ($user?->hasRole(UserRole::WAREHOUSE)) {
+                    return $builder
+                        ->items(Dashboard::getNavigationItems())
+                        ->group(
+                            'Gudang & Cutting',
+                            [
+                                ...OrderMaterialFlowResource::getNavigationItems(),
+                                ...MyPurchaseOrderResource::getNavigationItems(),
+                                ...InventoryItemResource::getNavigationItems(),
+                                ...InventoryMovementResource::getNavigationItems(),
+                            ]
+                        )
+                        ->group(
+                            'Master Data',
+                            [
+                                ...MaterialResource::getNavigationItems(),
+                            ]
+                        );
+                }
+
+                // All other roles (Finance, Production Lead, Sample, etc.)
                 // get the default Filament navigation with all registered items.
                 return true;
             })

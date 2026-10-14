@@ -4,12 +4,16 @@ namespace App\Services\Inventory;
 
 use App\Enums\InventoryState;
 use App\Enums\MovementType;
+use App\Enums\PurchaseOrderStatus;
 use App\Exceptions\InsufficientStock;
+use App\Exceptions\InvalidStateTransitionException;
 use App\Exceptions\InventoryOwnershipMismatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Material;
 use App\Models\Order;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderItem;
 use App\Models\WasteRecord;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -70,6 +74,135 @@ class InventoryService
 
             return $item->refresh();
         });
+    }
+
+    /**
+     * Penerimaan bahan dari klien untuk skema CMT atau bahan utama Semi-CMT (FR-001, FR-005).
+     * Disertai nomor Surat Jalan Klien sebagai bukti fisik kedatangan bahan.
+     */
+    public function receiveFromClient(
+        Order $order,
+        Material $material,
+        float $quantity,
+        ?string $deliveryNote = null,
+        ?string $batch = null,
+        ?string $location = null,
+    ): InventoryItem {
+        $reference = $deliveryNote ? "Surat Jalan Klien: {$deliveryNote}" : 'Penerimaan Bahan Klien';
+
+        return $this->receive(
+            order: $order,
+            material: $material,
+            quantity: $quantity,
+            batch: $batch,
+            location: $location,
+            state: InventoryState::RAW,
+            reference: $reference,
+        );
+    }
+
+    /**
+     * Pengajuan pembelian bahan (PO Draft) dari gudang ke Finance untuk skema Full Package
+     * atau aksesoris Semi-CMT (FR-001, FR-005).
+     */
+    public function requestProcurementToFinance(
+        Order $order,
+        Material $material,
+        float $quantity,
+        float $estimatedPrice = 0,
+        ?string $supplier = null,
+        ?string $notes = null,
+    ): PurchaseOrder {
+        return DB::transaction(function () use ($order, $material, $quantity, $estimatedPrice, $supplier, $notes): PurchaseOrder {
+            $poNumber = sprintf('PO-%s-%s-%s', date('Ymd'), strtoupper($order->client->code ?? 'CLI'), strtoupper(bin2hex(random_bytes(2))));
+
+            $po = PurchaseOrder::create([
+                'order_id' => $order->getKey(),
+                'client_id' => $order->client_id,
+                'po_number' => $poNumber,
+                'supplier' => $supplier ?: 'Pemasok Terdaftar Lukla',
+                'status' => PurchaseOrderStatus::DRAFT,
+                'ordered_at' => now()->toDateString(),
+                'requested_by' => auth()->id(),
+                'notes' => $notes ?: sprintf('Pengajuan pengadaan bahan untuk Pesanan #%s (Skema: %s)', $order->order_number, $order->work_scheme?->getLabel() ?? '-'),
+            ]);
+
+            PurchaseOrderItem::create([
+                'purchase_order_id' => $po->getKey(),
+                'material_id' => $material->getKey(),
+                'quantity' => $quantity,
+                'unit_price' => $estimatedPrice,
+            ]);
+
+            return $po;
+        });
+    }
+
+    /**
+     * Menandai aksesoris penyediaan Lukla untuk skema Semi-CMT dengan isolasi client_id dan order_id (BR 4.4, FR-006).
+     */
+    public function tagSemiCmtAccessories(
+        Order $order,
+        Material $material,
+        float $quantity,
+        ?string $batch = null,
+        ?string $location = null,
+    ): InventoryItem {
+        return $this->receive(
+            order: $order,
+            material: $material,
+            quantity: $quantity,
+            batch: $batch,
+            location: $location,
+            state: InventoryState::RAW,
+            reference: 'Penyediaan Aksesoris Semi-CMT (Lukla)',
+        );
+    }
+
+    /**
+     * Validasi dan eksekusi siklus hidup keadaan fisik inventory (FR-012).
+     * Urutan wajib: RAW -> WIP -> FINISHED.
+     *
+     * @throws InvalidStateTransitionException|InvalidArgumentException
+     */
+    public function transitionState(
+        InventoryItem $item,
+        InventoryState $targetState,
+        ?Order $order = null,
+    ): InventoryItem {
+        $current = $item->state;
+
+        // Sequence check: RAW -> WIP -> FINISHED
+        $isValidSequence = match ($current) {
+            InventoryState::RAW => $targetState === InventoryState::WIP,
+            InventoryState::WIP => $targetState === InventoryState::FINISHED,
+            InventoryState::FINISHED => false,
+        };
+
+        if (! $isValidSequence) {
+            throw InvalidStateTransitionException::for($current, $targetState);
+        }
+
+        // Production context validation: Transisi ke WIP dan FINISHED wajib membawa order_id yang cocok
+        if ($order === null) {
+            throw new InvalidArgumentException('Transisi ke status produksi wajib menyertakan konteks pesanan (Order).');
+        }
+
+        if (! $item->belongsToOrderOf($order->client_id, $order->getKey())) {
+            throw InventoryOwnershipMismatch::for($item, $order->client_id, $order);
+        }
+
+        $item->update(['state' => $targetState]);
+
+        return $item->fresh();
+    }
+
+    /**
+     * Menghasilkan kode Tag ID unik fisik bahan (FR-005, FR-012).
+     */
+    public function generateTagId(InventoryItem $item): string
+    {
+        return $item->tag_id;
     }
 
     /**

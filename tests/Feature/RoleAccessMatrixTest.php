@@ -104,6 +104,30 @@ class RoleAccessMatrixTest extends TestCase
         $this->assertFalse($qcUser->can('viewAny', PurchaseOrder::class));
     }
 
+    public function test_warehouse_sidebar_navigation_contains_only_warehouse_menus(): void
+    {
+        $warehouseUser = $this->userWithRole(UserRole::WAREHOUSE);
+
+        // Login sebagai user gudang
+        $this->actingAs($warehouseUser);
+
+        // Ambil navigasi panel Filament
+        $navigation = Filament::getNavigation();
+
+        // Ambil semua label grup yang muncul
+        $groupLabels = array_map(fn ($group) => $group->getLabel(), $navigation);
+
+        // Grup yang muncul HANYA Gudang & Cutting dan Master Data
+        $this->assertContains('Gudang & Cutting', $groupLabels);
+        $this->assertContains('Master Data', $groupLabels);
+
+        // Grup lain TIDAK BOLEH muncul
+        $this->assertNotContains('Quality Control', $groupLabels);
+        $this->assertNotContains('Keuangan & Penggajian', $groupLabels);
+        $this->assertNotContains('Produksi', $groupLabels);
+        $this->assertNotContains('Pengembangan Produk', $groupLabels);
+    }
+
     public function test_payroll_is_visible_only_to_finance_and_the_owner(): void
     {
         $this->assertTrue($this->userWithRole(UserRole::FINANCE_PAYROLL)->can('viewAny', PayrollPeriod::class));
