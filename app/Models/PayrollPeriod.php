@@ -34,6 +34,16 @@ class PayrollPeriod extends Model
         'approved_at',
     ];
 
+    /**
+     * Status default untuk model baru yang belum disimpan, agar policy
+     * tidak menemui null saat authorization dievaluasi (mis. CreateRecord).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'open',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -69,10 +79,12 @@ class PayrollPeriod extends Model
 
     /**
      * Periode yang sudah disetujui/dibayar terkunci dan tidak dapat dihitung ulang.
+     *
+     * Null-safe: status bisa null pada model yang belum disimpan saat policy dievaluasi.
      */
     public function isLocked(): bool
     {
-        return $this->status->isLocked();
+        return $this->status?->isLocked() ?? false;
     }
 
     public function getLabelAttribute(): string

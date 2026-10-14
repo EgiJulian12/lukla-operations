@@ -47,6 +47,7 @@ class PurchaseOrderPolicy
     public function approve(User $user, PurchaseOrder $order): bool
     {
         return $this->canManage($user)
+            && $order->status !== null
             && $order->status === PurchaseOrderStatus::DRAFT;
     }
 

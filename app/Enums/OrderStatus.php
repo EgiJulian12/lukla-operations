@@ -6,10 +6,16 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Status order produksi massal, dari pembuatan hingga selesai.
+ * Status order, dari permintaan klien hingga selesai.
+ *
+ * Tiga status pertama (REQUESTED, QUOTED, QUOTE_APPROVED) adalah fase pra-produksi
+ * saat belum ada bahan maupun sample; sisanya adalah siklus produksi massal.
  */
 enum OrderStatus: string implements HasColor, HasLabel
 {
+    case REQUESTED = 'requested';
+    case QUOTED = 'quoted';
+    case QUOTE_APPROVED = 'quote_approved';
     case DRAFT = 'draft';
     case CONFIRMED = 'confirmed';
     case IN_PRODUCTION = 'in_production';
@@ -20,6 +26,9 @@ enum OrderStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
+            self::REQUESTED => 'Permintaan Klien',
+            self::QUOTED => 'Menunggu Persetujuan Klien',
+            self::QUOTE_APPROVED => 'Penawaran Disetujui',
             self::DRAFT => 'Draf',
             self::CONFIRMED => 'Dikonfirmasi',
             self::IN_PRODUCTION => 'Dalam Produksi',
@@ -32,6 +41,9 @@ enum OrderStatus: string implements HasColor, HasLabel
     public function getColor(): string
     {
         return match ($this) {
+            self::REQUESTED => 'gray',
+            self::QUOTED => 'warning',
+            self::QUOTE_APPROVED => 'info',
             self::DRAFT => 'gray',
             self::CONFIRMED => 'info',
             self::IN_PRODUCTION => 'warning',
@@ -48,5 +60,30 @@ enum OrderStatus: string implements HasColor, HasLabel
     public function isLocked(): bool
     {
         return in_array($this, [self::COMPLETED, self::CANCELLED], true);
+    }
+
+    /**
+     * Fase sebelum produksi: belum ada bahan, output, maupun sample.
+     * Halaman yang menampilkan progres produksi harus mengecualikan status ini
+     * agar permintaan klien tidak muncul sebagai order yang sedang dikerjakan.
+     */
+    public function isPreProduction(): bool
+    {
+        return in_array($this, [self::REQUESTED, self::QUOTED, self::QUOTE_APPROVED], true);
+    }
+
+    public function needsQuotation(): bool
+    {
+        return $this === self::REQUESTED;
+    }
+
+    public function awaitingClientApproval(): bool
+    {
+        return $this === self::QUOTED;
+    }
+
+    public function isQuoteApproved(): bool
+    {
+        return $this === self::QUOTE_APPROVED;
     }
 }

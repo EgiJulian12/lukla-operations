@@ -8,4 +8,9 @@ use Filament\Resources\Pages\EditRecord;
 class EditPayrollPeriod extends EditRecord
 {
     protected static string $resource = PayrollPeriodResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

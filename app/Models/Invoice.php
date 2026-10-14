@@ -27,10 +27,23 @@ class Invoice extends Model
         'order_id',
         'status',
         'amount',
+        'overhead_amount',
+        'tax_percent',
+        'tax_amount',
         'issued_at',
         'due_at',
         'issued_by',
         'notes',
+    ];
+
+    /**
+     * Status default untuk model baru yang belum disimpan, agar policy
+     * tidak menemui null saat authorization dievaluasi.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'draft',
     ];
 
     protected function casts(): array
@@ -38,6 +51,9 @@ class Invoice extends Model
         return [
             'status' => InvoiceStatus::class,
             'amount' => 'decimal:2',
+            'overhead_amount' => 'decimal:2',
+            'tax_percent' => 'decimal:4',
+            'tax_amount' => 'decimal:2',
             'issued_at' => 'date',
             'due_at' => 'date',
         ];
@@ -53,8 +69,13 @@ class Invoice extends Model
         return $this->belongsTo(User::class, 'issued_by');
     }
 
+    /**
+     * Invoice yang sudah terbit atau lunas terkunci, nilai dan data tidak dapat diubah (NFR-005).
+     *
+     * Null-safe: status bisa null pada model yang belum disimpan saat policy dievaluasi.
+     */
     public function isLocked(): bool
     {
-        return $this->status->isLocked();
+        return $this->status?->isLocked() ?? false;
     }
 }

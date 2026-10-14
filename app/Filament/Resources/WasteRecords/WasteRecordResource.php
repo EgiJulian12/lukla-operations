@@ -3,11 +3,13 @@
 namespace App\Filament\Resources\WasteRecords;
 
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
+use App\Enums\UserRole;
 use App\Filament\Resources\WasteRecords\Pages\CreateWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\EditWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\ListWasteRecords;
 use App\Filament\Resources\WasteRecords\Schemas\WasteRecordForm;
 use App\Filament\Resources\WasteRecords\Tables\WasteRecordsTable;
+use App\Models\User;
 use App\Models\WasteRecord;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -55,5 +57,20 @@ class WasteRecordResource extends Resource
             'create' => CreateWasteRecord::route('/create'),
             'edit' => EditWasteRecord::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance tidak mencatat sisa potongan; itu domain Gudang.
+     * Tim Sample tidak mencatat sisa potongan.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

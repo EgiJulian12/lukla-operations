@@ -17,7 +17,9 @@ class AssemblyPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction()
+            || $role->canConfigureSystem()
+        );
     }
 
     public function view(User $user, Assembly $assembly): bool

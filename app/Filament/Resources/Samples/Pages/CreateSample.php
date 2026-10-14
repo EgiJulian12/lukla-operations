@@ -18,6 +18,11 @@ class CreateSample extends CreateRecord
 {
     protected static string $resource = SampleResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */

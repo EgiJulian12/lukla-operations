@@ -6,7 +6,11 @@ use App\Enums\OrderStatus;
 use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Models\Order;
+use App\Services\Order\OrderQuotationService;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -29,9 +33,14 @@ class PortalOrdersTable
                 TextColumn::make('work_scheme')
                     ->label('Skema')
                     ->badge(),
+                TextColumn::make('estimated_cost')
+                    ->label('Penawaran')
+                    ->money('IDR')
+                    ->placeholder('Belum ditawar'),
                 TextColumn::make('quantity')
                     ->label('Target')
-                    ->numeric(),
+                    ->numeric()
+                    ->placeholder('-'),
                 TextColumn::make('verified_output')
                     ->label('Terverifikasi')
                     ->state(fn (Order $record): int => (int) $record->outputEntries()
@@ -58,6 +67,22 @@ class PortalOrdersTable
                     ->options(OrderStatus::class),
             ])
             ->recordActions([
+                Action::make('approveQuote')
+                    ->label('Setujui Penawaran')
+                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Setujui penawaran owner?')
+                    ->modalDescription('Setelah disetujui, owner akan menyiapkan sample sesuai design Anda.')
+                    ->visible(fn (Order $record): bool => auth()->user()?->can('approveQuote', $record) ?? false)
+                    ->action(function (Order $record): void {
+                        app(OrderQuotationService::class)->approveQuote($record, auth()->user());
+
+                        Notification::make()
+                            ->title('Penawaran disetujui')
+                            ->success()
+                            ->send();
+                    }),
                 ViewAction::make()
                     ->label('Lihat'),
             ])

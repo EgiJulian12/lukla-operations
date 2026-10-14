@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\OverheadRecords;
 
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
+use App\Enums\UserRole;
 use App\Filament\Resources\OverheadRecords\Pages\CreateOverheadRecord;
 use App\Filament\Resources\OverheadRecords\Pages\EditOverheadRecord;
 use App\Filament\Resources\OverheadRecords\Pages\ListOverheadRecords;
 use App\Filament\Resources\OverheadRecords\Schemas\OverheadRecordForm;
 use App\Filament\Resources\OverheadRecords\Tables\OverheadRecordsTable;
 use App\Models\OverheadRecord;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -55,5 +57,18 @@ class OverheadRecordResource extends Resource
             'create' => CreateOverheadRecord::route('/create'),
             'edit' => EditOverheadRecord::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola biaya overhead; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

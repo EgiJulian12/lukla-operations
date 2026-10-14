@@ -16,7 +16,9 @@ class DefectCategoryPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction()
+            || $role->canConfigureSystem()
+        );
     }
 
     public function view(User $user, DefectCategory $defectCategory): bool
@@ -41,6 +43,8 @@ class DefectCategoryPolicy
 
     private function canManage(User $user): bool
     {
-        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageDefectCategories());
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction()
+            || $role->canConfigureSystem()
+        );
     }
 }

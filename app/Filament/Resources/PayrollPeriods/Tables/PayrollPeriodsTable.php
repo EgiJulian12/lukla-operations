@@ -9,6 +9,7 @@ use App\Services\Payroll\PayrollService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -66,6 +67,7 @@ class PayrollPeriodsTable
                     ->icon(Heroicon::OutlinedCalculator)
                     ->color('warning')
                     ->visible(fn (PayrollPeriod $record): bool => (bool) auth()->user()?->can('calculate', $record))
+                    ->modalDescription('Menghitung upah borongan dari seluruh output terverifikasi dalam rentang periode ini. Hasil sebelumnya akan diganti.')
                     ->form([
                         Select::make('recipients')
                             ->label('Penerima Bonus QC')
@@ -73,11 +75,22 @@ class PayrollPeriodsTable
                             ->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->default(fn (): array => PayrollService::defaultBonusRecipients())
                             ->searchable()
-                            ->helperText('Kosongkan untuk memakai penerima default: dua mandor dan satu kepala operasional.'),
+                            ->helperText('Pilih mandor dan kepala operasional penerima bonus QC. Kosongkan untuk memakai default.'),
                     ])
-                    ->action(fn (PayrollPeriod $record, array $data) => app(PayrollService::class)
-                        ->calculate($record, $data['recipients'] ?? []))
-                    ->successNotificationTitle('Payroll dihitung'),
+                    ->action(function (PayrollPeriod $record, array $data): void {
+                        $period = app(PayrollService::class)->calculate($record, $data['recipients'] ?? []);
+
+                        $count = $period->entries()->count();
+
+                        Notification::make()
+                            ->title('Payroll berhasil dihitung')
+                            ->body($count > 0
+                                ? "Ditemukan {$count} penjahit dengan output terverifikasi pada periode ini."
+                                : 'Tidak ada output terverifikasi pada periode ini. Pastikan output penjahit sudah diverifikasi oleh mandor sebelum menghitung payroll.')
+                            ->when($count > 0, fn ($n) => $n->success())
+                            ->when($count === 0, fn ($n) => $n->warning())
+                            ->send();
+                    }),
                 Action::make('approve')
                     ->label('Setujui')
                     ->icon(Heroicon::OutlinedCheckCircle)

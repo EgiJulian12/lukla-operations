@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\PurchaseOrders;
 
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
+use App\Enums\UserRole;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -57,5 +59,18 @@ class PurchaseOrderResource extends Resource
             'create' => CreatePurchaseOrder::route('/create'),
             'edit' => EditPurchaseOrder::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola PO bahan; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

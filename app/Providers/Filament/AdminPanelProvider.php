@@ -2,10 +2,16 @@
 
 namespace App\Providers\Filament;
 
+use App\Enums\UserRole;
+use App\Filament\Resources\QcOrders\QcOrderResource;
+use App\Filament\Resources\QcRecords\QcRecordResource;
+use App\Filament\Resources\Repairs\RepairResource;
+use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationBuilder;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -35,6 +41,27 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            ->navigation(function (NavigationBuilder $builder): NavigationBuilder|bool {
+                /** @var User|null $user */
+                $user = auth()->user();
+
+                if ($user?->hasRole(UserRole::QC_INSPECTOR)) {
+                    return $builder
+                        ->items(Dashboard::getNavigationItems())
+                        ->group(
+                            'Quality Control',
+                            [
+                                ...QcOrderResource::getNavigationItems(),
+                                ...QcRecordResource::getNavigationItems(),
+                                ...RepairResource::getNavigationItems(),
+                            ]
+                        );
+                }
+
+                // All other roles (Finance, Production Lead, Warehouse, etc.)
+                // get the default Filament navigation with all registered items.
+                return true;
+            })
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
