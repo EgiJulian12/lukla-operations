@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateRateCard extends CreateRecord
 {
     protected static string $resource = RateCardResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

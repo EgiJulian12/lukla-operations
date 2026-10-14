@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Materials;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\Materials\Pages\CreateMaterial;
 use App\Filament\Resources\Materials\Pages\EditMaterial;
 use App\Filament\Resources\Materials\Pages\ListMaterials;
 use App\Filament\Resources\Materials\Schemas\MaterialForm;
 use App\Filament\Resources\Materials\Tables\MaterialsTable;
 use App\Models\Material;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -55,5 +57,20 @@ class MaterialResource extends Resource
             'create' => CreateMaterial::route('/create'),
             'edit' => EditMaterial::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola data induk bahan; itu domain Gudang.
+     * Tim Sample tidak mengelola bahan (pemakaian bahan sample dikelola via Sample).
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

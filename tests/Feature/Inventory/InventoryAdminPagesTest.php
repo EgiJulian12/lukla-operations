@@ -84,17 +84,18 @@ class InventoryAdminPagesTest extends TestCase
     }
 
     /**
-     * Policy ditegakkan lewat UI: Finance boleh melihat stok tetapi tidak
-     * boleh membuka formulir penerimaan bahan.
+     * Finance tidak memiliki akses ke inventory sama sekali — fitur stok
+     * bukan domain Finance. canAccess() pada InventoryItemResource memblokir
+     * akses baik ke daftar maupun formulir (Req TRACK A).
      */
-    public function test_finance_user_can_view_stock_but_cannot_open_the_receive_form(): void
+    public function test_finance_user_cannot_access_inventory_at_all(): void
     {
         $user = User::factory()->create();
         $user->assignRole(UserRole::FINANCE_PAYROLL->value);
 
         $this->actingAs($user)
             ->get('/admin/inventory-items')
-            ->assertOk();
+            ->assertForbidden();
 
         $this->actingAs($user)
             ->get('/admin/inventory-items/create')

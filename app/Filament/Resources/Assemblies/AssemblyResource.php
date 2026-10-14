@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\Assemblies;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\Assemblies\Pages\CreateAssembly;
 use App\Filament\Resources\Assemblies\Pages\ListAssemblies;
 use App\Filament\Resources\Assemblies\Schemas\AssemblyForm;
 use App\Filament\Resources\Assemblies\Tables\AssembliesTable;
 use App\Models\Assembly;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -50,5 +52,20 @@ class AssemblyResource extends Resource
             'index' => ListAssemblies::route('/'),
             'create' => CreateAssembly::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola perakitan; itu domain lantai produksi.
+     * Tim Sample juga tidak mengelola perakitan — itu berlangsung setelah produksi selesai.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

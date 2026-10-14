@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\OverheadAllocations;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\OverheadAllocations\Pages\ListOverheadAllocations;
 use App\Filament\Resources\OverheadAllocations\Tables\OverheadAllocationsTable;
 use App\Models\OverheadAllocation;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -40,5 +42,18 @@ class OverheadAllocationResource extends Resource
         return [
             'index' => ListOverheadAllocations::route('/'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola overhead; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }
