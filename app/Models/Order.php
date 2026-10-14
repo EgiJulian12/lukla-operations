@@ -187,6 +187,7 @@ class Order extends Model
         return $query->whereIn('status', [
             OrderStatus::DRAFT->value,
             OrderStatus::CONFIRMED->value,
+            OrderStatus::READY_FOR_PRODUCTION->value,
             OrderStatus::IN_PRODUCTION->value,
             OrderStatus::IN_QC->value,
             OrderStatus::COMPLETED->value,

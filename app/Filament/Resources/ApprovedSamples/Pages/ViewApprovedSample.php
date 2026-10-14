@@ -5,21 +5,16 @@ namespace App\Filament\Resources\ApprovedSamples\Pages;
 use App\Enums\RateCardStatus;
 use App\Enums\RateType;
 use App\Enums\UserRole;
-use App\Enums\WorkScheme;
+use App\Filament\Resources\ApprovedSamples\Actions\ConvertToOrderAction;
 use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
-use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Component;
 use App\Models\RateCard;
 use App\Models\Sample;
-use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Support\Icons\Heroicon;
 
 /**
  * Halaman detail penuh untuk Sample yang sudah disetujui.
@@ -36,46 +31,7 @@ class ViewApprovedSample extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('convert')
-                ->label('Jadikan Order Produksi')
-                ->icon(Heroicon::OutlinedTruck)
-                ->color('success')
-                ->visible(fn (): bool => (bool) auth()->user()?->can('convertToOrder', $this->getRecord()))
-                ->form([
-                    Select::make('work_scheme')
-                        ->label('Skema Maklon')
-                        ->options(WorkScheme::class)
-                        ->default(WorkScheme::CMT->value)
-                        ->required(),
-                    TextInput::make('quantity')
-                        ->label('Jumlah Produksi Massal')
-                        ->numeric()
-                        ->minValue(1)
-                        ->required(),
-                    DatePicker::make('due_date')
-                        ->label('Tenggat Selesai'),
-                    Textarea::make('notes')
-                        ->label('Catatan Order'),
-                ])
-                ->action(function (array $data): void {
-                    /** @var Sample $sample */
-                    $sample = $this->getRecord();
-
-                    $scheme = $data['work_scheme'] instanceof WorkScheme
-                        ? $data['work_scheme']
-                        : WorkScheme::from($data['work_scheme']);
-
-                    app(SampleService::class)->convertToOrder(
-                        sample: $sample,
-                        scheme: $scheme,
-                        quantity: (int) $data['quantity'],
-                        dueDate: $data['due_date'] ?? null,
-                        notes: $data['notes'] ?? null,
-                    );
-
-                    $this->redirect(OrderResource::getUrl('index'));
-                })
-                ->successNotificationTitle('Order produksi massal berhasil dibuat dari sample disetujui'),
+            ConvertToOrderAction::make()->record($this->getRecord()),
         ];
     }
 

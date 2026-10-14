@@ -18,6 +18,7 @@ enum OrderStatus: string implements HasColor, HasLabel
     case QUOTE_APPROVED = 'quote_approved';
     case DRAFT = 'draft';
     case CONFIRMED = 'confirmed';
+    case READY_FOR_PRODUCTION = 'ready_for_production';
     case IN_PRODUCTION = 'in_production';
     case IN_QC = 'in_qc';
     case COMPLETED = 'completed';
@@ -31,6 +32,7 @@ enum OrderStatus: string implements HasColor, HasLabel
             self::QUOTE_APPROVED => 'Penawaran Disetujui',
             self::DRAFT => 'Draf',
             self::CONFIRMED => 'Dikonfirmasi',
+            self::READY_FOR_PRODUCTION => 'Siap Produksi',
             self::IN_PRODUCTION => 'Dalam Produksi',
             self::IN_QC => 'Dalam QC',
             self::COMPLETED => 'Selesai',
@@ -46,6 +48,7 @@ enum OrderStatus: string implements HasColor, HasLabel
             self::QUOTE_APPROVED => 'info',
             self::DRAFT => 'gray',
             self::CONFIRMED => 'info',
+            self::READY_FOR_PRODUCTION => 'success',
             self::IN_PRODUCTION => 'warning',
             self::IN_QC => 'primary',
             self::COMPLETED => 'success',

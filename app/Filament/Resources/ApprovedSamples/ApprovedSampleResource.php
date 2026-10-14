@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ApprovedSamples;
 
+use App\Enums\OrderStatus;
 use App\Enums\SampleStatus;
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\ApprovedSamples\Pages\ListApprovedSamples;
@@ -45,8 +46,16 @@ class ApprovedSampleResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        $productionStatuses = [
+            OrderStatus::READY_FOR_PRODUCTION->value,
+            OrderStatus::IN_PRODUCTION->value,
+            OrderStatus::IN_QC->value,
+            OrderStatus::COMPLETED->value,
+        ];
+
         return parent::getEloquentQuery()
-            ->where('status', SampleStatus::APPROVED->value);
+            ->where('status', SampleStatus::APPROVED->value)
+            ->whereDoesntHave('orders', fn (Builder $query) => $query->whereIn('status', $productionStatuses));
     }
 
     public static function infolist(Schema $schema): Schema
