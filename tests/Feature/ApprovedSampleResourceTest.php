@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrderStatus;
 use App\Enums\RateCardStatus;
 use App\Enums\RateType;
 use App\Enums\SampleStatus;
@@ -211,25 +212,33 @@ class ApprovedSampleResourceTest extends TestCase
 
         $sample->update(['approved_revision_id' => $revision->id]);
 
+        // Skema, jumlah, dan tenggat mengikuti order terakhir sample — modal hanya
+        // menampilkannya sebagai informasi, sehingga catatan adalah satu-satunya isian.
+        Order::factory()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $this->client->id,
+            'article_id' => $article->id,
+            'work_scheme' => WorkScheme::SEMI_CMT,
+            'quantity' => 200,
+            'due_date' => now()->addWeeks(2)->toDateString(),
+        ]);
+
         $this->actingAs($this->sampleTeam);
 
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
             ->assertActionVisible('convert')
             ->callAction('convert', [
-                'work_scheme' => WorkScheme::CMT->value,
-                'quantity' => 200,
-                'due_date' => now()->addWeeks(2)->toDateString(),
                 'notes' => 'Pesanan batch pertama',
             ])
             ->assertHasNoActionErrors();
 
-        $this->assertDatabaseHas('orders', [
-            'sample_id' => $sample->id,
-            'client_id' => $this->client->id,
-            'article_id' => $article->id,
-            'quantity' => 200,
-            'work_scheme' => WorkScheme::CMT->value,
-        ]);
+        $order = Order::query()->where('sample_id', $sample->id)->latest('id')->firstOrFail();
+
+        $this->assertSame($article->id, $order->article_id);
+        $this->assertSame(200, $order->quantity);
+        $this->assertSame(WorkScheme::SEMI_CMT, $order->work_scheme);
+        $this->assertSame(OrderStatus::READY_FOR_PRODUCTION, $order->status);
+        $this->assertSame('Pesanan batch pertama', $order->notes);
     }
 
     public function test_production_lead_can_update_component_rate_card_from_detail_page(): void

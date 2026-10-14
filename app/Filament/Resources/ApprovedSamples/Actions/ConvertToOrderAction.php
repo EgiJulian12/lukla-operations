@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ApprovedSamples\Actions;
 use App\Enums\OrderStatus;
 use App\Enums\WorkScheme;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Models\Order;
 use App\Models\Sample;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
@@ -35,7 +36,7 @@ class ConvertToOrderAction
             ->color('success')
             ->visible(fn (Sample $record): bool => (bool) auth()->user()?->can('convertToOrder', $record))
             ->form(function (Sample $record): array {
-                $latestOrder = $record->orders()->latest()->first();
+                $latestOrder = self::latestOrder($record);
 
                 return [
                     Section::make('Informasi Sample')
@@ -78,7 +79,7 @@ class ConvertToOrderAction
                 ];
             })
             ->action(function (Sample $record, array $data): void {
-                $latestOrder = $record->orders()->latest()->first();
+                $latestOrder = self::latestOrder($record);
 
                 $order = app(SampleService::class)->convertToOrder(
                     sample: $record,
@@ -92,5 +93,14 @@ class ConvertToOrderAction
             })
             ->successRedirectUrl(fn (): string => OrderResource::getUrl('index'))
             ->successNotificationTitle('Order produksi massal berhasil dibuat dari sample disetujui');
+    }
+
+    /**
+     * Order terakhir sample. Diurutkan lewat id, bukan created_at, karena dua
+     * order dapat lahir pada detik yang sama ketika sample dikonversi berulang.
+     */
+    private static function latestOrder(Sample $sample): ?Order
+    {
+        return $sample->orders()->latest('id')->first();
     }
 }

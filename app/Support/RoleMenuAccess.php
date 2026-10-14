@@ -52,9 +52,12 @@ class RoleMenuAccess
                 MaterialResource::class,
             ],
 
+            // Kepala Produksi memeriksa output lewat daftar berbasis order
+            // (menu "Output 30 Menit" miliknya sendiri), bukan lewat log datar
+            // OutputEntryResource — menu itu pintu masuk penjahit, dan akses
+            // URL-nya tetap terbuka bagi mandor lewat policy.
             UserRole::PRODUCTION_LEAD->value => [
                 ProductionLineResource::class,
-                OutputEntryResource::class,
                 AssemblyResource::class,
                 RateCardResource::class,
                 ApprovedSampleResource::class,

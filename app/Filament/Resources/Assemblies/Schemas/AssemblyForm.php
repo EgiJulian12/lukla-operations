@@ -54,10 +54,19 @@ class AssemblyForm
     }
 
     /**
+     * Pilihan output terverifikasi sebuah order: komponen · penjahit · pcs · waktu.
+     *
+     * Dipakai form perakitan maupun modal "Input Perakitan" pada halaman detail
+     * order, supaya keduanya menawarkan pilihan yang sama persis. Menerima Order
+     * sekaligus id-nya karena pemanggil dari modal sudah memegang ordernya,
+     * sedangkan form hanya punya state order_id.
+     *
      * @return array<int, string>
      */
-    private static function verifiedOutputOptions(int|string|null $orderId): array
+    public static function verifiedOutputOptions(Order|int|string|null $order): array
     {
+        $orderId = $order instanceof Order ? $order->getKey() : $order;
+
         if (blank($orderId)) {
             return [];
         }

@@ -2,31 +2,147 @@
 
 namespace App\Services\Production;
 
+use App\Enums\OrderStatus;
 use App\Enums\OutputStatus;
+use App\Enums\UserRole;
+use App\Exceptions\AssemblyNotReady;
 use App\Exceptions\DuplicateOutputInterval;
+use App\Exceptions\IncompleteComponentAssignment;
+use App\Exceptions\InvalidOrderState;
 use App\Exceptions\InvalidOutputState;
 use App\Models\Assembly;
 use App\Models\Component;
 use App\Models\LineAssignment;
 use App\Models\Order;
+use App\Models\OrderComponentAssignment;
 use App\Models\OutputEntry;
 use App\Models\ProductionLine;
 use App\Models\User;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Satu-satunya jalur tulis untuk alokasi line, output 30 menit, verifikasi
- * mandor, dan perakitan (FR-009 sampai FR-013).
+ * Satu-satunya jalur tulis untuk memulai produksi, rencana penjahit per
+ * komponen, alokasi line, output 30 menit, verifikasi mandor, dan perakitan
+ * (FR-009 sampai FR-013).
  *
  * Output yang sudah diverifikasi terkunci: verifikasi adalah gerbang menuju
  * payroll, dan setelah lewat gerbang itu penjahit tidak dapat mengubah catatan
  * (matriks RBAC, separasi tugas FR-012).
+ *
+ * Verifikasi boleh dilakukan baris per baris maupun sekaligus untuk satu order;
+ * keduanya melewati aturan status yang sama, sehingga tidak ada jalur yang lebih
+ * longgar dari jalur lainnya.
  */
 class ProductionService
 {
+    /**
+     * Memulai pengerjaan order massal dan menetapkan rencana penjahitnya
+     * (FR-004 → FR-009).
+     *
+     * Order hasil konversi sample berhenti pada status Siap Produksi. Saat
+     * mandor memulai, order masuk lantai produksi SEKALIGUS setiap komponen
+     * artikelnya mendapat penjahit, sehingga tidak pernah ada order yang
+     * berjalan tanpa pemilik komponen yang jelas. Rencana divalidasi lebih dulu,
+     * lalu status dan penugasan ditulis dalam satu transaksi — rencana yang
+     * ditolak tidak meninggalkan bekas apa pun pada order.
+     *
+     * Rencana ini menggantikan alokasi berbasis line sebagai penentu siapa
+     * mengerjakan apa. Line melayani order lintas klien, sehingga keanggotaan
+     * line tidak menunjukkan tanggung jawab per komponen; alokasi line tetap
+     * berlaku untuk hal yang memang soal line, mis. penempatan mesin.
+     *
+     * Order tanpa artikel atau dengan artikel tanpa komponen tidak punya
+     * rencana untuk diisi, sehingga daftar kosong adalah jawaban yang benar.
+     *
+     * @param  array<int, array{component_id: int, user_id: int}>  $componentAssignments
+     */
+    public function startProduction(Order $order, array $componentAssignments): Order
+    {
+        if ($order->status !== OrderStatus::READY_FOR_PRODUCTION) {
+            throw InvalidOrderState::notReadyForProduction($order);
+        }
+
+        $components = $order->components();
+        $plan = $this->validateComponentAssignments($order, $components, $componentAssignments);
+
+        return DB::transaction(function () use ($order, $plan): Order {
+            $order->update(['status' => OrderStatus::IN_PRODUCTION]);
+
+            foreach ($plan as $assignment) {
+                OrderComponentAssignment::create([
+                    'order_id' => $order->getKey(),
+                    'component_id' => $assignment['component_id'],
+                    'user_id' => $assignment['user_id'],
+                    'assigned_at' => now(),
+                ]);
+            }
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * Memeriksa rencana penjahit sebelum order berjalan.
+     *
+     * Aturannya: setiap komponen artikel mendapat tepat satu penjahit, dan
+     * penjahitnya benar-benar berperan Penjahit — bukan sekadar pengguna mana
+     * pun yang lolos dari dropdown.
+     *
+     * @param  Collection<int, Component>  $components
+     * @param  array<int, array{component_id: int, user_id: int}>  $componentAssignments
+     * @return array<int, array{component_id: int, user_id: int}>
+     */
+    private function validateComponentAssignments(Order $order, Collection $components, array $componentAssignments): array
+    {
+        $expectedIds = $components->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $submittedIds = [];
+
+        foreach ($componentAssignments as $assignment) {
+            $componentId = (int) $assignment['component_id'];
+
+            if (! in_array($componentId, $expectedIds, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Komponen #%d bukan bagian dari artikel order %s.',
+                    $componentId,
+                    $order->order_number,
+                ));
+            }
+
+            $tailor = User::find($assignment['user_id']);
+
+            if ($tailor === null || ! $tailor->hasRoleSatisfying(fn (UserRole $role): bool => $role->canSubmitOutput())) {
+                throw new InvalidArgumentException(sprintf(
+                    'Pengguna #%s tidak berperan Penjahit, sehingga tidak dapat ditugaskan ke komponen.',
+                    $assignment['user_id'],
+                ));
+            }
+
+            $submittedIds[] = $componentId;
+        }
+
+        $missing = $components
+            ->reject(fn (Component $component): bool => in_array((int) $component->getKey(), $submittedIds, true))
+            ->pluck('name')
+            ->all();
+
+        if ($missing !== []) {
+            throw IncompleteComponentAssignment::missingComponents($order, $missing);
+        }
+
+        if (count($submittedIds) !== count($expectedIds)) {
+            throw IncompleteComponentAssignment::duplicatedComponent($order);
+        }
+
+        return array_map(fn (array $assignment): array => [
+            'component_id' => (int) $assignment['component_id'],
+            'user_id' => (int) $assignment['user_id'],
+        ], array_values($componentAssignments));
+    }
+
     /**
      * Menugaskan penjahit ke sebuah line (FR-009). Tanpa batas jumlah slot,
      * sehingga kapasitas line bersifat cair mengikuti volume order (NFR-001).
@@ -59,10 +175,14 @@ class ProductionService
      * Waktu yang diberikan dibulatkan ke batas interval terdekat supaya satu
      * penjahit hanya menghasilkan satu catatan per komponen per interval, sesuai
      * unique(user_id, component_id, interval_start).
+     *
+     * Line boleh kosong. Penugasan penjahit ditetapkan per komponen, sehingga
+     * penjahit yang tidak sedang terdaftar di line mana pun tetap boleh
+     * melaporkan hasil kerjanya; line hanya diisi bila memang diketahui.
      */
     public function submitOutput(
         Order $order,
-        ProductionLine $line,
+        ?ProductionLine $line,
         User $operator,
         Component $component,
         int $quantity,
@@ -88,7 +208,7 @@ class ProductionService
         return OutputEntry::create([
             'client_id' => $order->client_id,
             'order_id' => $order->getKey(),
-            'production_line_id' => $line->getKey(),
+            'production_line_id' => $line?->getKey(),
             'user_id' => $operator->getKey(),
             'component_id' => $component->getKey(),
             'quantity' => $quantity,
@@ -132,10 +252,52 @@ class ProductionService
     }
 
     /**
+     * Memverifikasi sekaligus seluruh output order yang masih menunggu (FR-012).
+     *
+     * Mandor yang sudah memeriksa satu order biasanya memutuskan untuk seluruh
+     * barisnya, bukan baris per baris. Verifikasi massal dijalankan dalam satu
+     * transaksi supaya tidak ada baris yang tertinggal separuh terverifikasi bila
+     * satu baris gagal, dan aturan statusnya tetap dipinjam dari verifyOutput()
+     * agar tidak ada dua definisi "boleh diverifikasi".
+     *
+     * @return int jumlah baris yang diverifikasi
+     */
+    public function verifyAllPendingOutputs(Order $order, User $verifier): int
+    {
+        return DB::transaction(function () use ($order, $verifier): int {
+            $entries = $this->pendingOutputs($order);
+
+            foreach ($entries as $entry) {
+                $this->verifyOutput($entry, $verifier);
+            }
+
+            return $entries->count();
+        });
+    }
+
+    /**
+     * Output order yang masih menunggu verifikasi, terurut sesuai urutan
+     * kejadiannya agar notifikasi dan pengujian memandang baris dalam urutan
+     * yang sama.
+     *
+     * @return Collection<int, OutputEntry>
+     */
+    private function pendingOutputs(Order $order): Collection
+    {
+        return $order->outputEntries()
+            ->where('status', OutputStatus::SUBMITTED->value)
+            ->orderBy('interval_start')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * Merakit output terverifikasi menjadi produk utuh (FR-013).
      *
      * Hanya output berstatus terverifikasi yang boleh menyusun perakitan, dan
-     * seluruhnya harus milik order yang sama.
+     * seluruhnya harus milik order yang sama. Ordernya sendiri juga harus sudah
+     * siap dirakit: tidak ada output yang menunggu verifikasi dan setiap komponen
+     * artikelnya sudah punya output terverifikasi (Order::isReadyForAssembly()).
      *
      * @param  array<int, int>  $outputEntryIds
      */
@@ -165,6 +327,11 @@ class ProductionService
             }
         }
 
+        // Gerbang kesiapan order diperiksa setelah baris yang dipilih sendiri sah:
+        // salah memilih output tetap dilaporkan sebagai galat output, bukan sebagai
+        // order yang belum siap.
+        $this->ensureReadyForAssembly($order);
+
         return DB::transaction(function () use ($order, $entries, $quantity, $notes): Assembly {
             $assembly = Assembly::create([
                 'client_id' => $order->client_id,
@@ -179,6 +346,36 @@ class ProductionService
 
             return $assembly->refresh();
         });
+    }
+
+    /**
+     * Menegakkan syarat perakitan (FR-012 → FR-013).
+     *
+     * Tombol yang aktif di UI hanyalah kenyamanan; aturan yang sama harus berlaku
+     * bagi pemanggil mana pun, termasuk pengujian dan perintah console. Karena itu
+     * keputusannya diambil dari Order::isReadyForAssembly() — definisi tunggal yang
+     * juga dipakai halaman detail order.
+     */
+    private function ensureReadyForAssembly(Order $order): void
+    {
+        if ($order->isReadyForAssembly()) {
+            return;
+        }
+
+        // Penyebab yang paling cepat ditindaklanjuti dilaporkan lebih dulu:
+        // verifikasi dulu, karena itulah tombol yang tersedia di halaman detail.
+        // Sisa kekurangannya baru terlihat setelah verifikasi itu selesai.
+        if ($order->hasPendingOutputVerification()) {
+            throw AssemblyNotReady::awaitingVerification($order, $order->pendingOutputVerificationCount());
+        }
+
+        $missingComponents = $order->componentsWithoutVerifiedOutput();
+
+        if ($missingComponents->isNotEmpty()) {
+            throw AssemblyNotReady::missingVerifiedComponents($order, $missingComponents->pluck('name')->all());
+        }
+
+        throw AssemblyNotReady::noVerifiedOutput($order);
     }
 
     /**

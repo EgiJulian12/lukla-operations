@@ -51,4 +51,14 @@ class Component extends Model
     {
         return $this->hasMany(RateCard::class);
     }
+
+    /**
+     * Order yang menugaskan penjahit untuk komponen ini (FR-009).
+     *
+     * @return HasMany<OrderComponentAssignment, $this>
+     */
+    public function orderAssignments(): HasMany
+    {
+        return $this->hasMany(OrderComponentAssignment::class);
+    }
 }

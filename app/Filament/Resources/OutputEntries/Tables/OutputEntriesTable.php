@@ -3,11 +3,9 @@
 namespace App\Filament\Resources\OutputEntries\Tables;
 
 use App\Enums\OutputStatus;
+use App\Filament\Resources\OutputEntries\Actions\RejectOutputAction;
+use App\Filament\Resources\OutputEntries\Actions\VerifyOutputAction;
 use App\Models\OutputEntry;
-use App\Services\Production\ProductionService;
-use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -16,7 +14,9 @@ use Filament\Tables\Table;
  * Daftar output 30 menit dengan aksi verifikasi mandor (FR-012).
  *
  * Verifikasi dan penolakan hanya muncul untuk output yang masih menunggu
- * verifikasi, dan bagi pengguna yang berwenang memverifikasi.
+ * verifikasi, dan bagi pengguna yang berwenang memverifikasi. Kedua aksinya
+ * dipakai bersama halaman verifikasi per order, sehingga perilakunya sama di
+ * mana pun mandor bertemu baris output.
  */
 class OutputEntriesTable
 {
@@ -34,7 +34,8 @@ class OutputEntriesTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('productionLine.name')
-                    ->label('Line'),
+                    ->label('Line')
+                    ->placeholder('-'),
                 TextColumn::make('order.order_number')
                     ->label('Order')
                     ->searchable(),
@@ -62,30 +63,8 @@ class OutputEntriesTable
                     ->preload(),
             ])
             ->recordActions([
-                Action::make('verify')
-                    ->label('Verifikasi')
-                    ->icon(Heroicon::OutlinedCheckBadge)
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (OutputEntry $record): bool => $record->status === OutputStatus::SUBMITTED
-                        && (bool) auth()->user()?->can('verify', $record))
-                    ->action(fn (OutputEntry $record) => app(ProductionService::class)
-                        ->verifyOutput($record, auth()->user()))
-                    ->successNotificationTitle('Output terverifikasi'),
-                Action::make('reject')
-                    ->label('Tolak')
-                    ->icon(Heroicon::OutlinedXMark)
-                    ->color('danger')
-                    ->visible(fn (OutputEntry $record): bool => $record->status === OutputStatus::SUBMITTED
-                        && (bool) auth()->user()?->can('reject', $record))
-                    ->form([
-                        Textarea::make('reason')
-                            ->label('Alasan Penolakan')
-                            ->required(),
-                    ])
-                    ->action(fn (OutputEntry $record, array $data) => app(ProductionService::class)
-                        ->rejectOutput($record, $data['reason']))
-                    ->successNotificationTitle('Output ditolak'),
+                VerifyOutputAction::make(),
+                RejectOutputAction::make(),
             ])
             ->defaultSort('interval_start', 'desc');
     }

@@ -8,6 +8,7 @@ use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
+use App\Filament\Resources\OutputReviews\OutputReviewResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
 use App\Filament\Resources\ProductionLines\ProductionLineResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
@@ -40,6 +41,9 @@ class RoleMenuAccessTest extends TestCase
         $this->assertFalse(ArticleResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
+
+        // Verifikasi output per order adalah wewenang Kepala Produksi, bukan penjahit.
+        $this->assertFalse(OutputReviewResource::canAccess());
     }
 
     public function test_qc_inspector_only_sees_qc_and_defect_categories(): void
@@ -105,6 +109,12 @@ class RoleMenuAccessTest extends TestCase
         $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
         $this->assertTrue(ProductionLineResource::shouldRegisterNavigation());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
+
+        // Output 30 Menit milik Kepala Produksi berbariskan order dan tinggal di
+        // menu Produksi; log datar OutputEntryResource tetap ada sebagai pintu
+        // masuk penjahit, bukan sebagai menu mandor.
+        $this->assertFalse(OutputEntryResource::shouldRegisterNavigation());
+        $this->assertTrue(OutputReviewResource::canAccess());
     }
 
     public function test_guest_cannot_see_any_resource_in_navigation(): void
@@ -113,5 +123,6 @@ class RoleMenuAccessTest extends TestCase
         $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
         $this->assertFalse(ArticleResource::shouldRegisterNavigation());
         $this->assertFalse(OutputEntryResource::shouldRegisterNavigation());
+        $this->assertFalse(OutputReviewResource::shouldRegisterNavigation());
     }
 }

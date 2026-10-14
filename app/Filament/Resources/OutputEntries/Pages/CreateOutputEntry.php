@@ -19,6 +19,9 @@ use Illuminate\Validation\ValidationException;
  * Bila penjahit sudah punya catatan untuk komponen dan interval yang sama,
  * service melempar DuplicateOutputInterval dan halaman ini mengubahnya menjadi
  * galat validasi pada field waktu interval.
+ *
+ * Line bersifat opsional — penugasan penjahit ditetapkan per komponen, bukan
+ * lewat keanggotaan line — sehingga baris tanpa line tetap boleh dicatat.
  */
 class CreateOutputEntry extends CreateRecord
 {
@@ -32,7 +35,12 @@ class CreateOutputEntry extends CreateRecord
         try {
             return app(ProductionService::class)->submitOutput(
                 order: Order::findOrFail($data['order_id']),
-                line: ProductionLine::findOrFail($data['production_line_id']),
+                // Line boleh kosong, tetapi bila diisi harus menunjuk line yang
+                // benar-benar ada — findOrFail menjaga salah isi tetap terlihat
+                // sebagai galat, bukan diam-diam tercatat tanpa line.
+                line: filled($data['production_line_id'] ?? null)
+                    ? ProductionLine::findOrFail($data['production_line_id'])
+                    : null,
                 operator: User::findOrFail($data['user_id']),
                 component: Component::findOrFail($data['component_id']),
                 quantity: (int) $data['quantity'],
