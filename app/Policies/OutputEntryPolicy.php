@@ -17,7 +17,12 @@ class OutputEntryPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canSubmitOutput()
+            || $role->canVerifyOutput()
+            || $role->canManageProduction()
+            || $role->canConfigureSystem()
+            || $role->canManagePayroll()
+        );
     }
 
     public function view(User $user, OutputEntry $entry): bool

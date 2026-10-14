@@ -7,6 +7,7 @@ use App\Enums\QcResult;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Hasil inspeksi QC (FR-014).
@@ -58,6 +59,11 @@ class QcRecord extends Model
     public function inspector(): BelongsTo
     {
         return $this->belongsTo(User::class, 'inspected_by');
+    }
+
+    public function repair(): HasOne
+    {
+        return $this->hasOne(Repair::class);
     }
 
     /**

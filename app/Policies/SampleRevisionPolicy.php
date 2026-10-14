@@ -17,7 +17,12 @@ class SampleRevisionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageSamples()
+            || $role->canApproveSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, SampleRevision $revision): bool

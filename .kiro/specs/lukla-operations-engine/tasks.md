@@ -207,21 +207,21 @@ $outputVerified = App\Models\OutputEntry::create([
 *Dependensi: None (Mandiri - Menggunakan tabel `qc_records` yang sudah ada)*  
 *Dasar Bisnis: BR 4.6 Hasil QC REPAIR: ke repair area, kembali produksi, QC ulang*
 
-- [ ] **5.1** Buat Enum `App\Enums\RepairStatus`
+- [x] **5.1** Buat Enum `App\Enums\RepairStatus`
   - **File Target**: `app/Enums/RepairStatus.php`
   - **Values**: `PENDING`, `IN_REPAIR`, `COMPLETED`.
-- [ ] **5.2** Migrasi Tabel `repairs`
+- [x] **5.2** Migrasi Tabel `repairs`
   - **File Target**: Migration baru `database/migrations/xxxx_create_repairs_table.php`
   - **Kolom**: `id`, `qc_record_id` (foreignId ke `qc_records`), `assigned_repairer_id` (foreignId ke `users`, nullable), `status` (string), `completed_at` (timestamp nullable), `notes` (text nullable), `timestamps`.
-- [ ] **5.3** Model `App\Models\Repair`
+- [x] **5.3** Model `App\Models\Repair`
   - **File Target**: `app/Models/Repair.php`
   - **Relasi & Helper**: `belongsTo(QcRecord::class)`, `belongsTo(User::class, 'assigned_repairer_id')`.
-- [ ] **5.4** Service `RepairManager`
+- [x] **5.4** Service `RepairManager`
   - **File Target**: `app/Services/Quality/RepairManager.php`
   - **Spesifikasi Logika**:
     - `createFromQc(QcRecord $qc, ?User $repairer = null): Repair` (status `PENDING`).
     - `markCompleted(Repair $repair): Repair` (set status `COMPLETED`, `completed_at = now()`, unit kembali ke antrean produksi/QC ulang).
-- [ ] **5.5** Unit & Feature Test
+- [x] **5.5** Unit & Feature Test
   - **File Target**: `tests/Feature/Quality/RepairManagerTest.php`
   - **Command Verifikasi**: `php artisan test --filter=RepairManagerTest`
 
@@ -232,7 +232,7 @@ $outputVerified = App\Models\OutputEntry::create([
 *Dependensi Interface: Memanggil `RepairManager` jika status REPAIR (atau fallback graceful jika Modul 5 belum di-merge)*  
 *Dasar Bisnis: BR 4.6 3 Hasil QC (PASS, REPAIR, SCRAP), wajib input defect category jika REPAIR/SCRAP, +1 bonus per PASS*
 
-- [ ] **6.1** Validasi Defect Category & Hook Status pada `QcService`
+- [x] **6.1** Validasi Defect Category & Hook Status pada `QcService`
   - **File Target**: `app/Services/Quality/QcService.php`
   - **Spesifikasi Logika**:
     - Unit yang diinspeksi berasal dari perakitan/komponen terverifikasi (FR-013).
@@ -247,7 +247,7 @@ $outputVerified = App\Models\OutputEntry::create([
       - Wajib input `defect_category` (tolak jika kosong, BR 4.6, FR-014).
       - Unit diarahkan ke scrap area dan otomatis tercatat ke `waste_records` dengan kategori dan atribusi client/order (FR-008).
       - Tidak menambah bonus pool QC.
-- [ ] **6.2** Unit & Feature Test
+- [x] **6.2** Unit & Feature Test
   - **File Target**: `tests/Feature/Quality/QcInspectionFlowTest.php`
   - **Command Verifikasi**: `php artisan test --filter=QcInspectionFlowTest`
 

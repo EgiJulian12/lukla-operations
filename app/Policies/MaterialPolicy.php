@@ -16,7 +16,13 @@ class MaterialPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageMaterials()
+            || $role->canManageSamples()
+            || $role->canConfigureSystem()
+            || $role->canManagePurchaseOrders()
+            || $role->canManageProduction()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Material $material): bool
