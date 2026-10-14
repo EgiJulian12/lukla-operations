@@ -11,9 +11,8 @@ use DateTimeInterface;
  *
  * Satu kombinasi klien, artikel, dan komponen dapat punya beberapa rate card
  * dengan rentang tanggal berbeda. Pencarian memilih tarif yang paling spesifik
- * pada tanggal yang diminta, dengan urutan: komponen, lalu artikel, lalu tarif
- * dasar klien. Tarif yang lebih spesifik selalu menang agar kustomisasi per
- * komponen tidak tertimpa tarif umum.
+ * pada tanggal yang diminta dan HANYA yang berstatus APPROVED, dengan urutan:
+ * komponen, lalu artikel, lalu tarif dasar klien.
  */
 class RateCardResolver
 {
@@ -28,6 +27,7 @@ class RateCardResolver
             ->withoutGlobalScope('client')
             ->where('client_id', $clientId)
             ->where('rate_type', $type->value)
+            ->approved()
             ->effectiveOn($date);
 
         $candidates = array_filter([

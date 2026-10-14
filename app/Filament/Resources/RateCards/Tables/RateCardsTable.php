@@ -2,19 +2,22 @@
 
 namespace App\Filament\Resources\RateCards\Tables;
 
+use App\Enums\RateCardStatus;
 use App\Enums\RateType;
 use App\Models\RateCard;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 /**
- * Daftar rate card per klien, dengan penanda tarif yang sedang berlaku.
+ * Daftar rate card per klien, dengan penanda tarif yang sedang berlaku dan aksi approval.
  *
- * Tanpa aksi hapus: tarif lama ditutup dengan effective_to agar riwayatnya
- * tetap tersimpan.
+ * Mendukung approval oleh Owner/Finance serta in-place update tanpa history.
  */
 class RateCardsTable
 {
@@ -39,6 +42,9 @@ class RateCardsTable
                     ->label('Tarif')
                     ->money('IDR')
                     ->sortable(),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge(),
                 TextColumn::make('effective_from')
                     ->label('Berlaku Sejak')
                     ->date()
@@ -58,11 +64,41 @@ class RateCardsTable
                     ->relationship('client', 'name')
                     ->searchable()
                     ->preload(),
+                SelectFilter::make('status')
+                    ->label('Status')
+                    ->options(RateCardStatus::class),
                 SelectFilter::make('rate_type')
                     ->label('Jenis')
                     ->options(RateType::class),
             ])
             ->recordActions([
+                Action::make('approve')
+                    ->label('Setujui')
+                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->visible(fn (RateCard $record): bool => $record->status !== RateCardStatus::APPROVED
+                        && (bool) auth()->user()?->can('approve', $record))
+                    ->action(function (RateCard $record): void {
+                        $record->approve(auth()->user());
+                    })
+                    ->successNotificationTitle('Tarif disetujui'),
+                Action::make('reject')
+                    ->label('Tolak')
+                    ->icon(Heroicon::OutlinedXCircle)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn (RateCard $record): bool => $record->status === RateCardStatus::PENDING
+                        && (bool) auth()->user()?->can('reject', $record))
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Alasan Penolakan / Target Tarif')
+                            ->required(),
+                    ])
+                    ->action(function (RateCard $record, array $data): void {
+                        $record->reject($data['reason'], auth()->user());
+                    })
+                    ->successNotificationTitle('Tarif ditolak / minta revisi'),
                 EditAction::make()
                     ->label('Ubah'),
             ])
