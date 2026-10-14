@@ -16,7 +16,13 @@ class ComponentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageArticles()
+            || $role->canManageSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+            || $role->canManageRateCards()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Component $component): bool

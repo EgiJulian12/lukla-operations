@@ -13,7 +13,14 @@ class ArticlePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageArticles()
+            || $role->canManageSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+            || $role->canManageRateCards()
+            || $role->canManageMaterials()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Article $article): bool

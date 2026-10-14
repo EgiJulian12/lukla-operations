@@ -57,6 +57,7 @@ class AssemblyResource extends Resource
     /**
      * Finance tidak mengelola perakitan; itu domain lantai produksi.
      * Tim Sample juga tidak mengelola perakitan — itu berlangsung setelah produksi selesai.
+     * QC Inspector menginspeksi perakitan via Antrean Pesanan QC, bukan menu Perakitan.
      */
     public static function canAccess(): bool
     {
@@ -65,7 +66,8 @@ class AssemblyResource extends Resource
 
         return ! $user->hasRoleSatisfying(
             fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
-                || $role === UserRole::SAMPLE_TEAM,
+                || $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::QC_INSPECTOR,
         );
     }
 }

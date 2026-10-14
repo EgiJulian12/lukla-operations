@@ -16,7 +16,10 @@ class TimeStudyPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+        );
     }
 
     public function view(User $user, TimeStudy $timeStudy): bool

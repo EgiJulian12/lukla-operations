@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\BelongsToClient;
 use App\Enums\OrderStatus;
+use App\Enums\QcResult;
 use App\Enums\WorkScheme;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,63 @@ class Order extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function assemblies(): HasMany
+    {
+        return $this->hasMany(Assembly::class);
+    }
+
+    /**
+     * Jumlah unit dari perakitan yang sudah siap diperiksa QC.
+     */
+    public function qcReadyQuantity(): int
+    {
+        return (int) $this->assemblies->sum(fn (Assembly $assembly): int => $assembly->remainingQuantity());
+    }
+
+    /**
+     * Jumlah unit yang telah dinyatakan lolos (PASS).
+     */
+    public function qcPassedQuantity(): int
+    {
+        return (int) $this->qcRecords()->where('result', QcResult::PASS->value)->sum('quantity');
+    }
+
+    /**
+     * Jumlah unit yang saat ini dalam perbaikan (REPAIR).
+     */
+    public function qcRepairQuantity(): int
+    {
+        return (int) $this->qcRecords()->where('result', QcResult::REPAIR->value)->sum('quantity');
+    }
+
+    /**
+     * Jumlah unit yang dinyatakan afkir/ditolak (SCRAP).
+     */
+    public function qcScrapQuantity(): int
+    {
+        return (int) $this->qcRecords()->where('result', QcResult::SCRAP->value)->sum('quantity');
+    }
+
+    /**
+     * Persentase pencapaian lolos QC terhadap target pesanan.
+     */
+    public function qcProgressPercentage(): float
+    {
+        if ($this->quantity <= 0) {
+            return 0.0;
+        }
+
+        return min(100.0, round(($this->qcPassedQuantity() / $this->quantity) * 100, 1));
+    }
+
+    /**
+     * Apakah terdapat unit yang sedang siap dicek QC.
+     */
+    public function hasReadyQc(): bool
+    {
+        return $this->qcReadyQuantity() > 0;
+    }
+
     /**
      * Order yang terkunci (selesai/dibatalkan) tidak boleh diubah lagi.
      * Mendukung aturan matriks RBAC tentang histori transaksi terkunci.
@@ -106,7 +164,7 @@ class Order extends Model
     public function invoiceSelectLabel(): string
     {
         return sprintf(
-            '%s â€” %s (%s pcs)',
+            '%s — %s (%s pcs)',
             $this->order_number,
             $this->status->getLabel(),
             number_format($this->quantity),

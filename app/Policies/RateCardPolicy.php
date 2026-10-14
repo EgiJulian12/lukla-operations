@@ -17,7 +17,7 @@ class RateCardPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $this->canManage($user);
     }
 
     public function view(User $user, RateCard $rateCard): bool
