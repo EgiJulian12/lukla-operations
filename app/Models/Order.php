@@ -6,18 +6,22 @@ use App\Concerns\BelongsToClient;
 use App\Enums\OrderStatus;
 use App\Enums\QcResult;
 use App\Enums\WorkScheme;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 /**
- * Order produksi massal (FR-004).
+ * Order â€” dari permintaan klien sampai produksi massal (FR-004).
  *
  * Order membawa revisi sample yang disetujui dan skema maklon yang dipilih,
  * sehingga spesifikasi yang diproduksi massal selalu dapat ditelusuri kembali
- * ke revisi sample asalnya (BR-005).
+ * ke revisi sample asalnya (BR-005). Order yang dibuat klien berjalan lebih
+ * dulu sebagai permintaan: gambar design dan deskripsi, lalu penawaran owner,
+ * sebelum menjadi order produksi.
  */
 class Order extends Model
 {
@@ -27,11 +31,20 @@ class Order extends Model
 
     protected $fillable = [
         'client_id',
+        'article_id',
         'sample_id',
         'sample_revision_id',
         'order_number',
         'work_scheme',
         'quantity',
+        'description',
+        'design_images',
+        'estimated_cost',
+        'quote_notes',
+        'quoted_at',
+        'quoted_by',
+        'quote_approved_at',
+        'sample_requested_at',
         'status',
         'due_date',
         'notes',
@@ -44,8 +57,23 @@ class Order extends Model
             'work_scheme' => WorkScheme::class,
             'status' => OrderStatus::class,
             'quantity' => 'integer',
+            'design_images' => 'array',
+            'estimated_cost' => 'decimal:2',
+            'quoted_at' => 'datetime',
+            'quote_approved_at' => 'datetime',
+            'sample_requested_at' => 'datetime',
             'due_date' => 'date',
         ];
+    }
+
+    public function article(): BelongsTo
+    {
+        return $this->belongsTo(Article::class);
+    }
+
+    public function quoter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'quoted_by');
     }
 
     public function sample(): BelongsTo
@@ -145,6 +173,57 @@ class Order extends Model
     }
 
     /**
+     * Order yang sudah masuk tahap kerja fisik.
+     *
+     * Permintaan klien yang belum disetujui tidak punya bahan, output, maupun
+     * sample, sehingga tidak boleh muncul di dashboard produksi dan antrean QC.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public function scopeProductionStage(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            OrderStatus::DRAFT->value,
+            OrderStatus::CONFIRMED->value,
+            OrderStatus::IN_PRODUCTION->value,
+            OrderStatus::IN_QC->value,
+            OrderStatus::COMPLETED->value,
+        ]);
+    }
+
+    /**
+     * Penawaran sudah dikirim owner dan belum diputuskan klien.
+     */
+    public function awaitingQuotation(): bool
+    {
+        return $this->status->needsQuotation();
+    }
+
+    public function hasApprovedQuote(): bool
+    {
+        return $this->status->isQuoteApproved();
+    }
+
+    /**
+     * URL gambar design untuk ditampilkan di UI. Path disimpan relatif
+     * terhadap disk s3 sehingga dapat dipindahkan tanpa mengubah data;
+     * bucket privat, jadi URL polos ditolak dan harus bertanda tangan.
+     *
+     * @return array<int, string>
+     */
+    public function designImageUrls(): array
+    {
+        return array_map(
+            fn (string $path): string => Storage::disk('s3')->temporaryUrl(
+                $path,
+                now()->addMinutes(config('filament.temporary_file_url_expiry_minutes', 30)),
+            ),
+            $this->design_images ?? [],
+        );
+    }
+
+    /**
      * Apakah order ini sudah mempunyai invoice draf atau terbit.
      *
      * Finance perlu tahu order mana yang belum ditagihkan saat membuat invoice
@@ -163,7 +242,7 @@ class Order extends Model
     public function invoiceSelectLabel(): string
     {
         return sprintf(
-            '%s — %s (%s pcs)',
+            '%s ï¿½ %s (%s pcs)',
             $this->order_number,
             $this->status->getLabel(),
             number_format($this->quantity),

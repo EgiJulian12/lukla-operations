@@ -5,6 +5,7 @@ namespace App\Filament\Portal\Resources\Orders\Schemas;
 use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Models\Order;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -23,6 +24,39 @@ class PortalOrderInfolist
     {
         return $schema
             ->components([
+                Section::make('Permintaan Design')
+                    ->description('Gambar dan deskripsi yang Anda ajukan saat membuat pesanan.')
+                    ->schema([
+                        TextEntry::make('description')
+                            ->label('Deskripsi')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
+                        // Bucket s3 privat, jadi URL polos ditolak 403; biarkan
+                        // Filament menerbitkan URL bertanda tangan.
+                        ImageEntry::make('design_images')
+                            ->label('Gambar Design')
+                            ->disk('s3')
+                            ->placeholder('Belum ada gambar design.')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+                Section::make('Penawaran Owner')
+                    ->description('Perkiraan biaya dan catatan dari owner. Setujui penawaran untuk melanjutkan ke tahap sample.')
+                    ->schema([
+                        TextEntry::make('estimated_cost')
+                            ->label('Perkiraan Biaya')
+                            ->money('IDR')
+                            ->placeholder('Belum ditawar'),
+                        TextEntry::make('quoted_at')
+                            ->label('Dikirim')
+                            ->dateTime()
+                            ->placeholder('-'),
+                        TextEntry::make('quote_notes')
+                            ->label('Catatan Penawaran')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
                 Section::make('Pesanan')
                     ->schema([
                         TextEntry::make('order_number')
@@ -36,7 +70,8 @@ class PortalOrderInfolist
                         TextEntry::make('quantity')
                             ->label('Target')
                             ->numeric()
-                            ->suffix(' pcs'),
+                            ->suffix(' pcs')
+                            ->placeholder('-'),
                         TextEntry::make('due_date')
                             ->label('Tenggat')
                             ->date()
