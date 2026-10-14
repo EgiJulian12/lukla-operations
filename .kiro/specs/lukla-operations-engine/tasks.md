@@ -41,16 +41,16 @@
 
 | Modul | Track | Reqs Bisnis | Dependensi Riil | Cara Eksekusi Paralel Tanpa Menunggu | Status Paralel |
 |---|---|---|---|---|---|
-| **Modul 1: Rate & Margin** | A | BR 4.1, FR-010 | Tidak ada | Beroperasi pada kalkulasi formula margin & `RateCard`. | ✅ **Bisa Langsung Dikerjakan** |
+| **Modul 1: Rate & Margin** | A | BR 4.1, FR-010 | Tidak ada | Beroperasi pada kalkulasi formula margin & `RateCard`. | ✅ **Selesai (Completed)** |
 | **Modul 2: Output Recording** | B | FR-011, BR 4.5 | Tidak ada | Menggunakan factory `Order`, `Component`, `User`. | ✅ **Bisa Langsung Dikerjakan** |
 | **Modul 3: Verification & Resubmit** | B | FR-012, BR 4.5 | Kolom penolakan di `output_entries` | Cukup buat migrasi kolomnya sendiri. | ✅ **Bisa Langsung Dikerjakan** |
 | **Modul 4: Line Allocation** | B | FR-009, NFR-001 | Kolom stasiun di `line_assignments` | Independen dari output recording. | ✅ **Bisa Langsung Dikerjakan** |
-| **Modul 5: Repair Domain** | C | FR-014, BR 4.6 | Relasi ke `QcRecord` (sudah ada di DB) | Buat tabel `repairs` & `RepairManager`. | ✅ **Bisa Langsung Dikerjakan** |
-| **Modul 6: QC Inspection Hook** | C | FR-008, FR-014 | Memanggil Modul 5 jika REPAIR | Gunakan Mock / Null Object jika Modul 5 belum merge. | ✅ **Bisa Langsung Dikerjakan** |
+| **Modul 5: Repair Domain** | C | FR-014, BR 4.6 | Relasi ke `QcRecord` (sudah ada di DB) | Buat tabel `repairs` & `RepairManager`. | ✅ **Selesai (Completed)** |
+| **Modul 6: QC Inspection Hook** | C | FR-008, FR-014 | Memanggil Modul 5 jika REPAIR | Gunakan Mock / Null Object jika Modul 5 belum merge. | ✅ **Selesai (Completed)** |
 | **Modul 7: Inventory & Waste**| D | FR-005, FR-008 | Tidak ada | Beroperasi pada `InventoryItem` & `WasteRecord`. | ✅ **Bisa Langsung Dikerjakan** |
 | **Modul 7B: Client Isolation** | D | FR-006, FR-007, BR 4.4 | Tidak ada | Verifikasi `BelongsToClient` & Tagging Semi-CMT. | ✅ **Bisa Langsung Dikerjakan** |
-| **Modul 8: QC Bonus Pool** | E | FR-017, BR 4.3 | Membaca `QcRecord` berstatus PASS | Gunakan factory `QcRecord::factory()->create(['result' => 'PASS'])`. | ✅ **Bisa Langsung Dikerjakan (Mocked)** |
-| **Modul 9: Weekly Payroll** | E | FR-015, FR-016, BR 4.2 | Membaca output VERIFIED & rate | Gunakan factory `OutputEntry::factory()->verified()`. | ✅ **Bisa Langsung Dikerjakan (Mocked)** |
+| **Modul 8: QC Bonus Pool** | E | FR-017, BR 4.3 | Membaca `QcRecord` berstatus PASS | Gunakan factory `QcRecord::factory()->create(['result' => 'PASS'])`. | ✅ **Selesai (Completed)** |
+| **Modul 9: Weekly Payroll** | E | FR-015, FR-016, BR 4.2 | Membaca output VERIFIED & rate | Gunakan factory `OutputEntry::factory()->verified()`. | ✅ **Selesai (Completed)** |
 | **Modul 10A: Order Lifecycle** | F | FR-001, FR-004 | Model `Order`, `Sample` | Verifikasi lifecycle state machine & convert sample. | ✅ **Bisa Langsung Dikerjakan** |
 | **Modul 10B: Scheduler & E2E** | F | Semua | Menghubungkan Modul 8 & 9 | Menunggu Track B, C, E selesai. | ⏳ **Tahap Akhir (Integrasi)** |
 
@@ -103,7 +103,7 @@ $outputVerified = App\Models\OutputEntry::create([
 *Dependensi: None (Mandiri)*  
 *Dasar Bisnis: BR 4.1 Formula `RATE ORDER = RATE KOMPONEN + MATERIAL + OVERHEAD + PROFIT`, FR-010, FR-026*
 
-- [ ] **1.1** Buat Service `App\Services\Finance\RateManager`
+- [x] **1.1** Buat Service `App\Services\Finance\RateManager`
   - **File Target**: `app/Services/Finance/RateManager.php`
   - **Spesifikasi Logika**:
     - Method `computeAvailableMargin(float $sellingPrice, float $materialCost, float $overhead, float $profit): float`
@@ -116,10 +116,10 @@ $outputVerified = App\Models\OutputEntry::create([
     - Method `approveRateKomponen(Order $order, Component $component, User $approver): void`
       - Kepala Produksi menentukan Rate Komponen, validasi terhadap batas margin yang ditetapkan Owner.
       - Rekam pengguna penyetuju (`approver_id`) dan timestamp persetujuan (FR-026).
-- [ ] **1.2** Pencatatan Audit Perubahan Tarif
+- [x] **1.2** Pencatatan Audit Perubahan Tarif
   - **File Target**: `app/Models/RateCard.php`
   - **Spesifikasi**: Rekam jejak audit (actor, timestamp, perubahan nilai) setiap kali terjadi create/update pada rate card (FR-022).
-- [ ] **1.3** Unit & Feature Test Mandiri
+- [x] **1.3** Unit & Feature Test Mandiri
   - **File Target**: `tests/Feature/Finance/RateManagerTest.php`
   - **Command Verifikasi**: `php artisan test --filter=RateManagerTest`
 
@@ -305,7 +305,7 @@ $outputVerified = App\Models\OutputEntry::create([
 *Dependensi Data: `QcRecord` berstatus PASS (Gunakan Kontrak 1 untuk testing tanpa menunggu Track C)*  
 *Dasar Bisnis: BR 4.3 Formula `QC Bonus Pool = Σ (Passed Units × QC Bonus Rate)`, Distribusi Pool ÷ 3 ke 2 Mandor + 1 Kepala Operasional, FR-017*
 
-- [ ] **8.1** Service `QcBonusDistributionService`
+- [x] **8.1** Service `QcBonusDistributionService`
   - **File Target**: `app/Services/Payroll/QcBonusDistributionService.php`
   - **Spesifikasi Logika**:
     - Method `finalizeBonusPool(PayrollPeriod $period): QcBonusPool`:
@@ -315,7 +315,7 @@ $outputVerified = App\Models\OutputEntry::create([
       - Distribusikan pool secara rata kepada 3 penerima: **2 Mandor** (`PRODUCTION_LEAD`) dan **1 Kepala Operasional** (`OWNER_EXECUTIVE`) (BR 4.3, FR-017).
       - Per recipient = `Pool ÷ 3`.
       - Gunakan pembagian rata dengan sisa pembulatan dibebankan ke penerima terakhir via `$pool->splitEqually()` agar total pembagian sama persis dengan total pool.
-- [ ] **8.2** Unit & Feature Test
+- [x] **8.2** Unit & Feature Test
   - **File Target**: `tests/Feature/Payroll/QcBonusDistributionServiceTest.php`
   - **Command Verifikasi**: `php artisan test --filter=QcBonusDistributionServiceTest`
 
@@ -326,19 +326,19 @@ $outputVerified = App\Models\OutputEntry::create([
 *Dependensi Data: `OutputEntry` VERIFIED & `RateCard` (Gunakan Kontrak 2 untuk testing tanpa menunggu Track B)*  
 *Dasar Bisnis: BR 3.1 & 4.2 Payroll mingguan ditutup setiap Sabtu, Base Pay formula, Meal Allowance 10-15%, Headcount dinamis (BR-006)*
 
-- [ ] **9.1** Method `closePeriod` & Penguncian Output di `PayrollService`
+- [x] **9.1** Method `closePeriod` & Penguncian Output di `PayrollService`
   - **File Target**: `app/Services/Payroll/PayrollService.php`
   - **Spesifikasi Logika**:
     - Periode payroll ditutup setiap Sabtu: kunci seluruh output berstatus `VERIFIED` agar tidak dapat diubah lagi (BR 3.1 step 10, FR-015).
     - Headcount Dinamis: Hitung payroll tanpa batas jumlah penjahit kaku; penjahit yang bergabung di tengah minggu tetap mendapat perhitungan borongan akurat (BR-006, Acceptance Scenario 2).
-- [ ] **9.2** Kalkulasi Base Pay, Uang Makan, dan Laporan Payroll
+- [x] **9.2** Kalkulasi Base Pay, Uang Makan, dan Laporan Payroll
   - **File Target**: `app/Services/Payroll/PayrollService.php`
   - **Spesifikasi Formula**:
     - `Base Pay = Σ (Verified Output × Rate Komponen)` (BR 3.1 step 10, FR-015).
     - `Meal Allowance = Meal% × Base Pay` (Default 10% - 15%, diinput oleh Finance di awal periode produksi) (BR 4.2, FR-016).
     - Total per penjahit = `Base Pay + Meal Allowance`.
     - Buat rincian laporan payroll untuk ditinjau oleh Finance dan Owner (Owner dapat VIEW reports, RBAC Section 5).
-- [ ] **9.3** Unit & Feature Test
+- [x] **9.3** Unit & Feature Test
   - **File Target**: `tests/Feature/Payroll/PayrollClosingAndCalculationTest.php`
   - **Command Verifikasi**: `php artisan test --filter=PayrollClosingAndCalculationTest`
 
