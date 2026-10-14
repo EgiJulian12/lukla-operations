@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Orders;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;

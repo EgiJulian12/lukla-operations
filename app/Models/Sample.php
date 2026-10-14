@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Concerns\BelongsToClient;
 use App\Enums\SampleStatus;
+use App\Enums\WorkScheme;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,8 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Sample — prototipe sebelum produksi massal (FR-001).
  *
- * Sample menyimpan revisi berurutan (v1, v2, dst). Hanya revisi yang disetujui
- * yang boleh dikonversi menjadi order produksi massal (FR-003, FR-004).
+ * Sample menyimpan revisi berurutan (v1, v2, dst) dan target skema maklon
+ * (CMT, Semi-CMT, CMT+Bahan). Hanya revisi yang disetujui yang boleh
+ * dikonversi menjadi order produksi massal (FR-003, FR-004).
  */
 class Sample extends Model
 {
@@ -66,10 +69,31 @@ class Sample extends Model
     }
 
     /**
-     * Revisi berikutnya untuk sample ini (v1, v2, dst).
+     * Scope hanya untuk sample yang sudah disetujui (Approved).
      *
-     * Query disusun ulang, bukan lewat relasi revisions(), karena relasi itu
-     * membawa ORDER BY version yang ditolak PostgreSQL pada query agregat.
+     * @param  Builder<Sample>  $query
+     * @return Builder<Sample>
+     */
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->where('status', SampleStatus::APPROVED->value);
+    }
+
+    /**
+     * Scope filter sample berdasarkan skema maklon order terkait (CMT, Semi-CMT, Full Package).
+     *
+     * @param  Builder<Sample>  $query
+     * @return Builder<Sample>
+     */
+    public function scopeForScheme(Builder $query, WorkScheme|string $scheme): Builder
+    {
+        $value = $scheme instanceof WorkScheme ? $scheme->value : $scheme;
+
+        return $query->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', $value));
+    }
+
+    /**
+     * Revisi berikutnya untuk sample ini (v1, v2, dst).
      */
     public function nextRevisionNumber(): int
     {

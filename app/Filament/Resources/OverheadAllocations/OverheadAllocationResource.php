@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\OverheadAllocations;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OverheadAllocations\Pages\ListOverheadAllocations;
 use App\Filament\Resources\OverheadAllocations\Tables\OverheadAllocationsTable;
 use App\Models\OverheadAllocation;

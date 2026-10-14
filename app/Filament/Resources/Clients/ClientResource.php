@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Clients;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;

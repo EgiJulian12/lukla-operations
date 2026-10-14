@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\PurchaseOrders;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;

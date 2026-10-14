@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\WasteRecords;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\WasteRecords\Pages\CreateWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\EditWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\ListWasteRecords;

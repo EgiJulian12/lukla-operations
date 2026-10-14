@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\UserRole;
+use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\Assemblies\AssemblyResource;
 use App\Filament\Resources\Clients\ClientResource;
@@ -38,6 +39,7 @@ class RoleMenuAccess
         return [
             UserRole::SAMPLE_TEAM->value => [
                 SampleResource::class,
+                ApprovedSampleResource::class,
                 ArticleResource::class,
                 ComponentResource::class,
                 OrderResource::class,
@@ -55,6 +57,7 @@ class RoleMenuAccess
                 OutputEntryResource::class,
                 AssemblyResource::class,
                 RateCardResource::class,
+                ApprovedSampleResource::class,
             ],
 
             UserRole::TAILOR_OPERATOR->value => [
@@ -80,6 +83,7 @@ class RoleMenuAccess
                 ClientResource::class,
                 OrderResource::class,
                 SampleResource::class,
+                ApprovedSampleResource::class,
                 RateCardResource::class,
                 PayrollPeriodResource::class,
                 InvoiceResource::class,

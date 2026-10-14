@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\RateCards;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\RateCards\Pages\CreateRateCard;
 use App\Filament\Resources\RateCards\Pages\EditRateCard;
 use App\Filament\Resources\RateCards\Pages\ListRateCards;

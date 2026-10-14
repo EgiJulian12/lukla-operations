@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\PayrollPeriods;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\PayrollPeriods\Pages\CreatePayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\EditPayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\ListPayrollPeriods;

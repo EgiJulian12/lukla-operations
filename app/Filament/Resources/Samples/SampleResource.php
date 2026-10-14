@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Samples;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Samples\Pages\CreateSample;
 use App\Filament\Resources\Samples\Pages\EditSample;
 use App\Filament\Resources\Samples\Pages\ListSamples;

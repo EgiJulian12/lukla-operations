@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\OutputEntries;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OutputEntries\Pages\CreateOutputEntry;
 use App\Filament\Resources\OutputEntries\Pages\ListOutputEntries;
 use App\Filament\Resources\OutputEntries\Schemas\OutputEntryForm;

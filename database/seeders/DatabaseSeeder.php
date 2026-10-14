@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
 
         $this->seedInternalUsers();
         $this->seedClientUsers();
+
+        $this->call(ApprovedSampleDemoSeeder::class);
     }
 
     /**

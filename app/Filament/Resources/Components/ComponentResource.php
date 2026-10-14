@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Components;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Components\Pages\CreateComponent;
 use App\Filament\Resources\Components\Pages\EditComponent;
 use App\Filament\Resources\Components\Pages\ListComponents;

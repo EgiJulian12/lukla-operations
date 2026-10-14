@@ -2,9 +2,8 @@
 
 namespace App\Filament\Resources\QcRecords;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
-use App\Filament\Resources\QcRecords\Pages\CreateQcRecord;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\QcRecords\Pages\ListQcRecords;
 use App\Filament\Resources\QcRecords\Schemas\QcRecordForm;
 use App\Filament\Resources\QcRecords\Tables\QcRecordsTable;

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\InventoryItems;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\InventoryItems\Pages\CreateInventoryItem;
 use App\Filament\Resources\InventoryItems\Pages\EditInventoryItem;
 use App\Filament\Resources\InventoryItems\Pages\ListInventoryItems;

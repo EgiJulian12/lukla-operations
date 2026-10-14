@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
@@ -91,11 +92,25 @@ class RoleMenuAccessTest extends TestCase
         $this->assertTrue(InvoiceResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
+        $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
+    }
+
+    public function test_production_lead_sees_approved_samples_in_sidebar(): void
+    {
+        $productionLead = User::factory()->create();
+        $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
+
+        $this->actingAs($productionLead);
+
+        $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertTrue(ProductionLineResource::shouldRegisterNavigation());
+        $this->assertFalse(SampleResource::shouldRegisterNavigation());
     }
 
     public function test_guest_cannot_see_any_resource_in_navigation(): void
     {
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
+        $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
         $this->assertFalse(ArticleResource::shouldRegisterNavigation());
         $this->assertFalse(OutputEntryResource::shouldRegisterNavigation());
     }

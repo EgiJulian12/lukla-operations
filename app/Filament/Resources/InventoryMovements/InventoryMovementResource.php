@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\InventoryMovements;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\InventoryMovements\Pages\CreateInventoryMovement;
 use App\Filament\Resources\InventoryMovements\Pages\ListInventoryMovements;
 use App\Filament\Resources\InventoryMovements\Schemas\InventoryMovementForm;

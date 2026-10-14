@@ -73,7 +73,7 @@ class SamplesTable
                         Select::make('work_scheme')
                             ->label('Skema Maklon')
                             ->options(WorkScheme::class)
-                            ->default(WorkScheme::SEMI_CMT->value)
+                            ->default(WorkScheme::CMT->value)
                             ->required(),
                         TextInput::make('quantity')
                             ->label('Jumlah Produksi')

@@ -21,6 +21,8 @@ class SamplePolicy
             || $role->canApproveSamples()
             || $role->canConfigureSystem()
             || $role->canManageProduction()
+            || $role->canManagePayroll()
+            || $role->canManageRateCards()
             || $role->isClientFacing()
         );
     }

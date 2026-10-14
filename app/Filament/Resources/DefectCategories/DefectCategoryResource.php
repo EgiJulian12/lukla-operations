@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\DefectCategories;
 
-use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\DefectCategories\Pages\CreateDefectCategory;
 use App\Filament\Resources\DefectCategories\Pages\EditDefectCategory;
 use App\Filament\Resources\DefectCategories\Pages\ListDefectCategories;
