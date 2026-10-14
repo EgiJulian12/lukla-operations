@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Inventory;
 
+use App\Enums\DispatchStatus;
 use App\Enums\UserRole;
 use App\Filament\Resources\InventoryItems\Pages\ListInventoryItems;
 use App\Filament\Resources\InventoryMovements\Pages\CreateInventoryMovement;
 use App\Filament\Resources\InventoryMovements\Pages\ListInventoryMovements;
 use App\Models\Client;
 use App\Models\InventoryItem;
+use App\Models\MaterialDispatch;
 use App\Models\Order;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
@@ -143,6 +145,44 @@ class InventoryAdminPagesTest extends TestCase
         $this->actingAs($user)
             ->get('/admin/inventory-items')
             ->assertForbidden();
+    }
+
+    public function test_stock_grid_shows_all_records_when_dispatch_filter_is_cleared_or_closed(): void
+    {
+        $client = Client::factory()->create();
+        $warehouseItem = $this->itemFor($client);
+
+        $receivedItem = $this->itemFor($client);
+        MaterialDispatch::create([
+            'dispatch_number' => 'DSP-TEST-001',
+            'client_id' => $client->getKey(),
+            'order_id' => $receivedItem->order_id,
+            'inventory_item_id' => $receivedItem->getKey(),
+            'material_id' => $receivedItem->material_id,
+            'quantity' => 10,
+            'uom' => $receivedItem->uom,
+            'status' => DispatchStatus::RECEIVED,
+        ]);
+
+        $this->actingAs($this->warehouseUser());
+
+        Livewire::test(ListInventoryItems::class)
+            // Nilai bawaan (in_warehouse) hanya menampilkan item di gudang
+            ->assertCanSeeTableRecords([$warehouseItem])
+            ->assertCanNotSeeTableRecords([$receivedItem])
+            // Ketika filter di-close atau dihapus, SEMUA item ditampilkan
+            ->removeTableFilter('dispatch_status_filter')
+            ->assertCanSeeTableRecords([$warehouseItem, $receivedItem])
+            // Ketika filter 'all' dipilih, SEMUA item ditampilkan
+            ->filterTable('dispatch_status_filter', 'all')
+            ->assertCanSeeTableRecords([$warehouseItem, $receivedItem])
+            // Ketika filter 'received' dipilih, hanya received item yang tampil
+            ->filterTable('dispatch_status_filter', 'received')
+            ->assertCanSeeTableRecords([$receivedItem])
+            ->assertCanNotSeeTableRecords([$warehouseItem])
+            // Ketika filter dikosongkan kembali (null), SEMUA item muncul kembali
+            ->filterTable('dispatch_status_filter', null)
+            ->assertCanSeeTableRecords([$warehouseItem, $receivedItem]);
     }
 
     private function warehouseUser(): User
