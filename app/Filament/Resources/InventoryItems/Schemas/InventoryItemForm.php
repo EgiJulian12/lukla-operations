@@ -31,7 +31,7 @@ class InventoryItemForm
                     ->disabledOn('edit')
                     ->helperText('Pemilik klien item mengikuti pesanan ini dan tidak dapat diubah setelah tercatat.'),
                 Select::make('material_id')
-                    ->label('Bahan')
+                    ->label('Bahan / Aksesoris')
                     ->relationship('material', 'name')
                     ->searchable()
                     ->preload()

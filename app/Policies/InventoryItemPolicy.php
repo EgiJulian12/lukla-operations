@@ -47,6 +47,11 @@ class InventoryItemPolicy
 
     public function update(User $user, InventoryItem $item): bool
     {
+        // Barang yang sudah diterima oleh produksi artinya sudah keluar dari gudang dan tidak dapat diedit lagi
+        if ($item->isReceivedByProduction()) {
+            return false;
+        }
+
         return $this->canManageInventory($user);
     }
 

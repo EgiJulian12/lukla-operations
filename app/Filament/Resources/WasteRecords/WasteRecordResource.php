@@ -40,6 +40,11 @@ class WasteRecordResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Sisa Potongan';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return WasteRecordForm::configure($schema);

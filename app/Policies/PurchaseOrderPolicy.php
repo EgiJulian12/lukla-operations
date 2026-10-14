@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\PurchaseOrderStatus;
 use App\Enums\UserRole;
 use App\Models\PurchaseOrder;
 use App\Models\User;
@@ -48,13 +47,15 @@ class PurchaseOrderPolicy
     {
         return $this->canManage($user)
             && $order->status !== null
-            && $order->status === PurchaseOrderStatus::DRAFT;
+            && $order->status->isApprovable();
     }
 
     private function canView(User $user): bool
     {
         return $user->client_id === null && $user->hasRoleSatisfying(
-            fn (UserRole $role): bool => $role->canManagePurchaseOrders() || $role->canConfigureSystem(),
+            fn (UserRole $role): bool => $role->canManagePurchaseOrders()
+                || $role->canConfigureSystem()
+                || $role->canManageInventory(),
         );
     }
 

@@ -35,7 +35,9 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 2. WHEN an Order is created with Semi-CMT scheme, THE Order Manager SHALL record scheme_type as "Semi-CMT" and set material_owner to Client for main materials and Lukla for accessories
 3. WHEN an Order is created with Full Package scheme, THE Order Manager SHALL record scheme_type as "Full Package" and set material_owner to Lukla
 4. WHERE scheme_type is Semi-CMT, THE Inventory Manager SHALL tag Lukla-supplied accessories with client_id of the destination order
-5. THE System SHALL prevent modification of scheme_type after Order status transitions to "In Production"
+5. WHEN an Order is created with Full Package or Semi-CMT scheme, THE Inventory Manager SHALL allow Warehouse to initiate a material procurement request (Purchase Order Draft) to Finance
+6. WHEN an Order is created with CMT scheme, THE Inventory Manager SHALL require Warehouse to record material receipt referencing Client Delivery Order (Surat Jalan Klien)
+7. THE System SHALL prevent modification of scheme_type after Order status transitions to "In Production"
 
 ### Requirement 2: Rate Card Management
 
@@ -94,13 +96,14 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 
 #### Acceptance Criteria
 
-1. WHEN material is received, THE Inventory Manager SHALL create an Inventory record with client_id, order_id, and item_type
-2. WHEN material is issued, THE Inventory Validator SHALL compare client_id of material with client_id of destination order
-3. IF client_id of material differs from client_id of destination order, THE Inventory Manager SHALL REJECT the issue with error message indicating client isolation violation
-4. WHERE scheme_type is Semi-CMT, THE Inventory Manager SHALL tag Lukla-supplied accessories with client_id of the destination order
-5. WHEN inventory movement of type RECEIVE, ISSUE, or TRANSFER occurs, THE Inventory Manager SHALL create audit trail entry with movement_type, source_id, destination_id, quantity, timestamp, and actor_id
-6. WHEN inventory movement is recorded, THE Audit Trail SHALL include source_id, destination_id, quantity, and timestamp
-7. IF client_id matches AND quantity is available, THE Inventory Manager SHALL deduct quantity from source inventory and transition status to "Issued"
+1. WHEN material is received, THE Inventory Manager SHALL create an Inventory record with client_id, order_id, item_type, AND generate a unique Tag ID (e.g. TAG-{CLIENT_CODE}-{ORDER_NUMBER}-{ITEM_ID})
+2. THE Inventory Manager SHALL provide a printable label slip (containing Barcode/QR Code, Client Name, Order Number, Material Name, Batch, and Quantity) for physical attachment to material rolls or containers
+3. WHEN material is issued, THE Inventory Validator SHALL compare client_id of material with client_id of destination order
+4. IF client_id of material differs from client_id of destination order, THE Inventory Manager SHALL REJECT the issue with error message indicating client isolation violation
+5. WHERE scheme_type is Semi-CMT, THE Inventory Manager SHALL tag Lukla-supplied accessories with client_id of the destination order
+6. WHEN inventory movement of type RECEIVE, ISSUE, or TRANSFER occurs, THE Inventory Manager SHALL create audit trail entry with movement_type, source_id, destination_id, quantity, timestamp, and actor_id
+7. WHEN inventory movement is recorded, THE Audit Trail SHALL include source_id, destination_id, quantity, and timestamp
+8. IF client_id matches AND quantity is available, THE Inventory Manager SHALL deduct quantity from source inventory and transition status to "Issued"
 
 ### Requirement 6: QC Inspection with Bonus Pool
 
@@ -189,19 +192,22 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 7. THE Allocation History SHALL be retained for minimum 2 years for reporting purposes
 8. WHERE Penjahit is assigned to multiple Lines in same Payroll Period, THE Payroll Calculator SHALL sum output from all assignments
 
-### Requirement 12: Inventory State Tracking
-
-**User Story:** sebagai Warehouse, saya ingin sistem melacak status inventory melalui lifecycle yang jelas (Received → Issued → Cut → Consumed), sehingga stock selalu akurat dan terdokumentasi.
+### Requirement 12: Inventory State Tracking & Production Dispatch Lifecycle
+ 
+**User Story:** sebagai Warehouse dan Tim Produksi/Cutting, saya ingin sistem melacak status siklus hidup inventory (Received → Issued → Cut → Consumed) serta mengelola alur pengantaran material dari gudang ke bagian produksi secara transparan dan dapat dilacak.
 
 #### Acceptance Criteria
 
-1. WHEN material arrives, THE Inventory Manager SHALL create Inventory record with status "RAW" and generate unique inventory_item_id
-2. WHEN material is issued to production, THE Inventory Manager SHALL transition status to "WIP"
-3. WHEN material is cut for production, THE Inventory Manager SHALL transition status to "WIP"
-4. WHEN material is consumed in assembly, THE Inventory Manager SHALL transition status to "FINISHED"
-5. IF status transition is not in sequence (RAW→WIP→FINISHED), THE Inventory Manager SHALL reject transition with error
-6. WHERE status changes, THE Audit Trail SHALL record previous_status, new_status, actor_id, inventory_item_id, and timestamp
-7. WHEN status transitions require production context, THE Inventory Manager SHALL require order_id for WIP and FINISHED transitions
+1. WHEN material arrives, THE Inventory Manager SHALL create Inventory record with status "RAW" and generate unique Tag ID
+2. IF status transition is not in sequential order (RAW → WIP → FINISHED), THE Inventory Manager SHALL reject transition with error indicating invalid state sequence
+3. WHEN material dispatch to production is initiated, THE Dispatch Manager SHALL create a Material Dispatch record with status "REQUESTED" (Pengajuan)
+4. WHEN Warehouse Head or Supervisor reviews the dispatch request, THE Dispatch Manager SHALL transition status to "APPROVED" (Disetujui) OR "REJECTED" (Ditolak dengan alasan)
+5. WHEN approved material leaves the warehouse, THE Dispatch Manager SHALL transition status to "DISPATCHED" (Dikirim) AND then "PENDING_DELIVERY" (Menunggu sampai di lini produksi)
+6. WHEN material physically arrives at production, THE Production Receiver SHALL confirm receipt and THE Dispatch Manager SHALL transition status to "RECEIVED" (Diterima)
+7. WHEN material is placed in line queue, THE Dispatch Manager SHALL transition status to "IDLE" (Antrian meja potong)
+8. WHEN cutting operator begins cutting, THE Dispatch Manager SHALL transition status to "IN_CUTTING" (Sedang di cutting)
+9. WHEN cutting is completed, THE Dispatch Manager SHALL transition status to "COMPLETED", transition the inventory item to "WIP", and prompt/record scrap pieces into WasteRecord (FR-008)
+10. WHERE status changes, THE Audit Trail SHALL record previous_status, new_status, actor_id, record_id, and timestamp
 
 ### Requirement 13: Repair Workflow Management
 
