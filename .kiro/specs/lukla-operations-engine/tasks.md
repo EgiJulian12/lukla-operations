@@ -255,46 +255,88 @@ $outputVerified = App\Models\OutputEntry::create([
 
 ## TRACK D: WAREHOUSE & INVENTORY (Independen)
 
-### MODUL 7: Inventory State Tracking & Waste Recording (FR-005, FR-008)
+### MODUL 7: Inventory State Tracking, Tagging & Waste Recording (FR-005, FR-008, FR-012)
 *PIC / Agent: Worker D1*  
 *Dependensi: None (Mandiri)*  
-*Dasar Bisnis: BR-002, FR-005, FR-008, State Machine Inventory: Received → Issued → Cut → Consumed*
+*Dasar Bisnis: BR-002, FR-005, FR-008, FR-012, State Machine Inventory: Received (RAW) → Issued/Cut (WIP) → Consumed (FINISHED)*
 
-- [ ] **7.1** Validasi Siklus Hidup Inventory di `InventoryService`
+- [x] **7.1** Validasi Siklus Hidup Inventory di `InventoryService`
   - **File Target**: `app/Services/Inventory/InventoryService.php`
   - **Spesifikasi Logika**:
     - Setiap item inventory wajib memiliki `client_id` dan `order_id` (BR 4.4, FR-005).
     - Siklus status inventory: Material mentah diterima (`RAW` / Received), dikeluarkan ke cutting (`WIP` / Issued/Cut), dan dikonsumsi ke perakitan (`FINISHED` / Consumed).
+    - Validasi urutan transisi sekuensial: penolakan jika melompati status (misal `RAW` langsung ke `FINISHED`).
     - Transisi ke WIP dan FINISHED wajib membawa konteks `order_id` yang valid.
-- [ ] **7.2** Pencatatan Waste & Scrap Material
+- [x] **7.2** Penanda Fisik (Tag ID Unik) & Format Cetak Label Bahan
+  - **File Target**: `app/Models/InventoryItem.php`, `app/Services/Inventory/InventoryService.php`, `resources/views/filament/resources/inventory-items/tag-label.blade.php`
+  - **Spesifikasi Logika**:
+    - Generate Tag ID unik dan human-readable per barang masuk yang mencerminkan kepemilikan klien dan pesanan: `TAG-{CLIENT_CODE}-{ORDER_NUMBER}-{ITEM_ID}` (misal: `TAG-ZRA-ORD001-0012`).
+    - Sediakan view/modal "Cetak Label Bahan" yang dapat dicetak (format stiker/thermal slip) berisi Barcode / QR Code, Nama Bahan, Client, Order ID, Batch, dan Tanggal Masuk untuk ditempel pada fisik bahan (roll kain / aksesoris).
+- [x] **7.3** Pencatatan Waste & Scrap Material
   - **File Target**: `app/Services/Inventory/InventoryService.php`
   - **Spesifikasi Logika**:
     - Catat potongan bahan sisa / scrap dengan kategori waste, kuantitas, dan atribusi client/order (FR-008).
-- [ ] **7.3** Unit & Feature Test
+- [x] **7.4** Unit & Feature Test Modul 7
   - **File Target**: `tests/Feature/Inventory/InventorySequenceAndWasteTest.php`
   - **Command Verifikasi**: `php artisan test --filter=InventorySequenceAndWasteTest`
 
 ---
 
-### MODUL 7B: Client & Order Isolation Guard & Semi-CMT Tagging (FR-006, FR-007, BR 4.4)
+### MODUL 7B: Work Scheme Fulfillment & Client Isolation Guard (FR-001, FR-006, FR-007, BR 2.1, BR 4.4)
 *PIC / Agent: Worker D2*  
 *Dependensi: None (Mandiri)*  
 *Dasar Bisnis: BR 2.1 Skema Maklon (CMT, Semi-CMT, Full Package), BR 4.4 Isolasi Stok, FR-006, FR-007*
 
-- [ ] **7.4** Validasi Isolasi Material & Aksesoris Semi-CMT
+- [x] **7.5** Koordinasi Alur Skema Maklon (CMT, Semi-CMT, Full Package)
+  - **File Target**: `app/Services/Inventory/InventoryService.php`, `app/Filament/Resources/Orders/OrderResource.php`
+  - **Spesifikasi Logika**:
+    - **CMT**: Bahan 100% dari klien. Gudang mencatat penerimaan kiriman dari klien berdasarkan Surat Jalan Klien (`receiveFromClient`).
+    - **Full Package**: Bahan 100% disediakan pabrik. Gudang membuat pengajuan pembelian bahan (PO Draft) yang diteruskan ke Finance (`requestProcurementToFinance`).
+    - **Semi-CMT**: Kombinasi bahan utama klien + aksesoris pabrik. Aksesoris dari Lukla WAJIB otomatis di-tag dengan `client_id` dan `order_id` klien tujuan (BR 4.4).
+- [x] **7.6** Validasi Isolasi Stok & Anti Cross-Client Issue
   - **File Target**: `app/Services/Inventory/InventoryService.php`
   - **Spesifikasi Logika**:
-    - Tiga skema maklon (BR 2.1):
-      - **CMT**: Client pemilik seluruh material.
-      - **Semi-CMT**: Client pemilik bahan utama, Lukla penyedia aksesoris. Aksesoris dari Lukla WAJIB di-tag dengan `client_id` klien tujuan (BR 4.4).
-      - **Full Package**: Lukla pemilik seluruh material.
-    - Aturan Isolasi Stok (BR 4.4, FR-007):
-      - Sebelum mencatat issue/pengeluaran material, bandingkan `client_id` dan `order_id` material dengan order tujuan.
-      - Jika `client_id` material ≠ `client_id` order tujuan: Sistem **WAJIB REJECT** dengan peringatan eksplisit (FR-007, Acceptance Scenario 1).
+    - Sebelum mencatat issue/pengeluaran material, bandingkan `client_id` dan `order_id` material dengan order tujuan.
+    - Jika `client_id` material ≠ `client_id` order tujuan: Sistem **WAJIB REJECT** dengan peringatan eksplisit (FR-007, Acceptance Scenario 1).
     - Audit Trail Movement: Setiap pergerakan (receive, issue, transfer, adjustment) wajib membawa `client_id`, `order_id`, jenis pergerakan, dan identitas aktor (FR-006, FR-022).
-- [ ] **7.5** Unit & Feature Test
-  - **File Target**: `tests/Feature/Inventory/CrossClientIssueRejectionTest.php`
-  - **Command Verifikasi**: `php artisan test --filter=CrossClientIssueRejectionTest`
+- [x] **7.7** Unit & Feature Test Modul 7B
+  - **File Target**: `tests/Feature/Inventory/CrossClientIssueRejectionTest.php`, `tests/Feature/Inventory/WorkSchemeInventoryHandlingTest.php`
+  - **Command Verifikasi**: `php artisan test --filter="CrossClientIssueRejectionTest|WorkSchemeInventoryHandlingTest"`
+
+---
+
+### MODUL 7C: Material Dispatch & Production Delivery Tracking (FR-012, Delivery Workflow)
+*PIC / Agent: Worker D3*  
+*Dependensi: Modul 7 & 7B*  
+*Dasar Bisnis: Pelacakan Pengantaran Bahan dari Gudang ke Produksi/Cutting*
+
+- [x] **7.8** Model, Migration, & Enum `MaterialDispatch`
+  - **File Target**: `database/migrations/*_create_material_dispatches_table.php`, `app/Models/MaterialDispatch.php`, `app/Enums/DispatchStatus.php`
+  - **Spesifikasi Logika**:
+    - Siklus status pengiriman (`DispatchStatus`):
+      - `pengajuan` (`REQUESTED`)
+      - `disetujui` (`APPROVED`)
+      - `ditolak` (`REJECTED`)
+      - `dikirim` (`DISPATCHED`)
+      - `pending` (`PENDING_DELIVERY` / menunggu sampai)
+      - `diterima` (`RECEIVED` / diterima di produksi)
+      - `idle` (`IDLE` / antrian meja cutting)
+      - `sedang di cutting` (`IN_CUTTING`)
+      - `selesai` (`COMPLETED`)
+    - Atribut dispatch: `dispatch_number`, `client_id`, `order_id`, `inventory_item_id`, `material_id`, `quantity`, `uom`, `status`, `rejection_reason`, `notes`, aktor pengaju, penyetuju, dan penerima.
+- [x] **7.9** Service `MaterialDispatchService`
+  - **File Target**: `app/Services/Inventory/MaterialDispatchService.php`
+  - **Spesifikasi Logika**:
+    - Transisi alur dispatch dari pengajuan, persetujuan/penolakan, pengiriman dari gudang, penerimaan di produksi, antrian idle, hingga proses cutting.
+    - Saat proses cutting selesai, otomatis memicu transisi status item inventory menjadi `WIP` dan mencatat sisa potongan sebagai `WasteRecord`.
+- [x] **7.10** Filament Resource & Antarmuka Pelacakan Pengantaran
+  - **File Target**: `app/Filament/Resources/MaterialDispatches/MaterialDispatchResource.php`
+  - **Spesifikasi Logika**:
+    - Tampilan tabel monitoring pengiriman bahan ke produksi dengan badge status interaktif.
+    - Tombol aksi transisi: Setujui, Tolak (dengan modal alasan), Kirim, Konfirmasi Terima, Mulai Cutting, dan Selesai Cutting (catat waste).
+- [x] **7.11** Unit & Feature Test Modul 7C
+  - **File Target**: `tests/Feature/Inventory/MaterialDispatchWorkflowTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=MaterialDispatchWorkflowTest`
 
 ---
 

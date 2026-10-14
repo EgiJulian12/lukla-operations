@@ -11,12 +11,14 @@ use Filament\Support\Contracts\HasLabel;
 enum PurchaseOrderStatus: string implements HasColor, HasLabel
 {
     case DRAFT = 'draft';
+    case SUBMITTED = 'submitted';
     case APPROVED = 'approved';
 
     public function getLabel(): string
     {
         return match ($this) {
             self::DRAFT => 'Draf',
+            self::SUBMITTED => 'Diajukan',
             self::APPROVED => 'Disetujui',
         };
     }
@@ -25,13 +27,14 @@ enum PurchaseOrderStatus: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::DRAFT => 'gray',
+            self::SUBMITTED => 'warning',
             self::APPROVED => 'success',
         };
     }
 
     public function isApprovable(): bool
     {
-        return $this === self::DRAFT;
+        return $this === self::DRAFT || $this === self::SUBMITTED;
     }
 
     /**

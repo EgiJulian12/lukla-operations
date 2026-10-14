@@ -23,11 +23,14 @@ class PurchaseOrder extends Model
     use HasFactory;
 
     protected $fillable = [
+        'order_id',
+        'client_id',
         'po_number',
         'supplier',
         'status',
         'ordered_at',
         'expected_at',
+        'requested_by',
         'approved_by',
         'approved_at',
         'notes',
@@ -51,6 +54,21 @@ class PurchaseOrder extends Model
             'expected_at' => 'date',
             'approved_at' => 'datetime',
         ];
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
     }
 
     public function items(): HasMany

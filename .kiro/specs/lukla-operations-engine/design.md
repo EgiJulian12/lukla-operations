@@ -154,6 +154,14 @@ The InventoryItem aggregate represents a physical material item in the warehouse
 
 The InventoryMovement entity represents a material movement transaction. It contains movement_id (UUID primary key), inventory_item_id (foreign key to InventoryItem), movement_type (enum: RECEIVE, ISSUE, TRANSFER), source_id (foreign key to Location or InventoryItem), destination_id (foreign key to Location or InventoryItem), quantity (decimal), order_id (foreign key to Order, nullable), actor_id (foreign key to User), timestamp (datetime UTC), and created_at. The entity supports movement audit trails and client isolation validation.
 
+### MaterialDispatch Entity (Production Delivery Tracking)
+
+The MaterialDispatch entity tracks the end-to-end delivery of materials from warehouse to the production/cutting line. It contains `dispatch_id` (primary key), `dispatch_number` (unique string, e.g. `DSP-202610-0001`), `client_id` (foreign key to Client), `order_id` (foreign key to Order), `inventory_item_id` (foreign key to InventoryItem), `material_id` (foreign key to Material), `quantity` (decimal), `uom` (string), `status` (enum: `REQUESTED`, `APPROVED`, `REJECTED`, `DISPATCHED`, `PENDING_DELIVERY`, `RECEIVED`, `IDLE`, `IN_CUTTING`, `COMPLETED`), `requested_by` (foreign key to User), `approved_by` (foreign key to User, nullable), `dispatched_by` (foreign key to User, nullable), `received_by` (foreign key to User, nullable), `rejection_reason` (text, nullable), `notes` (text, nullable), `timestamps`, and audit trail. Completing cutting on a dispatch transitions the underlying inventory item to `WIP` and prompts creation of `WasteRecord` for scrap.
+
+### Inventory Tagging & Physical Identification
+
+Every material received into the warehouse is stamped with a unique `tag_id` formatted as `TAG-{CLIENT_CODE}-{ORDER_NUMBER}-{ITEM_ID}`. The system provides a thermal/A4 printable label view containing Barcode (Code128) / QR Code, Material Name, Batch, Quantity, Client, and Order ID for physical attachment to rolls or packages in warehouse storage.
+
 ### Repair Entity
 
 The Repair entity represents a repair workflow instance. It contains repair_id (UUID primary key), output_id (foreign key to Output), qc_record_id (foreign key to QCRecord), repair_reason_id (foreign key to DefectCategory), assigned_repairer_id (foreign key to Worker), status (enum: PENDING, IN_PROGRESS, COMPLETED, MAX_ATTEMPTS_EXCEEDED), repair_attempt (integer), deadline (datetime UTC), completed_at (datetime UTC), created_at, and updated_at. The entity enforces the 3-attempt maximum, tracks deadlines for overdue alerts, and increments attempt counter on each REPAIR result.

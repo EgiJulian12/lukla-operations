@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\Auditable;
 use App\Concerns\BelongsToClient;
+use App\Enums\DispatchStatus;
 use App\Enums\InventoryState;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -58,6 +59,23 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    public function dispatches(): HasMany
+    {
+        return $this->hasMany(MaterialDispatch::class);
+    }
+
+    /**
+     * Kode penanda / Tag ID fisik bahan (FR-005, FR-012).
+     * Contoh: TAG-CLI1-ORD001-00042
+     */
+    public function getTagIdAttribute(): string
+    {
+        $clientCode = $this->client?->code ?? ('CLI'.$this->client_id);
+        $orderNumber = $this->order?->order_number ?? ('ORD'.$this->order_id);
+
+        return sprintf('TAG-%s-%s-%05d', strtoupper($clientCode), strtoupper($orderNumber), $this->id);
+    }
+
     /**
      * Kunci kepemilikan gabungan — dipakai untuk memverifikasi kecocokan
      * sebelum transaksi dicoba (FR-007, NFR-002).
@@ -82,5 +100,33 @@ class InventoryItem extends Model
 
         return (int) $this->client_id === (int) $clientId
             && (int) $this->order_id === (int) $orderId;
+    }
+
+    /**
+     * Apakah barang ini sudah resmi diterima oleh bagian produksi?
+     */
+    public function isReceivedByProduction(): bool
+    {
+        return $this->dispatches()
+            ->whereIn('status', [
+                DispatchStatus::RECEIVED,
+                DispatchStatus::IDLE,
+                DispatchStatus::IN_CUTTING,
+                DispatchStatus::COMPLETED,
+            ])
+            ->exists();
+    }
+
+    /**
+     * Apakah barang sedang dalam proses pengiriman ke bagian produksi?
+     */
+    public function isDispatched(): bool
+    {
+        return $this->dispatches()
+            ->whereIn('status', [
+                DispatchStatus::DISPATCHED,
+                DispatchStatus::PENDING_DELIVERY,
+            ])
+            ->exists();
     }
 }

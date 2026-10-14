@@ -80,16 +80,21 @@ Dokumen ini membandingkan codebase Lukla Operations Engine yang sudah ada dengan
 
 ---
 
-### Requirement 5: Multi-Tenant Inventory with Client Isolation
+### Requirement 5: Multi-Tenant Inventory with Client Isolation & Tagging
 
-- **Status**: ✓ COMPLETE
+- **Status**: ⚠️ PARTIAL
 - **Bukti**: 
   - Model `InventoryItem` memiliki `client_id`, `order_id`, `state`
   - Trait `BelongsToClient.php` sudah ada untuk client scoping
   - Enum `InventoryState` dan `MovementType` sudah ada
   - Model `InventoryMovement` ada untuk audit trail
-- **Logic yang Ada**: Client isolation sudah diimplementasikan via trait dan model structure
-- **Action**: Tidak diperlukan action, verify di testing bahwa client isolation working
+- **Logic yang Ada**: Client isolation sudah diimplementasikan via trait dan composite foreign key
+- **Gap**:
+  - Belum ada penomoran Tag ID fisik (`tag_id`) yang mengaitkan Klien dan Order (`TAG-{CLIENT_CODE}-{ORDER_NUMBER}-{ITEM_ID}`)
+  - Belum ada fitur cetak label fisik / printable label slip (Barcode/QR Code) untuk ditempel pada gulungan kain (roll) atau kemasan aksesoris di gudang
+- **Action**:
+  - Implementasikan generator `tag_id` di `InventoryItem` / `InventoryService`
+  - Buat view dan action "Cetak Label Bahan" di Filament `InventoryItemResource`
 
 ---
 
@@ -213,21 +218,22 @@ Dokumen ini membandingkan codebase Lukla Operations Engine yang sudah ada dengan
 
 ---
 
-### Requirement 12: Inventory State Tracking
+### Requirement 12: Inventory State Tracking & Production Delivery Lifecycle
 
-- **Status**: ✓ COMPLEATE
+- **Status**: ⚠️ PARTIAL
 - **Bukti**: 
-  - Model `InventoryItem` ada dengan `state` (InventoryState enum)
-  - Enum `InventoryState` ada (RAW, WIP, FINISHED)
+  - Model `InventoryItem` ada dengan `state` (InventoryState enum: RAW, WIP, FINISHED)
   - Model `InventoryMovement` ada untuk audit
-- **Logic yang Ada**: State tracking sudah ada
+- **Logic yang Ada**: State tracking kolom dasar sudah ada
 - **Gap**: 
-  - Tidak ada sequence validation (RAW→WIP→FINISHED)
-  - Tidak ada production context validation (order_id required untuk WIP/FINISHED)
+  - Tidak ada sequence validation (RAW → WIP → FINISHED) yang menolak lompatan status
+  - Belum ada entitas & alur pelacakan pengiriman bahan dari gudang ke produksi (`MaterialDispatch`): Pengajuan → Disetujui/Ditolak → Dikirim → Pending → Diterima → Idle → Sedang di cutting → Selesai
+  - Belum ada integrasi otomatis saat cutting selesai untuk mengubah status bahan ke WIP dan mencatat sisa bahan ke `WasteRecord`
 - **Action**: 
-  - Buat `InventoryStateManager` service dengan sequence validation
-  - Add event listeners untuk state transitions
-  - Enhancement `InventoryMovement.php` dengan previous_status
+  - Buat migration dan model `MaterialDispatch` beserta enum `DispatchStatus`
+  - Buat `MaterialDispatchService` untuk mengelola workflow delivery & cutting lifecycle
+  - Tambahkan method sequential state transition di `InventoryService`
+  - Buat Filament Resource `MaterialDispatchResource` untuk monitoring interaktif antara Gudang dan Produksi
 
 ---
 
