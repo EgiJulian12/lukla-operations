@@ -59,8 +59,9 @@ class DefectCategoryResource extends Resource
     }
 
     /**
-     * Finance tidak mengelola kategori cacat; itu domain QC Inspector.
+     * Finance tidak mengelola kategori cacat.
      * Tim Sample juga tidak mengelola kategori cacat.
+     * QC Inspector mengacu referensi kategori cacat saat inspeksi, bukan mengelola masternya.
      */
     public static function canAccess(): bool
     {
@@ -69,7 +70,8 @@ class DefectCategoryResource extends Resource
 
         return ! $user->hasRoleSatisfying(
             fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
-                || $role === UserRole::SAMPLE_TEAM,
+                || $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::QC_INSPECTOR,
         );
     }
 }
