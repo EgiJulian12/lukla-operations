@@ -68,11 +68,18 @@ class OrderMaterialFlowService
             if (! empty($materialUsage) && is_array($materialUsage)) {
                 foreach ($materialUsage as $rawKey => $usagePerUnit) {
                     $keyName = ucwords(str_replace(['_', '-'], ' ', (string) $rawKey));
-                    $isFabric = str_contains(strtolower($keyName), 'kain')
-                        || str_contains(strtolower($keyName), 'fabric')
-                        || str_contains(strtolower($keyName), 'fleece')
-                        || str_contains(strtolower($keyName), 'cotton')
-                        || str_contains(strtolower($keyName), 'combed');
+
+                    // 1. Identifikasi Aksesoris Satuan agar tidak salah dikonversi menjadi meteran kain
+                    $isDiscreteAccessory = (bool) preg_match(
+                        '/(kancing|button|resleting|zipper|sleting|label|hangtag|tag|stopper|ring|buckle|gesper|polybag|kemasan|karton|box)/i',
+                        $keyName
+                    );
+
+                    // 2. Identifikasi Bahan Kain / Roll
+                    $isFabric = ! $isDiscreteAccessory && (bool) preg_match(
+                        '/(kain|fabric|fleece|cotton|combed|parasut|taslan|cordura|kanvas|twill|spandex|despo|mika|satin|drill|denim|jeans|flanel|jersey|furing|plastik|rib|babyterry|pique|rayon|linen|velvet|mesh|jala)/i',
+                        $keyName
+                    );
 
                     $itemType = $isFabric ? MaterialItemType::FABRIC : MaterialItemType::ACCESSORY;
                     $responsibility = $isFabric ? $fabricResponsibility : $accessoryResponsibility;
@@ -85,17 +92,47 @@ class OrderMaterialFlowService
                         $numericVal = (float) str_replace(',', '.', $matches[1]);
                         $rawUom = strtolower(trim($matches[2] ?? ''));
 
-                        if (str_contains($rawUom, 'meter') || $rawUom === 'm') {
+                        // Konversi Panjang: Centimeter -> Meter (/ 100)
+                        if (preg_match('/^(cm|centimeter|centimetre|centi)$/i', $rawUom)) {
+                            if ($isDiscreteAccessory) {
+                                // Jika resleting ditulis "50 cm", itu adalah spesifikasi ukuran 1 pcs resleting
+                                $numericVal = 1.0;
+                                $detectedUom = 'pcs';
+                            } else {
+                                $numericVal = round($numericVal / 100, 4);
+                                $detectedUom = 'meter';
+                            }
+                        }
+                        // Konversi Panjang: Milimeter -> Meter (/ 1000)
+                        elseif (preg_match('/^(mm|milimeter|millimeter|mili)$/i', $rawUom)) {
+                            $numericVal = round($numericVal / 1000, 4);
                             $detectedUom = 'meter';
-                        } elseif (str_contains($rawUom, 'yard') || $rawUom === 'yd') {
+                        }
+                        // Standar Meter
+                        elseif (preg_match('/^(m|meter|metre|mtr)$/i', $rawUom) || str_contains($rawUom, 'meter')) {
+                            $detectedUom = 'meter';
+                        }
+                        // Standar Yard
+                        elseif (preg_match('/^(yd|yard)$/i', $rawUom) || str_contains($rawUom, 'yard')) {
                             $detectedUom = 'yard';
-                        } elseif (str_contains($rawUom, 'pcs') || str_contains($rawUom, 'buah') || str_contains($rawUom, 'biji')) {
+                        }
+                        // Konversi Berat: Gram -> Kilogram (/ 1000)
+                        elseif (preg_match('/^(gr|gram|g)$/i', $rawUom)) {
+                            $numericVal = round($numericVal / 1000, 4);
+                            $detectedUom = 'kg';
+                        }
+                        // Standar Kilogram
+                        elseif (preg_match('/^(kg|kilo|kilogram)$/i', $rawUom)) {
+                            $detectedUom = 'kg';
+                        }
+                        // Standar Satuan Hitung (Pcs)
+                        elseif (preg_match('/^(pcs|pc|buah|biji|lembar|butir)$/i', $rawUom) || str_contains($rawUom, 'pcs')) {
                             $detectedUom = 'pcs';
                         } elseif (str_contains($rawUom, 'roll')) {
                             $detectedUom = 'roll';
-                        } elseif (str_contains($rawUom, 'spool')) {
+                        } elseif (str_contains($rawUom, 'spool') || str_contains($rawUom, 'cones')) {
                             $detectedUom = 'spool';
-                        } elseif (str_contains($rawUom, 'set')) {
+                        } elseif (str_contains($rawUom, 'set') || str_contains($rawUom, 'pasang')) {
                             $detectedUom = 'set';
                         } elseif (str_contains($rawUom, 'lusin') || str_contains($rawUom, 'dz')) {
                             $detectedUom = 'lusin';
@@ -492,15 +529,19 @@ class OrderMaterialFlowService
                         ->where('movement_type', MovementType::ISSUE_TO_CUTTING->value)
                         ->exists();
 
-                    if (! $alreadyIssued && (float) $batchItem->quantity > 0) {
-                        $this->inventoryService->recordMovement(
-                            item: $batchItem,
-                            type: MovementType::ISSUE_TO_CUTTING,
-                            quantity: (float) $batchItem->quantity,
-                            destination: $order,
-                            reference: sprintf('Proses Cutting #%s', $order->order_number),
-                            notes: sprintf('Pengeluaran kain ke meja potong untuk %s (Batch: %s)', $req->item_name, $batchItem->batch ?? '-'),
-                        );
+                    if (! $alreadyIssued) {
+                        // Catat log informasional: Masuk Proses Cutting tanpa memotong kuantitas fisik stok gudang
+                        InventoryMovement::create([
+                            'client_id' => $batchItem->client_id,
+                            'order_id' => $order->getKey(),
+                            'inventory_item_id' => $batchItem->getKey(),
+                            'movement_type' => MovementType::ISSUE_TO_CUTTING,
+                            'quantity' => 0.00,
+                            'reference' => sprintf('Proses Cutting #%s', $order->order_number),
+                            'notes' => sprintf('Masuk proses cutting untuk %s (Batch: %s)', $req->item_name, $batchItem->batch ?? '-'),
+                            'created_by' => $actor?->getKey() ?? auth()->id(),
+                            'recorded_at' => Carbon::now(),
+                        ]);
                     }
                 }
             }

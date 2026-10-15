@@ -12,6 +12,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
@@ -84,10 +85,11 @@ class RevisionsRelationManager extends RelationManager
                     ->form(fn () => self::getRevisionFormSchema($this->getOwnerRecord()))
                     ->action(function (array $data): void {
                         $service = app(SampleService::class);
+                        $materialUsage = self::normalizeMaterialUsageInput($data['material_usage_items'] ?? ($data['material_usage'] ?? []));
                         $revision = $service->addRevision(
                             sample: $this->getOwnerRecord(),
                             specs: $data['specs'] ?? [],
-                            materialUsage: $data['material_usage'] ?? [],
+                            materialUsage: $materialUsage,
                             notes: $data['notes'] ?? null,
                             resultImagePath: $data['result_image_path'] ?? null,
                         );
@@ -125,14 +127,16 @@ class RevisionsRelationManager extends RelationManager
                         $userSpecs = array_diff_key($data['specs'] ?? [], array_flip($internalKeys));
                         $data['specs'] = $userSpecs;
                         $data['material_usage'] = $data['material_usage'] ?? [];
+                        $data['material_usage_items'] = self::hydrateMaterialUsageItems($data['material_usage']);
 
                         return $data;
                     })
                     ->form(fn () => self::getRevisionFormSchema($this->getOwnerRecord()))
                     ->action(function (SampleRevision $record, array $data): void {
+                        $materialUsage = self::normalizeMaterialUsageInput($data['material_usage_items'] ?? ($data['material_usage'] ?? []));
                         $record->update([
                             'specs' => $data['specs'] ?? [],
-                            'material_usage' => $data['material_usage'] ?? [],
+                            'material_usage' => $materialUsage,
                             'result_image_path' => $data['result_image_path'] ?? null,
                             'notes' => $data['notes'] ?? null,
                         ]);
@@ -169,6 +173,7 @@ class RevisionsRelationManager extends RelationManager
                         if (! empty($userSpecs)) {
                             $data['specs'] = $userSpecs;
                         }
+                        $data['material_usage_items'] = self::hydrateMaterialUsageItems($data['material_usage'] ?? []);
 
                         return $data;
                     })
@@ -288,13 +293,45 @@ class RevisionsRelationManager extends RelationManager
                         ->keyPlaceholder('Contoh: Bahan Utama, Warna, Pola...')
                         ->valueLabel('Nilai / Keterangan')
                         ->valuePlaceholder('Contoh: Katun Combed 30s, Hitam Solid...'),
-                    KeyValue::make('material_usage')
-                        ->label('Estimasi Pemakaian Bahan per Unit (Daftar Barang Fisik)')
-                        ->helperText('Daftar bahan dan aksesoris ini akan otomatis dikalikan target order massal dan menjadi acuan belanja/penerimaan barang bagi tim Gudang.')
-                        ->keyLabel('Nama Bahan Baku / Aksesoris Fisik')
-                        ->keyPlaceholder('Contoh: Kain Utama Kanvas, Resleting YKK No.5, Tali Webbing, Kancing Snap...')
-                        ->valueLabel('Jumlah & Satuan per Pcs')
-                        ->valuePlaceholder('Contoh: 1.25 meter, 1 pcs, 0.8 meter, 2 pcs...'),
+                    Repeater::make('material_usage_items')
+                        ->label('Estimasi Kebutuhan Bahan Baku & Aksesoris (Per 1 Pcs Produk)')
+                        ->helperText('Masukkan kebutuhan untuk 1 pcs pakaian. Jika memilih satuan "cm" atau "gram", sistem otomatis mengonversinya ke "meter" atau "kg" untuk kalkulasi gudang.')
+                        ->schema([
+                            TextInput::make('item_name')
+                                ->label('Nama Bahan / Aksesoris')
+                                ->placeholder('Contoh: Kain Anti Air, Resleting YKK 50cm, Kancing...')
+                                ->required()
+                                ->columnSpan(5),
+
+                            TextInput::make('qty')
+                                ->label('Konsumsi / Pcs')
+                                ->numeric()
+                                ->step('any')
+                                ->minValue(0.0001)
+                                ->placeholder('Contoh: 1.5 atau 150')
+                                ->required()
+                                ->columnSpan(3),
+
+                            Select::make('uom')
+                                ->label('Satuan')
+                                ->options([
+                                    'meter' => 'Meter (m)',
+                                    'cm' => 'Centimeter (cm -> auto Meter)',
+                                    'yard' => 'Yard (yd)',
+                                    'kg' => 'Kilogram (kg)',
+                                    'gram' => 'Gram (gr -> auto Kg)',
+                                    'pcs' => 'Pcs / Buah',
+                                    'set' => 'Set / Pasang',
+                                    'roll' => 'Roll',
+                                ])
+                                ->default('meter')
+                                ->required()
+                                ->columnSpan(4),
+                        ])
+                        ->columns(12)
+                        ->defaultItems(1)
+                        ->addActionLabel('Tambah Bahan / Aksesoris')
+                        ->dehydrated(false),
                 ]),
 
             Section::make('Section 2 — Tahapan Pengerjaan Jahit & Waktu Stopwatch (Time Study)')
@@ -360,5 +397,67 @@ class RevisionsRelationManager extends RelationManager
                         ->columnSpan(1),
                 ]),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $materialUsage
+     * @return array<int, array{item_name: string, qty: float, uom: string}>
+     */
+    public static function hydrateMaterialUsageItems(array $materialUsage): array
+    {
+        $items = [];
+        foreach ($materialUsage as $name => $valStr) {
+            $qty = 1.0;
+            $uom = 'meter';
+            if (preg_match('/^([0-9]+(?:[\.,][0-9]+)?)\s*(.*)$/i', trim((string) $valStr), $m)) {
+                $qty = (float) str_replace(',', '.', $m[1]);
+                $rawUom = strtolower(trim($m[2] ?? 'meter'));
+                $validUoms = ['meter', 'cm', 'yard', 'kg', 'gram', 'pcs', 'set', 'roll'];
+                $uom = in_array($rawUom, $validUoms, true) ? $rawUom : 'meter';
+            }
+            $items[] = [
+                'item_name' => (string) $name,
+                'qty' => $qty,
+                'uom' => $uom,
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $items
+     * @return array<string, string>
+     */
+    public static function normalizeMaterialUsageInput(array $items): array
+    {
+        $normalized = [];
+        foreach ($items as $key => $row) {
+            if (! is_array($row)) {
+                $normalized[(string) $key] = (string) $row;
+
+                continue;
+            }
+
+            $name = trim((string) ($row['item_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $qty = (float) ($row['qty'] ?? 1);
+            $uom = $row['uom'] ?? 'meter';
+
+            if ($uom === 'cm') {
+                $qty = round($qty / 100, 4);
+                $uom = 'meter';
+            } elseif ($uom === 'gram') {
+                $qty = round($qty / 1000, 4);
+                $uom = 'kg';
+            }
+
+            $normalized[$name] = "{$qty} {$uom}";
+        }
+
+        return $normalized;
     }
 }
