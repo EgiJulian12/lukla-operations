@@ -34,7 +34,7 @@ class ConvertToOrderAction
     public static function make(): Action
     {
         return Action::make('convert')
-            ->label('Jadikan Order Massal')
+            ->label('Jadikan Daftar Pesanan')
             ->icon(Heroicon::OutlinedTruck)
             ->color('success')
             ->visible(fn (Sample $record): bool => (bool) auth()->user()?->can('convertToOrder', $record))

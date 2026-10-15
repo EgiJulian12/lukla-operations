@@ -116,11 +116,6 @@ class RoleMenuAccess
                 InvoiceResource::class,
                 PurchaseOrderResource::class,
                 OverheadRecordResource::class,
-                OverheadAllocationResource::class,
-                QcOrderResource::class,
-                RepairResource::class,
-                MyPurchaseOrderResource::class,
-                OrderMaterialFlowResource::class,
             ],
         ];
     }

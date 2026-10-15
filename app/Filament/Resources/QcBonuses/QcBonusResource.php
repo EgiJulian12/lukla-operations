@@ -45,7 +45,7 @@ class QcBonusResource extends Resource
             return false;
         }
 
-        return $user->hasRole(UserRole::QC_INSPECTOR) || $user->hasRole(UserRole::OWNER_EXECUTIVE);
+        return $user->hasRole(UserRole::QC_INSPECTOR);
     }
 
     public static function getEloquentQuery(): Builder

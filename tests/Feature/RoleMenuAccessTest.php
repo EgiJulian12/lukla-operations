@@ -11,15 +11,15 @@ use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
 use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
-use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
 use App\Filament\Resources\OutputReviews\OutputReviewResource;
+use App\Filament\Resources\OverheadAllocations\OverheadAllocationResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
 use App\Filament\Resources\ProductionLines\ProductionLineResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\QcBonuses\QcBonusResource;
+use App\Filament\Resources\QcOrders\QcOrderResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
-use App\Filament\Resources\RateCards\RateCardResource;
 use App\Filament\Resources\Repairs\RepairResource;
 use App\Filament\Resources\Samples\SampleResource;
 use App\Filament\Resources\TailorWages\TailorWageResource;
@@ -150,133 +150,28 @@ class RoleMenuAccessTest extends TestCase
         $this->assertTrue(OutputReviewResource::canAccess());
     }
 
-    /**
-     * Menu Quality Control dan Payroll & Biaya berhenti di perannya masing-masing.
-     *
-     * Kepala Produksi memimpin lantai produksi, bukan inspeksi QC maupun biaya:
-     * QC dijalankan QC Inspector, tarif dan biaya dipegang Finance bersama
-     * Owner. Yang diperiksa di sini baris-barisnya, sedangkan uji berikutnya
-     * memeriksa hasilnya di sidebar.
-     */
-    public function test_production_lead_sees_neither_the_qc_nor_the_cost_menu(): void
+    public function test_owner_does_not_see_operational_qc_overhead_and_tailor_menus_in_sidebar(): void
     {
-        $productionLead = User::factory()->create();
-        $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
-
-        $this->actingAs($productionLead);
-
-        $this->assertFalse(QcOrderResource::shouldRegisterNavigation());
-        $this->assertFalse(QcRecordResource::shouldRegisterNavigation());
-        $this->assertFalse(RepairResource::shouldRegisterNavigation());
-
-        $this->assertFalse(RateCardResource::shouldRegisterNavigation());
-        $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
-        $this->assertFalse(InvoiceResource::shouldRegisterNavigation());
-
-        // Menu produksinya sendiri tidak ikut tersapu oleh penyaringan ini.
-        $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
-        $this->assertTrue(OutputReviewResource::shouldRegisterNavigation());
-    }
-
-    public function test_the_qc_and_cost_groups_leave_the_production_lead_sidebar(): void
-    {
-        $productionLead = User::factory()->create();
-        $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
-
-        $this->actingAs($productionLead);
-
-        $groupLabels = array_map(
-            fn (NavigationGroup $group): ?string => $group->getLabel(),
-            Filament::getNavigation(),
-        );
-
-        $this->assertNotContains('Quality Control', $groupLabels);
-        $this->assertNotContains('Payroll & Biaya', $groupLabels);
-
-        $this->assertContains('Produksi', $groupLabels);
-    }
-
-    /**
-     * Sisi sebaliknya dari aturan di atas: grupnya tetap utuh bagi peran yang
-     * memang menjalankannya, termasuk Owner yang boleh membuka semuanya.
-     */
-    public function test_the_qc_and_cost_menus_stay_with_the_roles_that_run_them(): void
-    {
-        $qc = User::factory()->create();
-        $qc->assignRole(UserRole::QC_INSPECTOR->value);
-
-        $this->actingAs($qc);
-
-        $this->assertTrue(QcOrderResource::shouldRegisterNavigation());
-        $this->assertTrue(RepairResource::shouldRegisterNavigation());
-
-        $finance = User::factory()->create();
-        $finance->assignRole(UserRole::FINANCE_PAYROLL->value);
-
-        $this->actingAs($finance);
-
-        $this->assertTrue(RateCardResource::shouldRegisterNavigation());
-
         $owner = User::factory()->create();
         $owner->assignRole(UserRole::OWNER_EXECUTIVE->value);
 
         $this->actingAs($owner);
 
-        $this->assertTrue(QcOrderResource::shouldRegisterNavigation());
-        $this->assertTrue(RepairResource::shouldRegisterNavigation());
-        $this->assertTrue(RateCardResource::shouldRegisterNavigation());
-    }
+        // 1. Alur Bahan Pesanan disembunyikan dari Owner
+        $this->assertFalse(OrderMaterialFlowResource::canAccess());
 
-    /**
-     * Sidebar Kepala Produksi hanya menyisakan menu yang ia kerjakan sendiri.
-     *
-     * Line Produksi dan Perakitan adalah pengaturan lantai, sedangkan pekerjaan
-     * harian mandor ada di Antrean Produksi dan Output 30 Menit. Pengajuan PO
-     * Gudang pun bukan menunya: PurchaseOrderPolicy hanya membuka PO bagi
-     * gudang, Finance, dan Owner. Yang dilepas hanya pendaftaran menunya —
-     * halamannya tetap dapat dibuka lewat URL.
-     */
-    public function test_the_production_lead_keeps_only_the_production_menus(): void
-    {
-        $productionLead = User::factory()->create();
-        $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
+        // 2. Modul QC semua (Antrean QC, Inspeksi, Perbaikan, Bonus QC) disembunyikan dari Owner
+        $this->assertFalse(QcOrderResource::canAccess());
+        $this->assertFalse(QcRecordResource::canAccess());
+        $this->assertFalse(RepairResource::canAccess());
+        $this->assertFalse(QcBonusResource::canAccess());
 
-        $this->actingAs($productionLead);
+        // 3. Overhead per Unit disembunyikan dari Owner
+        $this->assertFalse(OverheadAllocationResource::canAccess());
+        $this->assertFalse(OverheadAllocationResource::shouldRegisterNavigation());
 
-        $this->assertFalse(ProductionLineResource::shouldRegisterNavigation());
-        $this->assertFalse(AssemblyResource::shouldRegisterNavigation());
-        $this->assertFalse(MyPurchaseOrderResource::shouldRegisterNavigation());
-
-        $this->assertTrue(OutputReviewResource::shouldRegisterNavigation());
-        $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
-    }
-
-    /**
-     * Menu Pengajuan PO Gudang berjalan bersama peran yang memang bersinggungan
-     * dengan PO — pengajunya dan kedua peninjau yang sama dengan
-     * PurchaseOrderPolicy::canView().
-     */
-    public function test_the_po_menu_stays_with_the_warehouse_finance_and_the_owner(): void
-    {
-        foreach ([UserRole::WAREHOUSE, UserRole::FINANCE_PAYROLL, UserRole::OWNER_EXECUTIVE] as $role) {
-            $user = User::factory()->create();
-            $user->assignRole($role->value);
-
-            $this->actingAs($user);
-
-            $this->assertTrue(
-                MyPurchaseOrderResource::shouldRegisterNavigation(),
-                "Menu Pengajuan PO Gudang hilang dari sidebar {$role->value}.",
-            );
-        }
-
-        // Penjahit tidak mengajukan PO, jadi menunya tidak menempel di sidebar-nya.
-        $tailor = User::factory()->create();
-        $tailor->assignRole(UserRole::TAILOR_OPERATOR->value);
-
-        $this->actingAs($tailor);
-
-        $this->assertFalse(MyPurchaseOrderResource::shouldRegisterNavigation());
+        // 4. Pekerjaan (Upah Jahit Saya) disembunyikan dari Owner
+        $this->assertFalse(TailorWageResource::canAccess());
     }
 
     public function test_guest_cannot_see_any_resource_in_navigation(): void

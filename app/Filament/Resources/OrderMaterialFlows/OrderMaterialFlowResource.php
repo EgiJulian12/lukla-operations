@@ -8,6 +8,7 @@ use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OrderMaterialFlows\Pages\ListOrderMaterialFlows;
 use App\Filament\Resources\OrderMaterialFlows\Tables\OrderMaterialFlowsTable;
 use App\Models\Order;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -38,14 +39,19 @@ class OrderMaterialFlowResource extends Resource
 
     public static function canAccess(): bool
     {
+        /** @var User|null $user */
         $user = auth()->user();
         if (! $user) {
             return false;
         }
 
+        if ($user->hasRole(UserRole::OWNER_EXECUTIVE)) {
+            return false;
+        }
+
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageInventory()
             || $role->canManageProduction()
-            || $role->canConfigureSystem()
+            || $role->canManageOrders()
         );
     }
 
