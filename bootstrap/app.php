@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerifyTelegramSignature;
 use App\Http\Middleware\EnsureOwnerBotAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'telegram.webhook' => VerifyTelegramSignature::class,
             'owner.bot' => EnsureOwnerBotAccess::class,
         ]);
     })

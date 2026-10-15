@@ -86,6 +86,7 @@ class RoleMenuAccess
             ],
 
             UserRole::OWNER_EXECUTIVE->value => [
+                UserResource::class,
                 ClientResource::class,
                 OrderResource::class,
                 SampleResource::class,
