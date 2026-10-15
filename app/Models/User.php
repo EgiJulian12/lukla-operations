@@ -42,6 +42,9 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         'email',
         'password',
         'is_active',
+        'telegram_chat_id',
+        'telegram_user_id',
+        'telegram_linked_at',
     ];
 
     protected $hidden = [
@@ -55,6 +58,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'telegram_linked_at' => 'datetime',
         ];
     }
 

@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\Sample;
 use App\Models\User;
 use App\Services\Sample\SampleService;
+use App\Services\Telegram\TelegramNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -25,7 +26,7 @@ use Illuminate\Support\Str;
  */
 class OrderQuotationService
 {
-    public function __construct(private readonly SampleService $samples) {}
+    public function __construct(private readonly SampleService $samples, private readonly TelegramNotifier $telegram) {}
 
     /**
      * Permintaan klien: gambar design dan deskripsi tanpa jumlah unit.
@@ -68,7 +69,7 @@ class OrderQuotationService
             throw InvalidOrderQuotationState::notAwaitingQuotation($order);
         }
 
-        return DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner): Order {
+        $order = DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner): Order {
             $order->update([
                 'estimated_cost' => $estimatedCost,
                 'quote_notes' => $quoteNotes,
@@ -83,6 +84,10 @@ class OrderQuotationService
 
             return $order->refresh();
         });
+
+        $this->telegram->notifyQuotationProvided($order);
+
+        return $order;
     }
 
     /**
@@ -94,7 +99,7 @@ class OrderQuotationService
             throw InvalidOrderQuotationState::notAwaitingClientApproval($order);
         }
 
-        return DB::transaction(function () use ($order, $client): Order {
+        $order = DB::transaction(function () use ($order, $client): Order {
             $order->update([
                 'quote_approved_at' => now(),
                 'status' => OrderStatus::QUOTE_APPROVED,
@@ -106,6 +111,10 @@ class OrderQuotationService
 
             return $order->refresh();
         });
+
+        $this->telegram->notifyQuotationApproved($order);
+
+        return $order;
     }
 
     /**
@@ -119,7 +128,7 @@ class OrderQuotationService
 
         $notes = trim(implode("\n", array_filter([$order->quote_notes, $reason])));
 
-        return DB::transaction(function () use ($order, $notes): Order {
+        $order = DB::transaction(function () use ($order, $notes): Order {
             $order->update([
                 'status' => OrderStatus::REQUESTED,
                 'quote_notes' => $notes !== '' ? $notes : null,
@@ -129,6 +138,10 @@ class OrderQuotationService
 
             return $order->refresh();
         });
+
+        $this->telegram->notifyQuotationRejected($order);
+
+        return $order;
     }
 
     /**
