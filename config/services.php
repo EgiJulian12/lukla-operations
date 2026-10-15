@@ -70,4 +70,35 @@ return [
         'cache_ttl' => (int) env('RAG_CACHE_TTL', 3600),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Telegram Bot Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Used by the Telegram webhook endpoint to validate incoming requests and
+    | to send reply messages back to clients via the Bot API.
+    |
+    */
+
+    'telegram' => [
+        // Secret token set when registering the webhook with Telegram (setWebhook).
+        // Telegram includes this in the X-Telegram-Bot-Api-Secret-Token header.
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+
+        // Bot token issued by @BotFather.
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+
+        // Bot @username shown in the registration instructions modal.
+        'bot_username' => env('TELEGRAM_BOT_USERNAME', 'LuklaOperationsBot'),
+
+        // Telegram Bot API base URL (override for local proxies if needed).
+        'api_url' => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
+
+        // TLS certificate verification for outbound Bot API calls. Dev machines
+        // behind a TLS-inspecting proxy or antivirus (self-signed cert in the
+        // chain) must set TELEGRAM_VERIFY_SSL=false, otherwise every reply
+        // silently fails. Leave enabled in production.
+        'verify_ssl' => env('TELEGRAM_VERIFY_SSL', true),
+    ],
+
 ];
