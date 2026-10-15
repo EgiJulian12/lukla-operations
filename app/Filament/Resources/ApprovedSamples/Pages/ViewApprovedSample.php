@@ -15,6 +15,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Halaman detail penuh untuk Sample yang sudah disetujui.
@@ -31,6 +32,67 @@ class ViewApprovedSample extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('approveAllRates')
+                ->label('Setujui Semua Tarif Borongan')
+                ->icon(Heroicon::OutlinedCheckBadge)
+                ->color('success')
+                ->modalHeading('Detail Usulan Tarif Borongan (Rate Card)')
+                ->modalDescription(fn (): string => 'Periksa rincian tarif borongan komponen untuk '.$this->getRecord()->title.' ('.$this->getRecord()->code.') sebelum menyetujui.')
+                ->modalWidth('xl')
+                ->modalContent(fn () => view('filament.resources.approved-samples.rate-card-review-modal', ['record' => $this->getRecord()]))
+                ->form([
+                    Textarea::make('rejection_reason')
+                        ->label('Alasan Penolakan / Catatan Revisi')
+                        ->placeholder('Tulis alasan penolakan jika memilih untuk menolak tarif...')
+                        ->helperText('Hanya wajib diisi jika Anda memilih Tolak Tarif.')
+                        ->rows(2),
+                ])
+                ->modalSubmitActionLabel('Setujui Tarif')
+                ->modalSubmitAction(fn ($action) => $action->color('success')->icon(Heroicon::OutlinedCheckCircle))
+                ->extraModalFooterActions(fn (Action $action): array => [
+                    $action->makeModalSubmitAction('rejectRates', arguments: ['reject' => true])
+                        ->label('Tolak Tarif')
+                        ->color('danger')
+                        ->icon(Heroicon::OutlinedXCircle),
+                ])
+                ->visible(fn (): bool => (bool) auth()->user()?->hasRoleSatisfying(
+                    fn (UserRole $role): bool => $role->canConfigureSystem() || $role->canManagePayroll(),
+                ) && $this->getRecord()->hasPendingRateCards())
+                ->action(function (array $data, array $arguments): void {
+                    /** @var Sample $sample */
+                    $sample = $this->getRecord();
+                    $isReject = (bool) ($arguments['reject'] ?? false);
+                    $pendingRates = $sample->latestComponentRateCards()->filter(fn ($rc) => $rc->status === RateCardStatus::PENDING);
+
+                    if ($isReject) {
+                        $reason = trim((string) ($data['rejection_reason'] ?? ''));
+                        if (empty($reason)) {
+                            $reason = 'Ditolak oleh Owner untuk penyesuaian tarif.';
+                        }
+
+                        foreach ($pendingRates as $rateCard) {
+                            $rateCard->reject($reason, auth()->user());
+                        }
+
+                        Notification::make()
+                            ->title('Tarif borongan ditolak / minta revisi')
+                            ->body('Catatan penolakan telah dicatat untuk ditinjau ulang oleh Kepala Produksi.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    foreach ($pendingRates as $rateCard) {
+                        $rateCard->approve(auth()->user());
+                    }
+
+                    Notification::make()
+                        ->title('Seluruh tarif borongan disetujui')
+                        ->body('Tarif borongan komponen telah disetujui untuk acuan produksi massal.')
+                        ->success()
+                        ->send();
+                }),
             ConvertToOrderAction::make()->record($this->getRecord()),
         ];
     }

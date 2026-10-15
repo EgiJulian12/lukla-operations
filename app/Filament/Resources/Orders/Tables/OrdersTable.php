@@ -4,8 +4,10 @@ namespace App\Filament\Resources\Orders\Tables;
 
 use App\Enums\OrderStatus;
 use App\Enums\WorkScheme;
+use App\Filament\Resources\Samples\SampleResource;
 use App\Models\Order;
 use App\Services\Order\OrderQuotationService;
+use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
@@ -18,6 +20,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 /**
  * Daftar order lintas klien, dari permintaan klien sampai produksi massal.
@@ -59,6 +62,28 @@ class OrdersTable
                     ->description(fn (Order $record): ?string => $record->sampleRevision !== null
                         ? 'Revisi v'.$record->sampleRevision->version
                         : null),
+                TextColumn::make('sampling_status')
+                    ->label('Status Sampling')
+                    ->badge()
+                    ->state(function (Order $record): string {
+                        if (! $record->sample) {
+                            return $record->article_id ? 'Artikel Dibuat' : 'Belum Ada Artikel';
+                        }
+                        $rev = $record->sample->currentRevision;
+                        if (! $rev) {
+                            return 'Sample (Belum Ada Revisi)';
+                        }
+
+                        return sprintf('%s - %s', $rev->version_label, $rev->status->getLabel());
+                    })
+                    ->color(function (Order $record): string {
+                        if (! $record->sample) {
+                            return 'gray';
+                        }
+                        $rev = $record->sample->currentRevision;
+
+                        return $rev ? $rev->status->getColor() : 'gray';
+                    }),
                 TextColumn::make('quantity')
                     ->label('Jumlah')
                     ->numeric()
@@ -87,6 +112,36 @@ class OrdersTable
                     ->options(OrderStatus::class),
             ])
             ->recordActions([
+                Action::make('createArticleAndSample')
+                    ->label('Buat Artikel & Mulai Sample')
+                    ->icon(Heroicon::OutlinedSparkles)
+                    ->color('primary')
+                    ->modalHeading('Buat Artikel & Inisialisasi Sample v1')
+                    ->modalDescription('Sistem akan membuat master Artikel dan otomatis menyiapkan draft Sample v1 untuk pesanan ini.')
+                    ->visible(fn (Order $record): bool => $record->article_id === null && in_array($record->status, [OrderStatus::QUOTE_APPROVED, OrderStatus::QUOTED, OrderStatus::REQUESTED], true))
+                    ->form([
+                        TextInput::make('name')
+                            ->label('Nama Artikel')
+                            ->default(fn (Order $record): string => Str::limit(trim((string) $record->description), 80, '') ?: 'Artikel '.$record->order_number)
+                            ->required(),
+                        TextInput::make('code')
+                            ->label('Kode / SKU Artikel')
+                            ->default(fn (Order $record): string => $record->order_number)
+                            ->required(),
+                        Textarea::make('description')
+                            ->label('Deskripsi / Catatan Artikel')
+                            ->default(fn (Order $record): ?string => $record->description),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        $sample = app(SampleService::class)->initializeSampleFromOrder($record, $data);
+
+                        Notification::make()
+                            ->title('Artikel dan Sample v1 berhasil dibuat')
+                            ->success()
+                            ->send();
+
+                        return redirect(SampleResource::getUrl('edit', ['record' => $sample->getKey()]));
+                    }),
                 Action::make('provideQuote')
                     ->label('Berikan Penawaran')
                     ->icon(Heroicon::OutlinedBanknotes)
@@ -103,6 +158,16 @@ class OrdersTable
                         Section::make('Permintaan Klien')
                             ->description('Permintaan asli klien — periksa sebelum menetapkan biaya.')
                             ->schema([
+                                TextEntry::make('quantity')
+                                    ->label('Jumlah Order Target')
+                                    ->numeric()
+                                    ->suffix(' pcs')
+                                    ->placeholder('-')
+                                    ->dehydrated(false),
+                                TextEntry::make('work_scheme')
+                                    ->label('Skema Maklon Diminta')
+                                    ->badge()
+                                    ->dehydrated(false),
                                 TextEntry::make('description')
                                     ->label('Deskripsi')
                                     ->placeholder('-')
@@ -111,7 +176,7 @@ class OrdersTable
                                 // Bucket s3 privat — biarkan Filament menerbitkan URL bertanda tangan.
                                 ImageEntry::make('design_images')
                                     ->label('Gambar Design')
-                                    ->disk('s3')
+                                    ->disk(config('filesystems.default', 'local'))
                                     ->placeholder('Klien tidak melampirkan gambar.')
                                     ->dehydrated(false)
                                     ->columnSpanFull(),
@@ -146,7 +211,7 @@ class OrdersTable
                     ->requiresConfirmation()
                     ->modalHeading('Kirim permintaan sample?')
                     ->modalDescription('Sample akan dibuat dari gambar design dan deskripsi klien, lalu diteruskan ke Tim Sample.')
-                    ->visible(fn (Order $record): bool => auth()->user()?->can('requestSample', $record) ?? false)
+                    ->visible(fn (Order $record): bool => $record->article_id === null && (auth()->user()?->can('requestSample', $record) ?? false))
                     ->action(function (Order $record): void {
                         app(OrderQuotationService::class)->requestSample($record, auth()->user());
 
@@ -155,6 +220,14 @@ class OrdersTable
                             ->success()
                             ->send();
                     }),
+                Action::make('downloadDesigns')
+                    ->label('Unduh Desain')
+                    ->icon(Heroicon::OutlinedArrowDownTray)
+                    ->color('gray')
+                    ->tooltip('Unduh berkas lampiran desain order ini')
+                    ->visible(fn (Order $record): bool => ! empty($record->design_images))
+                    ->url(fn (Order $record): string => route('orders.designs.download', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make()
                     ->label('Ubah'),
             ])

@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToClient;
+use App\Enums\InvoiceStatus;
 use App\Enums\MaterialResponsibility;
 use App\Enums\OrderMaterialStatus;
 use App\Enums\OrderStatus;
 use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Enums\WorkScheme;
+use App\Exceptions\InvalidOrderState;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +22,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Order — dari permintaan klien sampai produksi massal (FR-004).
+ * Order ? dari permintaan klien sampai produksi massal (FR-004).
  *
  * Order membawa revisi sample yang disetujui dan skema maklon yang dipilih,
  * sehingga spesifikasi yang diproduksi massal selalu dapat ditelusuri kembali
@@ -329,12 +331,72 @@ class Order extends Model
     }
 
     /**
-     * Order yang terkunci (selesai/dibatalkan) tidak boleh diubah lagi.
-     * Mendukung aturan matriks RBAC tentang histori transaksi terkunci.
+     * Order yang terkunci (selesai/dibatalkan/ditutup) tidak boleh diubah lagi.
+     * Mendukung aturan matriks RBAC tentang histori transaksi terkunci (FR-021).
      */
     public function isLocked(): bool
     {
         return $this->status->isLocked();
+    }
+
+    /**
+     * Memeriksa apakah order dapat berpindah status ke status target.
+     */
+    public function canTransitionTo(OrderStatus $target): bool
+    {
+        return $this->status->canTransitionTo($target);
+    }
+
+    /**
+     * Mengubah status order sesuai state machine yang sah.
+     */
+    public function transitionTo(OrderStatus $target): self
+    {
+        if (! $this->canTransitionTo($target)) {
+            throw InvalidOrderState::cannotTransition($this, $target);
+        }
+
+        $attributes = ['status' => $target];
+
+        if ($target === OrderStatus::COMPLETED) {
+            $attributes['completed_at'] = now();
+        }
+
+        $this->update($attributes);
+
+        return $this->refresh();
+    }
+
+    /**
+     * Apakah order memenuhi syarat untuk ditutup (CLOSED).
+     *
+     * Syarat penutupan order (Req 10 AC 8):
+     * 1. Status saat ini harus COMPLETED.
+     * 2. Seluruh tagihan (invoices) order ini telah berstatus PAID.
+     */
+    public function isEligibleForClosure(): bool
+    {
+        if ($this->status !== OrderStatus::COMPLETED) {
+            return false;
+        }
+
+        if (! $this->invoices()->exists()) {
+            return false;
+        }
+
+        return ! $this->invoices()->where('status', '!=', InvoiceStatus::PAID->value)->exists();
+    }
+
+    /**
+     * Menutup order (CLOSED) setelah pengiriman dan pembayaran selesai (Req 10 AC 8).
+     */
+    public function close(): self
+    {
+        if (! $this->isEligibleForClosure()) {
+            throw InvalidOrderState::notEligibleForClosure($this);
+        }
+
+        return $this->transitionTo(OrderStatus::CLOSED);
     }
 
     /**
@@ -355,6 +417,7 @@ class Order extends Model
             OrderStatus::IN_PRODUCTION->value,
             OrderStatus::IN_QC->value,
             OrderStatus::COMPLETED->value,
+            OrderStatus::CLOSED->value,
         ]);
     }
 
@@ -380,11 +443,20 @@ class Order extends Model
      */
     public function designImageUrls(): array
     {
+        $diskName = config('filesystems.default', 'local');
+        $disk = Storage::disk($diskName);
+
         return array_map(
-            fn (string $path): string => Storage::disk('s3')->temporaryUrl(
-                $path,
-                now()->addMinutes(config('filament.temporary_file_url_expiry_minutes', 30)),
-            ),
+            function (string $path) use ($disk): string {
+                try {
+                    return $disk->temporaryUrl(
+                        $path,
+                        now()->addMinutes(config('filament.temporary_file_url_expiry_minutes', 30)),
+                    );
+                } catch (\Throwable) {
+                    return $disk->url($path);
+                }
+            },
             $this->design_images ?? [],
         );
     }

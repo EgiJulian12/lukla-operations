@@ -43,6 +43,9 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         'email',
         'password',
         'is_active',
+        'telegram_chat_id',
+        'telegram_user_id',
+        'telegram_linked_at',
     ];
 
     protected $hidden = [
@@ -56,6 +59,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'telegram_linked_at' => 'datetime',
         ];
     }
 
@@ -174,5 +178,15 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     public function primaryRoleLabel(): string
     {
         return $this->primaryRole()?->getLabel() ?? 'Tanpa Peran';
+    }
+
+    public function primaryRoleShortLabel(): string
+    {
+        return $this->primaryRole()?->getShortLabel() ?? $this->primaryRoleLabel();
+    }
+
+    public function primaryRoleColor(): string
+    {
+        return (string) ($this->primaryRole()?->getColor() ?? 'gray');
     }
 }

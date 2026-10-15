@@ -2,15 +2,16 @@
 
 namespace App\Filament\Portal\Resources\Orders\Schemas;
 
+use App\Enums\WorkScheme;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 /**
- * Formulir permintaan klien: gambar design dan deskripsi.
- *
- * Klien tidak mengisi klien maupun jumlah unit — pemiliknya diambil dari akun
- * yang login, dan jumlah ditentukan belakangan saat penawaran disetujui.
+ * Formulir permintaan klien: gambar design, deskripsi, jumlah order, tenggat estimasi, dan skema maklon.
  */
 class PortalOrderForm
 {
@@ -18,14 +19,33 @@ class PortalOrderForm
     {
         return $schema
             ->components([
+                TextInput::make('quantity')
+                    ->label('Jumlah Order (pcs)')
+                    ->helperText('Perkiraan jumlah unit pakaian yang akan diproduksi.')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(100)
+                    ->required(),
+                DatePicker::make('due_date')
+                    ->label('Bayangan Tenggat Produksi')
+                    ->helperText('Estimasi waktu selesai yang diharapkan.')
+                    ->native(false)
+                    ->minDate(now()->startOfDay()),
+                Select::make('work_scheme')
+                    ->label('Skema Kerja Sama')
+                    ->options(WorkScheme::class)
+                    ->default(WorkScheme::CMT)
+                    ->helperText('Pilih skema maklon: CMT, Semi-CMT, atau Full Package.')
+                    ->required(),
                 FileUpload::make('design_images')
                     ->label('Gambar Design')
                     ->multiple()
                     ->image()
-                    ->disk('s3')
+                    ->disk(config('filesystems.default', 'local'))
                     ->directory('orders/designs')
                     ->reorderable()
-                    ->required(),
+                    ->required()
+                    ->columnSpanFull(),
                 Textarea::make('description')
                     ->label('Deskripsi Permintaan')
                     ->helperText('Jelaskan model, bahan, dan detail lain yang diinginkan.')

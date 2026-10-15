@@ -72,6 +72,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Owner Telegram Chatbot & Bedrock Assistant
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the Owner-only API and Bedrock AI assistant used
+    | by the Telegram chatbot to track inventory items, client billing,
+    | orders, and operational KPIs.
+    |
+    */
+    'owner_bot' => [
+        'api_key' => env('OWNER_BOT_API_KEY', env('TELEGRAM_BOT_SECRET', 'lukla-owner-secret-key')),
+        'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'allowed_telegram_user_ids' => array_values(array_filter(explode(',', (string) env('TELEGRAM_OWNER_USER_IDS', '')))),
+        'model_id' => env('BEDROCK_OWNER_MODEL_ID', env('BEDROCK_MODEL_ID', 'amazon.nova-lite-v1:0')),
+        'max_tokens' => (int) env('BEDROCK_OWNER_MAX_TOKENS', 1500),
+        'temperature' => (float) env('BEDROCK_OWNER_TEMPERATURE', 0.2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Telegram Bot Configuration
     |--------------------------------------------------------------------------
     |

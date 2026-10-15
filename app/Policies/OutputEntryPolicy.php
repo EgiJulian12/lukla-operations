@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\OutputStatus;
 use App\Enums\UserRole;
 use App\Models\OutputEntry;
 use App\Models\User;
@@ -56,12 +57,18 @@ class OutputEntryPolicy
      */
     public function verify(User $user, OutputEntry $entry): bool
     {
-        return $this->canVerify($user);
+        return $this->canVerify($user) && (int) $entry->user_id !== (int) $user->getKey();
     }
 
     public function reject(User $user, OutputEntry $entry): bool
     {
-        return $this->canVerify($user);
+        return $this->canVerify($user) && (int) $entry->user_id !== (int) $user->getKey();
+    }
+
+    public function resubmit(User $user, OutputEntry $entry): bool
+    {
+        return $entry->status === OutputStatus::REJECTED
+            && ((int) $entry->user_id === (int) $user->getKey() || $this->canManageProduction($user));
     }
 
     private function canSubmit(User $user): bool

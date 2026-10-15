@@ -97,6 +97,16 @@ class OrderPolicy
             && $order->status === OrderStatus::READY_FOR_PRODUCTION;
     }
 
+    /**
+     * Mengubah pemetaan penjahit per komponen adalah wewenang Kepala Produksi,
+     * dan hanya berlaku selama order masih berstatus Dalam Produksi.
+     */
+    public function updateComponentAssignments(User $user, Order $order): bool
+    {
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction())
+            && $order->status === OrderStatus::IN_PRODUCTION;
+    }
+
     private function canManage(User $user): bool
     {
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageOrders());

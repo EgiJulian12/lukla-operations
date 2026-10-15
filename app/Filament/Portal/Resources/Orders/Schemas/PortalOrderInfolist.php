@@ -5,11 +5,13 @@ namespace App\Filament\Portal\Resources\Orders\Schemas;
 use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Models\Order;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Rincian satu pesanan milik klien (FR-025).
@@ -26,6 +28,15 @@ class PortalOrderInfolist
             ->components([
                 Section::make('Permintaan Design')
                     ->description('Gambar dan deskripsi yang Anda ajukan saat membuat pesanan.')
+                    ->headerActions([
+                        Action::make('downloadDesigns')
+                            ->label('Download Dokumen Desain')
+                            ->icon(Heroicon::OutlinedArrowDownTray)
+                            ->color('primary')
+                            ->url(fn (Order $record): string => route('orders.designs.download', $record))
+                            ->openUrlInNewTab()
+                            ->visible(fn (Order $record): bool => ! empty($record->design_images)),
+                    ])
                     ->schema([
                         TextEntry::make('description')
                             ->label('Deskripsi')
@@ -35,8 +46,20 @@ class PortalOrderInfolist
                         // Filament menerbitkan URL bertanda tangan.
                         ImageEntry::make('design_images')
                             ->label('Gambar Design')
-                            ->disk('s3')
+                            ->disk(config('filesystems.default', 'local'))
                             ->placeholder('Belum ada gambar design.')
+                            ->columnSpanFull(),
+                        TextEntry::make('design_download_hint')
+                            ->hiddenLabel()
+                            ->visible(fn (Order $record): bool => ! empty($record->design_images))
+                            ->state(fn (): string => 'Kendala melihat gambar preview di atas? Unduh berkas desain langsung:')
+                            ->hintAction(
+                                Action::make('downloadFallback')
+                                    ->label('Download Dokumen')
+                                    ->icon(Heroicon::OutlinedArrowDownTray)
+                                    ->url(fn (Order $record): string => route('orders.designs.download', $record))
+                                    ->openUrlInNewTab()
+                            )
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
@@ -48,7 +71,7 @@ class PortalOrderInfolist
                             ->money('IDR')
                             ->placeholder('Belum ditawar'),
                         TextEntry::make('quoted_at')
-                            ->label('Dikirim')
+                            ->label('Dijawab')
                             ->dateTime()
                             ->placeholder('-'),
                         TextEntry::make('quote_notes')
@@ -79,6 +102,10 @@ class PortalOrderInfolist
                         TextEntry::make('sampleRevision.version')
                             ->label('Revisi Sample Disetujui')
                             ->formatStateUsing(fn (mixed $state): string => $state !== null ? 'v'.$state : '-'),
+                        TextEntry::make('notes')
+                            ->label('Catatan Instruksi Klien')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
                     ])
                     ->columns(3),
                 Section::make('Progres Produksi')

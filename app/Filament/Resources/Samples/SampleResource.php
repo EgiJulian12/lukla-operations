@@ -7,6 +7,7 @@ use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Samples\Pages\CreateSample;
 use App\Filament\Resources\Samples\Pages\EditSample;
 use App\Filament\Resources\Samples\Pages\ListSamples;
+use App\Filament\Resources\Samples\Pages\ViewSample;
 use App\Filament\Resources\Samples\RelationManagers\RevisionsRelationManager;
 use App\Filament\Resources\Samples\Schemas\SampleForm;
 use App\Filament\Resources\Samples\Tables\SamplesTable;
@@ -66,6 +67,7 @@ class SampleResource extends Resource
         return [
             'index' => ListSamples::route('/'),
             'create' => CreateSample::route('/create'),
+            'view' => ViewSample::route('/{record}'),
             'edit' => EditSample::route('/{record}/edit'),
         ];
     }

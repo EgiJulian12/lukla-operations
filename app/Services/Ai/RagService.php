@@ -138,7 +138,24 @@ PROMPT;
     }
 
     /**
+     * Search documentation chunks relevant to a query.
+     *
+     * @return list<array{content: string, source: string, chunk_index: int, score: float}>
+     */
+    public function searchDocuments(string $query, ?int $limit = null): array
+    {
+        $chunks = $this->retrieveRelevantChunks($query);
+
+        if ($limit !== null) {
+            return array_slice($chunks, 0, $limit);
+        }
+
+        return $chunks;
+    }
+
+    /**
      * Upload a file to S3 and invalidate the document cache so new content
+
      * is available on the next question.
      *
      * @return array{success: bool, message: string, s3_key?: string, file_name: string}

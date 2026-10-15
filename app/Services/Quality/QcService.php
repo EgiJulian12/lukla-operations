@@ -2,6 +2,7 @@
 
 namespace App\Services\Quality;
 
+use App\Enums\OrderStatus;
 use App\Enums\QcResult;
 use App\Exceptions\InvalidQcInspection;
 use App\Models\Assembly;
@@ -78,6 +79,18 @@ class QcService
                     'notes' => $notes ?? 'Scrapped during QC inspection',
                     'recorded_by' => $inspector?->getKey() ?? auth()->id(),
                 ]);
+            }
+
+            // Update status lifecycle order:
+            // 1. Jika masih IN_PRODUCTION, transisi ke IN_QC saat inspeksi QC berjalan (Req 10 AC 6)
+            $order = $assembly->order;
+            if ($order && $order->status === OrderStatus::IN_PRODUCTION && $order->canTransitionTo(OrderStatus::IN_QC)) {
+                $order->transitionTo(OrderStatus::IN_QC);
+            }
+
+            // 2. Jika 100% unit pesanan telah berstatus PASS, transisi ke COMPLETED (Req 10 AC 7)
+            if ($order && $order->status === OrderStatus::IN_QC && $order->qcPassedQuantity() >= $order->quantity && $order->canTransitionTo(OrderStatus::COMPLETED)) {
+                $order->transitionTo(OrderStatus::COMPLETED);
             }
 
             return $record;

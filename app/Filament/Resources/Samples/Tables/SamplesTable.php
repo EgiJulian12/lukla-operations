@@ -7,7 +7,7 @@ use App\Enums\WorkScheme;
 use App\Models\Sample;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -64,6 +64,10 @@ class SamplesTable
                     ->options(SampleStatus::class),
             ])
             ->recordActions([
+                ViewAction::make()
+                    ->label('Lihat Detail')
+                    ->icon(Heroicon::OutlinedEye)
+                    ->color('gray'),
                 Action::make('convert')
                     ->label('Jadikan Order')
                     ->icon(Heroicon::OutlinedTruck)
@@ -99,8 +103,6 @@ class SamplesTable
                         );
                     })
                     ->successNotificationTitle('Order produksi massal dibuat'),
-                EditAction::make()
-                    ->label('Ubah'),
             ])
             ->defaultSort('created_at', 'desc');
     }

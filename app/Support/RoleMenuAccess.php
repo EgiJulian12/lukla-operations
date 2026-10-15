@@ -40,7 +40,6 @@ class RoleMenuAccess
         return [
             UserRole::SAMPLE_TEAM->value => [
                 SampleResource::class,
-                ApprovedSampleResource::class,
                 ArticleResource::class,
                 ComponentResource::class,
                 OrderResource::class,

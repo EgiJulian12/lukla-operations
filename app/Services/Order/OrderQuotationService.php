@@ -42,12 +42,17 @@ class OrderQuotationService
         string $description,
         ?Article $article = null,
         ?User $requester = null,
+        WorkScheme $workScheme = WorkScheme::CMT,
+        mixed $dueDate = null,
+        ?int $quantity = null,
     ): Order {
         return Order::create([
             'client_id' => $client->getKey(),
             'article_id' => $article?->getKey(),
             'order_number' => $this->nextOrderNumber(),
-            'work_scheme' => WorkScheme::CMT,
+            'work_scheme' => $workScheme,
+            'quantity' => $quantity,
+            'due_date' => $dueDate,
             'description' => $description,
             'design_images' => $designPaths,
             'status' => OrderStatus::REQUESTED,
@@ -88,20 +93,50 @@ class OrderQuotationService
     /**
      * Klien menyetujui penawaran, membuka langkah permintaan sample.
      */
-    public function approveQuote(Order $order, ?User $client = null): Order
-    {
+    public function approveQuote(
+        Order $order,
+        ?User $client = null,
+        mixed $dueDate = null,
+        ?WorkScheme $workScheme = null,
+        ?string $notes = null,
+        ?int $quantity = null,
+    ): Order {
         if (! $order->status->awaitingClientApproval()) {
             throw InvalidOrderQuotationState::notAwaitingClientApproval($order);
         }
 
-        return DB::transaction(function () use ($order, $client): Order {
-            $order->update([
+        return DB::transaction(function () use ($order, $client, $dueDate, $workScheme, $notes, $quantity): Order {
+            $updateData = [
                 'quote_approved_at' => now(),
                 'status' => OrderStatus::QUOTE_APPROVED,
-            ]);
+            ];
+
+            if ($quantity !== null && $quantity > 0) {
+                $updateData['quantity'] = $quantity;
+            }
+
+            if ($dueDate !== null) {
+                $updateData['due_date'] = $dueDate;
+            }
+
+            if ($workScheme !== null) {
+                $updateData['work_scheme'] = $workScheme;
+            }
+
+            if ($notes !== null && trim($notes) !== '') {
+                $updateData['notes'] = $notes;
+            }
+
+            $order->update($updateData);
 
             $this->audit($order, 'quotation_approved', [
-                'after' => ['estimated_cost' => $order->estimated_cost],
+                'after' => [
+                    'estimated_cost' => $order->estimated_cost,
+                    'quantity' => $order->quantity,
+                    'due_date' => $order->due_date,
+                    'work_scheme' => $order->work_scheme?->value,
+                    'notes' => $order->notes,
+                ],
             ], $client);
 
             return $order->refresh();
@@ -184,6 +219,7 @@ class OrderQuotationService
     {
         return Article::create([
             'client_id' => $order->client_id,
+            'order_id' => $order->getKey(),
             'code' => $order->order_number,
             'name' => Str::limit(trim((string) $order->description), 120, '') ?: $order->order_number,
             'description' => $order->description,
