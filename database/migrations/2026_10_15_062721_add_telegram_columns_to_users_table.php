@@ -14,16 +14,28 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('telegram_chat_id')->nullable()->unique()->after('is_active');
-            $table->string('telegram_user_id')->nullable()->unique()->after('telegram_chat_id');
-            $table->timestamp('telegram_linked_at')->nullable()->after('telegram_user_id');
+            if (! Schema::hasColumn('users', 'telegram_chat_id')) {
+                $table->string('telegram_chat_id')->nullable()->unique()->after('is_active');
+            }
+            if (! Schema::hasColumn('users', 'telegram_user_id')) {
+                $table->string('telegram_user_id')->nullable()->unique()->after('telegram_chat_id');
+            }
+            if (! Schema::hasColumn('users', 'telegram_linked_at')) {
+                $table->timestamp('telegram_linked_at')->nullable()->after('telegram_user_id');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['telegram_chat_id', 'telegram_user_id', 'telegram_linked_at']);
+            $columnsToDrop = array_filter(
+                ['telegram_user_id', 'telegram_linked_at'],
+                fn (string $column): bool => Schema::hasColumn('users', $column)
+            );
+            if (! empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };
