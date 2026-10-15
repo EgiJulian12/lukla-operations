@@ -103,6 +103,7 @@ class RoleMenuAccess
                 InvoiceResource::class,
                 ClientResource::class,
                 MyPurchaseOrderResource::class,
+                OrderResource::class,
             ],
 
             UserRole::OWNER_EXECUTIVE->value => [

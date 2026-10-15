@@ -72,10 +72,20 @@ class OrderResource extends Resource
     }
 
     /**
-     * Finance hanya mengelola tarif, payroll, invoice, dan PO — bukan order produksi.
-     * Tim Sample mengakses Order Massal untuk membuat master Artikel & inisialisasi Sample.
+     * Finance hanya boleh melihat daftar pesanan (read-only) untuk keperluan
+     * penagihan dan rekonsiliasi — tanpa hak ubah atau buat order baru.
      */
-    public static function canAccess(): bool
+    public static function canCreate(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+        );
+    }
+
+    public static function canEdit(mixed $record): bool
     {
         /** @var User $user */
         $user = auth()->user();
