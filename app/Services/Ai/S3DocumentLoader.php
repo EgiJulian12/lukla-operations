@@ -123,6 +123,21 @@ class S3DocumentLoader
                 }
             }
 
+            // Also load and merge local documentation from docs/ directory
+            $docsPath = base_path('docs');
+            if (is_dir($docsPath)) {
+                $files = glob($docsPath.'/*.{md,txt}', GLOB_BRACE) ?: [];
+                foreach ($files as $filePath) {
+                    $relName = 'docs/'.basename($filePath);
+                    if (! isset($chunks[$relName])) {
+                        $content = file_get_contents($filePath);
+                        if ($content !== false && trim($content) !== '') {
+                            $chunks[$relName] = $this->chunker->chunk($content);
+                        }
+                    }
+                }
+            }
+
             $totalChunks = array_sum(array_map('count', $chunks));
 
             Log::info('RAG S3DocumentLoader: document cache built.', [
