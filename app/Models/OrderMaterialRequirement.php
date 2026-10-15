@@ -9,6 +9,7 @@ use App\Enums\MaterialResponsibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 /**
  * Kebutuhan dan kondisi item bahan/komponen/aksesoris per pesanan (Level 2).
@@ -89,5 +90,32 @@ class OrderMaterialRequirement extends Model
     public function missingQuantity(): float
     {
         return max(0.0, (float) $this->required_quantity - (float) $this->received_quantity);
+    }
+
+    /**
+     * Seluruh item fisik stok gudang yang telah diterima untuk kebutuhan bahan ini.
+     *
+     * Satu requirement dapat memiliki lebih dari satu InventoryItem saat barang datang
+     * dalam beberapa batch/surat-jalan terpisah. Gunakan method ini — bukan relasi
+     * tunggal `inventoryItem` — setiap kali membutuhkan seluruh batch untuk diproses
+     * (cutting, dispatch ke produksi, dst).
+     *
+     * @return Collection<int, InventoryItem>
+     */
+    public function getInventoryItems(): Collection
+    {
+        if (! $this->material_id) {
+            return $this->inventoryItem ? collect([$this->inventoryItem]) : collect();
+        }
+
+        $items = InventoryItem::where('order_id', $this->order_id)
+            ->where('material_id', $this->material_id)
+            ->get();
+
+        if ($items->isEmpty() && $this->inventoryItem) {
+            return collect([$this->inventoryItem]);
+        }
+
+        return $items;
     }
 }

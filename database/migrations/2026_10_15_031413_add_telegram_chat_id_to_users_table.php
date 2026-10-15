@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table): void {
-            $table->string('telegram_chat_id')->nullable()->unique()->after('client_id');
-        });
+        if (! Schema::hasColumn('users', 'telegram_chat_id')) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->string('telegram_chat_id')->nullable()->unique()->after('client_id');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table): void {
-            $table->dropColumn('telegram_chat_id');
-        });
+        if (Schema::hasColumn('users', 'telegram_chat_id')) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->dropColumn('telegram_chat_id');
+            });
+        }
     }
 };

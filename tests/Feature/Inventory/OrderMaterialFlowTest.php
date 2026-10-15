@@ -475,4 +475,115 @@ class OrderMaterialFlowTest extends TestCase
             'Data penerimaan gudang tidak boleh berisi nama komponen tahapan jahit!'
         );
     }
+
+    public function test_multiple_stock_receipts_all_batches_dispatched_and_movement_log_complete(): void
+    {
+        $client = Client::factory()->create();
+        $service = app(OrderMaterialFlowService::class);
+
+        Material::factory()->create(['client_id' => $client->id, 'category' => 'fabric', 'name' => 'Kain Cotton']);
+        Material::factory()->create(['client_id' => $client->id, 'category' => 'accessory', 'name' => 'Kancing']);
+
+        $order = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'work_scheme' => WorkScheme::CMT,
+            'quantity' => 100,
+        ]);
+
+        $requirements = $service->initializeRequirements($order);
+        $fabricReq = $requirements->firstWhere('item_name', 'Kain Cotton');
+        $accessoryReq = $requirements->firstWhere('item_name', 'Kancing');
+        $this->assertNotNull($fabricReq, 'Requirement kain harus ada');
+        $this->assertNotNull($accessoryReq, 'Requirement aksesoris harus ada');
+
+        // Sesuaikan kebutuhan kain menjadi 100 meter sesuai skenario pengujian multi-batch (40m + 60m)
+        $fabricReq->update(['required_quantity' => 100]);
+
+        // --- Skenario: kain datang dua kali (multi-batch), aksesoris satu kali ---
+        $service->recordStockReceipt($fabricReq, 40, 'SJ-001', 'Klien');
+        $service->recordStockReceipt($fabricReq, 60, 'SJ-002', 'Klien');
+        $service->recordStockReceipt($accessoryReq, (float) $accessoryReq->required_quantity, 'SJ-ACC-01');
+
+        $order->refresh();
+        $this->assertEquals(OrderMaterialStatus::STANDBY, $order->warehouse_material_status);
+
+        // Harus ada 3 InventoryItem (2 kain + 1 aksesoris) dengan masing-masing 1 log RECEIPT
+        $this->assertEquals(3, InventoryItem::where('order_id', $order->id)->count());
+        $this->assertEquals(3, InventoryMovement::where('order_id', $order->id)
+            ->where('movement_type', MovementType::RECEIPT->value)->count());
+
+        // --- Mulai Cutting ---
+        $service->startCuttingAndPreparation($order);
+        $order->refresh();
+        $this->assertEquals(OrderMaterialStatus::PREPARING_DELIVERY, $order->warehouse_material_status);
+
+        // KEDUA batch kain harus memiliki log ISSUE_TO_CUTTING
+        $issueLogs = InventoryMovement::where('order_id', $order->id)
+            ->where('movement_type', MovementType::ISSUE_TO_CUTTING->value)
+            ->orderBy('quantity')
+            ->get();
+        $this->assertCount(2, $issueLogs, 'Harus ada 2 log ISSUE_TO_CUTTING (satu per batch kain)');
+        $issueQtys = $issueLogs->pluck('quantity')->map(fn ($q) => abs((float) $q))->sort()->values();
+        $this->assertEquals(40.0, $issueQtys[0]);
+        $this->assertEquals(60.0, $issueQtys[1]);
+
+        // Stok kedua batch kain harus 0 setelah dikeluarkan ke cutting
+        $fabricItems = InventoryItem::where('order_id', $order->id)
+            ->where('material_id', $fabricReq->fresh()->material_id)->get();
+        $this->assertCount(2, $fabricItems);
+        foreach ($fabricItems as $fi) {
+            $this->assertEquals(0.0, (float) $fi->fresh()->quantity, "Stok kain batch {$fi->batch} harus 0 setelah keluar ke cutting");
+        }
+
+        // --- Kirim ke Produksi ---
+        $service->dispatchToProduction($order);
+        $order->refresh();
+        $this->assertEquals(OrderMaterialStatus::DISPATCHED, $order->warehouse_material_status);
+
+        // Harus ada 3 MaterialDispatch (2 kain + 1 aksesoris) — satu per batch-item
+        $dispatches = MaterialDispatch::where('order_id', $order->id)->get();
+        $this->assertCount(3, $dispatches, 'Harus ada 3 surat jalan pengantaran (2 kain + 1 aksesoris)');
+        $this->assertTrue(
+            $dispatches->every(fn ($d) => $d->status === DispatchStatus::DISPATCHED),
+            'Semua dispatch harus berstatus DISPATCHED'
+        );
+
+        // Dispatch kain harus berjumlah 40m dan 60m masing-masing
+        $fabricDispatches = $dispatches->where('material_id', $fabricReq->fresh()->material_id)->values();
+        $this->assertCount(2, $fabricDispatches, 'Kain harus punya 2 dispatch (satu per batch)');
+        $fabricQtys = $fabricDispatches->pluck('quantity')->map(fn ($q) => (float) $q)->sort()->values();
+        $this->assertEquals(40.0, $fabricQtys[0]);
+        $this->assertEquals(60.0, $fabricQtys[1]);
+
+        // Harus ada 3 log TRANSFER (2 kain + 1 aksesoris)
+        $transferLogs = InventoryMovement::where('order_id', $order->id)
+            ->where('movement_type', MovementType::TRANSFER->value)
+            ->get();
+        $this->assertCount(3, $transferLogs, 'Harus ada 3 log TRANSFER (2 batch kain + 1 aksesoris)');
+
+        // --- ACC Penerimaan Produksi ---
+        $prodLead = User::factory()->create();
+        $prodLead->assignRole(UserRole::PRODUCTION_LEAD->value);
+
+        $service->confirmReceivedByProduction($order, $prodLead);
+        $order->refresh();
+        $this->assertEquals(OrderMaterialStatus::RECEIVED_BY_PRODUCTION, $order->warehouse_material_status);
+
+        // Semua dispatch harus berstatus RECEIVED
+        $dispatches = MaterialDispatch::where('order_id', $order->id)->get();
+        $this->assertTrue(
+            $dispatches->every(fn ($d) => $d->status === DispatchStatus::RECEIVED),
+            'Semua dispatch harus berstatus RECEIVED setelah ACC produksi'
+        );
+
+        // Semua InventoryItem milik order harus berstatus WIP
+        $allItems = InventoryItem::where('order_id', $order->id)->get();
+        foreach ($allItems as $item) {
+            $this->assertEquals(
+                InventoryState::WIP,
+                $item->fresh()->state,
+                "Item {$item->id} (batch: {$item->batch}) harus berstatus WIP setelah ACC produksi"
+            );
+        }
+    }
 }

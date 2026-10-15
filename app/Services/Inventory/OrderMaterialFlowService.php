@@ -480,24 +480,26 @@ class OrderMaterialFlowService
                 ->where('item_type', MaterialItemType::FABRIC->value)
                 ->update(['status' => ComponentMaterialStatus::IN_CUTTING->value]);
 
-            // Rekam mutasi pergerakan stok: Pengeluaran kain ke meja cutting
+            // Rekam mutasi pergerakan stok: Pengeluaran seluruh batch kain ke meja cutting
             $fabricRequirements = $order->materialRequirements()
                 ->where('item_type', MaterialItemType::FABRIC->value)
-                ->with('inventoryItem')
                 ->get();
 
             foreach ($fabricRequirements as $req) {
-                if ($req->inventoryItem && (float) $req->inventoryItem->quantity > 0) {
-                    $issueQty = min((float) $req->inventoryItem->quantity, (float) ($req->received_quantity > 0 ? $req->received_quantity : $req->required_quantity));
+                foreach ($req->getInventoryItems() as $batchItem) {
+                    // Idempotency guard: lewati jika log ISSUE_TO_CUTTING sudah ada untuk batch ini
+                    $alreadyIssued = $batchItem->movements()
+                        ->where('movement_type', MovementType::ISSUE_TO_CUTTING->value)
+                        ->exists();
 
-                    if ($issueQty > 0) {
+                    if (! $alreadyIssued && (float) $batchItem->quantity > 0) {
                         $this->inventoryService->recordMovement(
-                            item: $req->inventoryItem,
+                            item: $batchItem,
                             type: MovementType::ISSUE_TO_CUTTING,
-                            quantity: $issueQty,
+                            quantity: (float) $batchItem->quantity,
                             destination: $order,
                             reference: sprintf('Proses Cutting #%s', $order->order_number),
-                            notes: sprintf('Pengeluaran kain ke meja potong untuk %s', $req->item_name),
+                            notes: sprintf('Pengeluaran kain ke meja potong untuk %s (Batch: %s)', $req->item_name, $batchItem->batch ?? '-'),
                         );
                     }
                 }
@@ -531,67 +533,84 @@ class OrderMaterialFlowService
             $order->refresh();
 
             foreach ($order->materialRequirements as $requirement) {
-                if (! $requirement->material_id || ! $requirement->inventory_item_id) {
+                $batchItems = $requirement->getInventoryItems();
+
+                if ($batchItems->isEmpty()) {
                     continue;
                 }
 
-                // Cek apakah sudah ada dispatch untuk order & item ini yang aktif
-                $existing = MaterialDispatch::where('order_id', $order->getKey())
-                    ->where('inventory_item_id', $requirement->inventory_item_id)
-                    ->whereNotIn('status', [DispatchStatus::REJECTED, DispatchStatus::COMPLETED])
-                    ->first();
+                foreach ($batchItems as $batchItem) {
+                    // Hitung kuantitas yang masuk pada batch ini berdasarkan log RECEIPT
+                    $batchReceivedQty = (float) $batchItem->movements()
+                        ->where('movement_type', MovementType::RECEIPT->value)
+                        ->sum('quantity');
 
-                if ($existing) {
-                    $existing->update([
-                        'status' => DispatchStatus::DISPATCHED,
-                        'dispatched_by' => $actorId,
-                        'dispatched_at' => Carbon::now(),
-                    ]);
-                } else {
-                    $dispatchCount = MaterialDispatch::whereDate('created_at', today())->count() + 1;
-                    $dispatchNumber = sprintf('DSP-%s-%04d', date('Ymd'), $dispatchCount);
+                    if ($batchReceivedQty <= 0) {
+                        $batchReceivedQty = (float) $batchItem->quantity;
+                    }
 
-                    MaterialDispatch::create([
-                        'dispatch_number' => $dispatchNumber,
-                        'client_id' => $order->client_id,
-                        'order_id' => $order->getKey(),
-                        'inventory_item_id' => $requirement->inventory_item_id,
-                        'material_id' => $requirement->material_id,
-                        'quantity' => (float) ($requirement->received_quantity > 0 ? $requirement->received_quantity : $requirement->required_quantity),
-                        'uom' => $requirement->uom ?: 'satuan',
-                        'status' => DispatchStatus::DISPATCHED,
-                        'notes' => sprintf('Pengiriman otomatis dari Alur Bahan Pesanan #%s (%s)', $order->order_number, $requirement->item_name),
-                        'dispatched_by' => $actorId,
-                        'dispatched_at' => Carbon::now(),
-                    ]);
-                }
+                    // Cek apakah sudah ada dispatch aktif untuk batch-item ini
+                    $existing = MaterialDispatch::where('order_id', $order->getKey())
+                        ->where('inventory_item_id', $batchItem->getKey())
+                        ->whereNotIn('status', [DispatchStatus::REJECTED, DispatchStatus::COMPLETED])
+                        ->first();
 
-                // Rekam mutasi pergerakan stok: Pengiriman bahan/aksesoris ke lantai produksi (Status TRANSFER)
-                if ($requirement->inventoryItem) {
-                    $dispatchQty = (float) ($requirement->received_quantity > 0 ? $requirement->received_quantity : $requirement->required_quantity);
+                    if ($existing) {
+                        $existing->update([
+                            'status' => DispatchStatus::DISPATCHED,
+                            'dispatched_by' => $actorId,
+                            'dispatched_at' => Carbon::now(),
+                        ]);
+                    } else {
+                        // Nomor dispatch unik per batch — hindari tabrakan jika dibuat di detik yang sama
+                        $dispatchCount = MaterialDispatch::whereDate('created_at', today())->count() + 1;
+                        do {
+                            $dispatchNumber = sprintf('DSP-%s-%04d', date('Ymd'), $dispatchCount++);
+                        } while (MaterialDispatch::where('dispatch_number', $dispatchNumber)->exists());
 
-                    if ($dispatchQty > 0) {
-                        if ((float) $requirement->inventoryItem->quantity > 0) {
-                            $qtyToDeduct = min((float) $requirement->inventoryItem->quantity, $dispatchQty);
+                        MaterialDispatch::create([
+                            'dispatch_number' => $dispatchNumber,
+                            'client_id' => $order->client_id,
+                            'order_id' => $order->getKey(),
+                            'inventory_item_id' => $batchItem->getKey(),
+                            'material_id' => $batchItem->material_id,
+                            'quantity' => $batchReceivedQty,
+                            'uom' => $batchItem->uom ?: ($requirement->uom ?: 'satuan'),
+                            'status' => DispatchStatus::DISPATCHED,
+                            'notes' => sprintf('Pengiriman otomatis dari Alur Bahan Pesanan #%s (%s - %s)', $order->order_number, $requirement->item_name, $batchItem->batch ?? 'Batch'),
+                            'dispatched_by' => $actorId,
+                            'dispatched_at' => Carbon::now(),
+                        ]);
+                    }
+
+                    // Rekam mutasi TRANSFER per batch — idempotency guard
+                    $alreadyTransferred = InventoryMovement::where('inventory_item_id', $batchItem->getKey())
+                        ->where('order_id', $order->getKey())
+                        ->where('movement_type', MovementType::TRANSFER->value)
+                        ->exists();
+
+                    if (! $alreadyTransferred && $batchReceivedQty > 0) {
+                        if ((float) $batchItem->quantity > 0) {
+                            // Stok fisik masih ada (aksesoris / item non-kain) — kurangi via recordMovement
+                            $qtyToDeduct = min((float) $batchItem->quantity, $batchReceivedQty);
                             $this->inventoryService->recordMovement(
-                                item: $requirement->inventoryItem,
+                                item: $batchItem,
                                 type: MovementType::TRANSFER,
                                 quantity: $qtyToDeduct,
                                 destination: $order,
                                 reference: sprintf('Pengiriman ke Produksi #%s', $order->order_number),
-                                notes: sprintf('Pengiriman bahan/aksesoris ke bagian produksi (%s)', $requirement->item_name),
+                                notes: sprintf('Pengiriman bahan/aksesoris ke bagian produksi (%s - %s)', $requirement->item_name, $batchItem->batch ?? '-'),
                             );
                         } else {
-                            // Untuk bahan/kain yang keluar dari meja cutting (stok fisik sebelumnya telah di-issue ke meja potong):
-                            // Tetap catat mutasi TRANSFER serah-terima potongan bahan keluar cutting ke lantai produksi
+                            // Stok = 0 karena sudah di-ISSUE_TO_CUTTING (kain) — catat TRANSFER serah-terima
                             InventoryMovement::create([
-                                'client_id' => $requirement->inventoryItem->client_id,
+                                'client_id' => $batchItem->client_id,
                                 'order_id' => $order->getKey(),
-                                'inventory_item_id' => $requirement->inventoryItem->getKey(),
+                                'inventory_item_id' => $batchItem->getKey(),
                                 'movement_type' => MovementType::TRANSFER,
-                                'quantity' => -$dispatchQty,
+                                'quantity' => -$batchReceivedQty,
                                 'reference' => sprintf('Pengiriman ke Produksi #%s', $order->order_number),
-                                'notes' => sprintf('Transfer potongan bahan keluar cutting ke bagian produksi (%s)', $requirement->item_name),
+                                'notes' => sprintf('Transfer potongan bahan keluar cutting ke bagian produksi (%s - %s)', $requirement->item_name, $batchItem->batch ?? '-'),
                                 'created_by' => auth()->id(),
                                 'recorded_at' => Carbon::now(),
                             ]);
