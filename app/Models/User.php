@@ -38,6 +38,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
 
     protected $fillable = [
         'client_id',
+        'telegram_chat_id',
         'name',
         'email',
         'password',

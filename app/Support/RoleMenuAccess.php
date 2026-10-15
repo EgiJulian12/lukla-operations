@@ -23,6 +23,7 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
 use App\Filament\Resources\RateCards\RateCardResource;
 use App\Filament\Resources\Samples\SampleResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\WasteRecords\WasteRecordResource;
 use App\Models\User;
 
@@ -82,6 +83,7 @@ class RoleMenuAccess
             ],
 
             UserRole::OWNER_EXECUTIVE->value => [
+                UserResource::class,
                 ClientResource::class,
                 OrderResource::class,
                 SampleResource::class,
