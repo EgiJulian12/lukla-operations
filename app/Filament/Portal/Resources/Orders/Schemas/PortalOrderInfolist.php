@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Orders\Schemas;
 
+use App\Enums\OrderStatus;
 use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Models\Order;
@@ -63,6 +64,23 @@ class PortalOrderInfolist
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+                Section::make('Informasi Pembatalan / Penolakan')
+                    ->description('Pesanan ini telah ditolak/dibatalkan dan ditutup.')
+                    ->schema([
+                        TextEntry::make('cancellation_reason')
+                            ->label('Alasan Pembatalan / Penolakan')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
+                        TextEntry::make('cancelledBy.name')
+                            ->label('Dibatalkan Oleh')
+                            ->placeholder('-'),
+                        TextEntry::make('cancelled_at')
+                            ->label('Waktu Pembatalan')
+                            ->dateTime()
+                            ->placeholder('-'),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::CANCELLED),
                 Section::make('Penawaran Owner')
                     ->description('Perkiraan biaya dan catatan dari owner. Setujui penawaran untuk melanjutkan ke tahap sample.')
                     ->schema([
@@ -74,6 +92,14 @@ class PortalOrderInfolist
                             ->label('Dijawab')
                             ->dateTime()
                             ->placeholder('-'),
+                        TextEntry::make('start_date')
+                            ->label('Mulai Ditawarkan')
+                            ->date()
+                            ->placeholder('-'),
+                        TextEntry::make('due_date')
+                            ->label('Tenggat Ditawarkan')
+                            ->date()
+                            ->placeholder('-'),
                         TextEntry::make('quote_notes')
                             ->label('Catatan Penawaran')
                             ->placeholder('-')
@@ -82,6 +108,9 @@ class PortalOrderInfolist
                     ->columns(2),
                 Section::make('Pesanan')
                     ->schema([
+                        TextEntry::make('client.name')
+                            ->label('Klien')
+                            ->visible(fn (): bool => auth()->user()?->client_id === null),
                         TextEntry::make('order_number')
                             ->label('Nomor Pesanan'),
                         TextEntry::make('work_scheme')
@@ -95,8 +124,12 @@ class PortalOrderInfolist
                             ->numeric()
                             ->suffix(' pcs')
                             ->placeholder('-'),
+                        TextEntry::make('start_date')
+                            ->label('Perkiraan Mulai Project')
+                            ->date()
+                            ->placeholder('-'),
                         TextEntry::make('due_date')
-                            ->label('Tenggat')
+                            ->label('Tenggat Selesai')
                             ->date()
                             ->placeholder('-'),
                         TextEntry::make('sampleRevision.version')

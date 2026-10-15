@@ -40,4 +40,9 @@ class PortalInventoryItemResource extends Resource
             'index' => ListPortalInventoryItems::route('/'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 }

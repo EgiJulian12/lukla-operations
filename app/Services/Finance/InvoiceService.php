@@ -2,7 +2,9 @@
 
 namespace App\Services\Finance;
 
+use App\Enums\InventoryState;
 use App\Enums\InvoiceStatus;
+use App\Enums\OrderStatus;
 use App\Enums\OutputStatus;
 use App\Enums\WorkScheme;
 use App\Exceptions\InvalidInvoiceState;
@@ -39,16 +41,49 @@ class InvoiceService
 
     public function markPaid(Invoice $invoice): Invoice
     {
-        if ($invoice->status !== InvoiceStatus::ISSUED) {
+        if (! in_array($invoice->status, [InvoiceStatus::ISSUED, InvoiceStatus::PAYMENT_CONFIRMED], true)) {
             throw InvalidInvoiceState::notIssued($invoice);
         }
 
         $invoice->update(['status' => InvoiceStatus::PAID]);
 
         $order = $invoice->order;
-        if ($order && $order->isEligibleForClosure()) {
-            $order->close();
+        if ($order) {
+            // Tandai order menjadi COMPLETED (Selesai Produksi) di semua role
+            if ($order->status !== OrderStatus::COMPLETED && $order->status !== OrderStatus::CLOSED) {
+                $order->update([
+                    'status' => OrderStatus::COMPLETED,
+                    'completed_at' => now(),
+                ]);
+            }
+
+            // Tandai seluruh inventory items pesanan ini menjadi FINISHED (Barang Jadi)
+            $order->inventoryItems()
+                ->where('state', '!=', InventoryState::FINISHED->value)
+                ->update(['state' => InventoryState::FINISHED]);
         }
+
+        return $invoice->refresh();
+    }
+
+    /**
+     * Konfirmasi pembayaran oleh klien dari portal.
+     *
+     * @param  array{payment_method?: string|null, payment_notes?: string|null, payment_proof_path?: string|null}  $data
+     */
+    public function confirmPayment(Invoice $invoice, array $data): Invoice
+    {
+        if ($invoice->status !== InvoiceStatus::ISSUED) {
+            throw new \RuntimeException('Invoice tidak dalam status menunggu pembayaran.');
+        }
+
+        $invoice->update([
+            'status' => InvoiceStatus::PAYMENT_CONFIRMED,
+            'payment_confirmed_at' => now(),
+            'payment_method' => $data['payment_method'] ?? null,
+            'payment_notes' => $data['payment_notes'] ?? null,
+            'payment_proof_path' => $data['payment_proof_path'] ?? null,
+        ]);
 
         return $invoice->refresh();
     }

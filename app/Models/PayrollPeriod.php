@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\QcResult;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 /**
  * Periode payroll borongan mingguan (FR-015, FR-016).
@@ -90,5 +92,57 @@ class PayrollPeriod extends Model
     public function getLabelAttribute(): string
     {
         return $this->period_start->format('d/m/Y').' — '.$this->period_end->format('d/m/Y');
+    }
+
+    /**
+     * Catatan QC lolos pada rentang periode payroll ini.
+     *
+     * @return Collection<int, QcRecord>
+     */
+    public function getQcPassedBreakdown(): Collection
+    {
+        if (! $this->period_start || ! $this->period_end) {
+            return collect();
+        }
+
+        return QcRecord::query()
+            ->withoutGlobalScope('client')
+            ->where('result', QcResult::PASS->value)
+            ->whereBetween('inspected_at', [
+                $this->period_start->copy()->startOfDay(),
+                $this->period_end->copy()->endOfDay(),
+            ])
+            ->with(['client', 'order.article'])
+            ->get();
+    }
+
+    /**
+     * Rincian proyek, klien, dan produk/artikel yang lolos QC pada periode ini.
+     *
+     * @return array<int, array{client_name: string, order_number: string, article_name: string, total_passed: int}>
+     */
+    public function getGroupedQcPassedBreakdown(): array
+    {
+        $records = $this->getQcPassedBreakdown();
+
+        if ($records->isEmpty()) {
+            return [];
+        }
+
+        return $records
+            ->groupBy('order_id')
+            ->map(function (Collection $group): array {
+                /** @var QcRecord $first */
+                $first = $group->first();
+
+                return [
+                    'client_name' => $first->client?->name ?? ($first->order?->client?->name ?? '-'),
+                    'order_number' => $first->order?->order_number ?? '-',
+                    'article_name' => $first->order?->article?->name ?? '-',
+                    'total_passed' => (int) $group->sum('quantity'),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

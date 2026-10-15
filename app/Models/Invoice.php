@@ -34,6 +34,10 @@ class Invoice extends Model
         'due_at',
         'issued_by',
         'notes',
+        'payment_confirmed_at',
+        'payment_method',
+        'payment_notes',
+        'payment_proof_path',
     ];
 
     /**
@@ -56,6 +60,7 @@ class Invoice extends Model
             'tax_amount' => 'decimal:2',
             'issued_at' => 'date',
             'due_at' => 'date',
+            'payment_confirmed_at' => 'datetime',
         ];
     }
 

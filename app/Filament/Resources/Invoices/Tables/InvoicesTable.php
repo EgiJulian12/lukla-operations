@@ -113,6 +113,7 @@ class InvoicesTable
         [$statusBg, $statusText, $statusDot] = match ($record->status) {
             InvoiceStatus::DRAFT => ['#f3f4f6', '#374151', '#9ca3af'],
             InvoiceStatus::ISSUED => ['#fffbeb', '#92400e', '#f59e0b'],
+            InvoiceStatus::PAYMENT_CONFIRMED => ['#eff6ff', '#1e40af', '#3b82f6'],
             InvoiceStatus::PAID => ['#f0fdf4', '#14532d', '#22c55e'],
             default => ['#f3f4f6', '#374151', '#9ca3af'],
         };
@@ -144,6 +145,33 @@ class InvoicesTable
             $statusBg, $statusDot, $statusText, $statusLabel,
         );
 
+        // ── Info Konfirmasi Pembayaran Klien (jika ada) ─────────────────────
+        $paymentConfirmBox = '';
+        if ($record->payment_confirmed_at) {
+            $proofHtml = $record->payment_proof_path
+                ? sprintf(
+                    '<a href="%s" target="_blank" style="color:#2563eb;text-decoration:underline;font-weight:600">Lihat Bukti Transfer</a>',
+                    htmlspecialchars(asset('storage/'.$record->payment_proof_path))
+                )
+                : '<span style="color:#6b7280">Tidak ada lampiran</span>';
+
+            $paymentConfirmBox = sprintf(
+                '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:16px">
+                    <p style="font-size:12px;font-weight:700;color:#1e40af;margin:0 0 8px">📌 Konfirmasi Pembayaran dari Klien:</p>
+                    <div style="font-size:12px;color:#1e3a8a;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <div><strong>Waktu Konfirmasi:</strong> %s</div>
+                        <div><strong>Metode:</strong> %s</div>
+                        <div><strong>Catatan Klien:</strong> %s</div>
+                        <div><strong>Bukti Bayar:</strong> %s</div>
+                    </div>
+                </div>',
+                $record->payment_confirmed_at->format('d M Y H:i'),
+                htmlspecialchars($record->payment_method ?? '-'),
+                htmlspecialchars($record->payment_notes ?? '-'),
+                $proofHtml
+            );
+        }
+
         // ── Kartu info utama (2 kolom) ─────────────────────────────────────
         $notesRow = $record->notes
             ? sprintf(
@@ -155,7 +183,7 @@ class InvoicesTable
             )
             : '';
 
-        $infoCard = sprintf(
+        $infoCard = $paymentConfirmBox.sprintf(
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin-bottom:20px">
                 %s%s%s%s%s%s%s%s%s
             </div>',

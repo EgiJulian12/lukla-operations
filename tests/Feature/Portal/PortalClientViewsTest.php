@@ -90,6 +90,13 @@ class PortalClientViewsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_portal_sidebar_hides_qc_and_inventory_menus(): void
+    {
+        $this->assertFalse(PortalQcRecordResource::shouldRegisterNavigation());
+        $this->assertFalse(PortalInventoryItemResource::shouldRegisterNavigation());
+        $this->assertTrue(PortalOrderResource::shouldRegisterNavigation());
+    }
+
     private function clientUser(Client $client): User
     {
         $user = User::factory()->create(['client_id' => $client->getKey()]);

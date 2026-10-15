@@ -45,6 +45,7 @@ class OrderQuotationService
         WorkScheme $workScheme = WorkScheme::CMT,
         mixed $dueDate = null,
         ?int $quantity = null,
+        mixed $startDate = null,
     ): Order {
         return Order::create([
             'client_id' => $client->getKey(),
@@ -52,6 +53,7 @@ class OrderQuotationService
             'order_number' => $this->nextOrderNumber(),
             'work_scheme' => $workScheme,
             'quantity' => $quantity,
+            'start_date' => $startDate,
             'due_date' => $dueDate,
             'description' => $description,
             'design_images' => $designPaths,
@@ -68,22 +70,39 @@ class OrderQuotationService
         float $estimatedCost,
         ?string $quoteNotes,
         ?User $owner = null,
+        mixed $startDate = null,
+        mixed $dueDate = null,
     ): Order {
         if (! $order->status->needsQuotation()) {
             throw InvalidOrderQuotationState::notAwaitingQuotation($order);
         }
 
-        return DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner): Order {
-            $order->update([
+        return DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner, $startDate, $dueDate): Order {
+            $updateData = [
                 'estimated_cost' => $estimatedCost,
                 'quote_notes' => $quoteNotes,
                 'quoted_at' => now(),
                 'quoted_by' => $owner?->getKey() ?? auth()->id(),
                 'status' => OrderStatus::QUOTED,
-            ]);
+            ];
+
+            if ($startDate !== null) {
+                $updateData['start_date'] = $startDate;
+            }
+
+            if ($dueDate !== null) {
+                $updateData['due_date'] = $dueDate;
+            }
+
+            $order->update($updateData);
 
             $this->audit($order, 'quotation_provided', [
-                'after' => ['estimated_cost' => $estimatedCost, 'quote_notes' => $quoteNotes],
+                'after' => [
+                    'estimated_cost' => $estimatedCost,
+                    'quote_notes' => $quoteNotes,
+                    'start_date' => $order->start_date,
+                    'due_date' => $order->due_date,
+                ],
             ], $owner);
 
             return $order->refresh();
@@ -144,23 +163,52 @@ class OrderQuotationService
     }
 
     /**
-     * Klien menolak penawaran; order kembali ke antrean owner untuk ditawar ulang.
+     * Klien menolak penawaran; pesanan langsung ditutup (CANCELLED) secara permanen.
      */
-    public function rejectQuote(Order $order, ?string $reason = null): Order
+    public function rejectQuote(Order $order, ?User $client = null, ?string $reason = null): Order
     {
         if (! $order->status->awaitingClientApproval()) {
             throw InvalidOrderQuotationState::notAwaitingClientApproval($order);
         }
 
-        $notes = trim(implode("\n", array_filter([$order->quote_notes, $reason])));
-
-        return DB::transaction(function () use ($order, $notes): Order {
+        return DB::transaction(function () use ($order, $client, $reason): Order {
             $order->update([
-                'status' => OrderStatus::REQUESTED,
-                'quote_notes' => $notes !== '' ? $notes : null,
+                'status' => OrderStatus::CANCELLED,
+                'cancelled_at' => now(),
+                'cancelled_by' => $client?->getKey() ?? auth()->id(),
+                'cancellation_reason' => $reason,
             ]);
 
-            $this->audit($order, 'quotation_rejected', ['reason' => $notes]);
+            $this->audit($order, 'quotation_rejected', [
+                'reason' => $reason,
+                'cancelled_by' => $client?->getKey() ?? auth()->id(),
+            ], $client);
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * Owner menolak permintaan order klien; pesanan langsung ditutup (CANCELLED) secara permanen.
+     */
+    public function rejectRequest(Order $order, ?User $owner = null, ?string $reason = null): Order
+    {
+        if (! in_array($order->status, [OrderStatus::REQUESTED, OrderStatus::QUOTED], true)) {
+            throw new \InvalidArgumentException('Hanya pesanan yang masih dalam tahap permintaan atau penawaran yang dapat ditolak.');
+        }
+
+        return DB::transaction(function () use ($order, $owner, $reason): Order {
+            $order->update([
+                'status' => OrderStatus::CANCELLED,
+                'cancelled_at' => now(),
+                'cancelled_by' => $owner?->getKey() ?? auth()->id(),
+                'cancellation_reason' => $reason,
+            ]);
+
+            $this->audit($order, 'request_rejected', [
+                'reason' => $reason,
+                'cancelled_by' => $owner?->getKey() ?? auth()->id(),
+            ], $owner);
 
             return $order->refresh();
         });

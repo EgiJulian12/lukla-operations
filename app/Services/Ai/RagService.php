@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Helpers\MarkdownToText;
 use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\S3\S3Client;
 use Illuminate\Http\UploadedFile;
@@ -30,12 +29,13 @@ IMPORTANT RULES:
 2. If the context does not contain relevant information, respond with:
    "Maaf, informasi tentang [pertanyaan Anda] tidak tersedia dalam dokumentasi. Silakan hubungi admin untuk pertanyaan lebih lanjut."
 3. Answer in the same language as the question (Indonesian or English).
-4. Format your answer with clear paragraphs and bullet points, but write in plain text:
-   - Use blank lines between paragraphs
-   - Use bullets (•) for lists
-   - Do NOT use any markdown syntax like **bold**, *, _, #, or ---
-   - Do NOT include any information not explicitly in the context
-5. Always cite your source(s) at the end of your answer
+4. Format your answer cleanly and structured for easy reading:
+   - Separate different topics or thoughts into distinct, focused paragraphs with blank lines in between.
+   - Never cram multiple points, steps, or explanations into a single dense paragraph or wall of text.
+   - When presenting lists, steps, features, or options, always format them as bullet points (- item) or numbered lists (1. item), with each item placed on its own new line.
+   - Use bold text (**term**) for key labels or section headings to make the answer easy to scan and read.
+   - Do NOT include any information not explicitly in the context.
+5. Do NOT include any citations, source references, or document names (e.g., "Sumber: ...", "Source: ...") in your answer. Provide only a direct, clear, and helpful response.
 
 PROMPT;
 
@@ -103,7 +103,7 @@ PROMPT;
 
         [$prompt, $sources] = $this->buildPromptWithContext($enrichedQuery, $chunks);
 
-        $answer = MarkdownToText::convert($this->invokeModel($prompt));
+        $answer = trim($this->invokeModel($prompt));
 
         return [
             'answer' => $answer,

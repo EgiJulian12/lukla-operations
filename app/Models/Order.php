@@ -59,10 +59,14 @@ class Order extends Model
         'cutting_started_at',
         'dispatched_to_production_at',
         'received_by_production_at',
+        'start_date',
         'due_date',
         'notes',
         'created_by',
         'completed_at',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
     ];
 
     protected $attributes = [
@@ -86,7 +90,9 @@ class Order extends Model
             'quoted_at' => 'datetime',
             'quote_approved_at' => 'datetime',
             'sample_requested_at' => 'datetime',
+            'start_date' => 'date',
             'due_date' => 'date',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -98,6 +104,11 @@ class Order extends Model
     public function quoter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'quoted_by');
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     public function sample(): BelongsTo

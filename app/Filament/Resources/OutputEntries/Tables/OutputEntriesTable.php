@@ -37,11 +37,18 @@ class OutputEntriesTable
                 TextColumn::make('productionLine.name')
                     ->label('Line')
                     ->placeholder('-'),
+                TextColumn::make('client.name')
+                    ->label('Klien')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('order.order_number')
-                    ->label('Order')
-                    ->searchable(),
+                    ->label('Order / Proyek')
+                    ->description(fn (OutputEntry $record): ?string => $record->order?->article?->name)
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('component.name')
-                    ->label('Komponen'),
+                    ->label('Komponen')
+                    ->searchable(),
                 TextColumn::make('quantity')
                     ->label('Pcs')
                     ->numeric()

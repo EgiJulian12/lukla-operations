@@ -43,6 +43,7 @@ class CreatePortalOrder extends CreateRecord
             $workScheme ?? WorkScheme::CMT,
             $data['due_date'] ?? null,
             isset($data['quantity']) ? (int) $data['quantity'] : null,
+            $data['start_date'] ?? null,
         );
     }
 }
