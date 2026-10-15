@@ -45,7 +45,7 @@ class TailorWageResource extends Resource
             return false;
         }
 
-        return $user->hasRole(UserRole::TAILOR_OPERATOR) || $user->hasRole(UserRole::OWNER_EXECUTIVE);
+        return $user->hasRole(UserRole::TAILOR_OPERATOR);
     }
 
     public static function getEloquentQuery(): Builder

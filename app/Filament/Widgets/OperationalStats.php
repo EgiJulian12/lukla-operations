@@ -53,7 +53,7 @@ class OperationalStats extends StatsOverviewWidget
                 ->description('Penugasan yang masih terbuka')
                 ->icon(Heroicon::OutlinedUsers),
             Stat::make('Order Dalam Produksi', Order::query()->whereIn('status', [OrderStatus::READY_FOR_PRODUCTION->value, OrderStatus::IN_PRODUCTION->value])->count())
-                ->description('Order massal berstatus siap atau sedang dikerjakan')
+                ->description('Pesanan berstatus siap atau sedang dikerjakan')
                 ->icon(Heroicon::OutlinedRectangleStack),
             Stat::make('Output Terverifikasi', number_format($verifiedPieces).' pcs')
                 ->description('Akumulasi sejak awal minggu')

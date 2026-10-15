@@ -52,11 +52,16 @@ class OverheadAllocationResource extends Resource
      */
     public static function canAccess(): bool
     {
-        /** @var User $user */
+        /** @var User|null $user */
         $user = auth()->user();
 
+        if (! $user) {
+            return false;
+        }
+
         return ! $user->hasRoleSatisfying(
-            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::OWNER_EXECUTIVE,
         );
     }
 }

@@ -96,7 +96,6 @@ class RoleMenuAccess
                 InvoiceResource::class,
                 PurchaseOrderResource::class,
                 OverheadRecordResource::class,
-                OverheadAllocationResource::class,
             ],
         ];
     }

@@ -8,13 +8,17 @@ use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
+use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
 use App\Filament\Resources\OutputReviews\OutputReviewResource;
+use App\Filament\Resources\OverheadAllocations\OverheadAllocationResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
 use App\Filament\Resources\ProductionLines\ProductionLineResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\QcBonuses\QcBonusResource;
+use App\Filament\Resources\QcOrders\QcOrderResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
+use App\Filament\Resources\Repairs\RepairResource;
 use App\Filament\Resources\Samples\SampleResource;
 use App\Filament\Resources\TailorWages\TailorWageResource;
 use App\Models\User;
@@ -131,6 +135,30 @@ class RoleMenuAccessTest extends TestCase
         // masuk penjahit, bukan sebagai menu mandor.
         $this->assertFalse(OutputEntryResource::shouldRegisterNavigation());
         $this->assertTrue(OutputReviewResource::canAccess());
+    }
+
+    public function test_owner_does_not_see_operational_qc_overhead_and_tailor_menus_in_sidebar(): void
+    {
+        $owner = User::factory()->create();
+        $owner->assignRole(UserRole::OWNER_EXECUTIVE->value);
+
+        $this->actingAs($owner);
+
+        // 1. Alur Bahan Pesanan disembunyikan dari Owner
+        $this->assertFalse(OrderMaterialFlowResource::canAccess());
+
+        // 2. Modul QC semua (Antrean QC, Inspeksi, Perbaikan, Bonus QC) disembunyikan dari Owner
+        $this->assertFalse(QcOrderResource::canAccess());
+        $this->assertFalse(QcRecordResource::canAccess());
+        $this->assertFalse(RepairResource::canAccess());
+        $this->assertFalse(QcBonusResource::canAccess());
+
+        // 3. Overhead per Unit disembunyikan dari Owner
+        $this->assertFalse(OverheadAllocationResource::canAccess());
+        $this->assertFalse(OverheadAllocationResource::shouldRegisterNavigation());
+
+        // 4. Pekerjaan (Upah Jahit Saya) disembunyikan dari Owner
+        $this->assertFalse(TailorWageResource::canAccess());
     }
 
     public function test_guest_cannot_see_any_resource_in_navigation(): void
