@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\PayrollPeriods\Schemas;
 
+use App\Models\PayrollPeriod;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 /**
  * Formulir periode payroll.
@@ -20,7 +24,15 @@ class PayrollPeriodForm
             ->components([
                 DatePicker::make('period_start')
                     ->label('Awal Periode')
-                    ->required(),
+                    ->required()
+                    ->rules([
+                        fn (Get $get, ?PayrollPeriod $record): Unique => Rule::unique('payroll_periods', 'period_start')
+                            ->where('period_end', $get('period_end'))
+                            ->when($record, fn ($rule) => $rule->ignore($record->id)),
+                    ])
+                    ->validationMessages([
+                        'unique' => 'Periode dengan tanggal awal dan akhir yang sama sudah ada.',
+                    ]),
                 DatePicker::make('period_end')
                     ->label('Akhir Periode')
                     ->required()
