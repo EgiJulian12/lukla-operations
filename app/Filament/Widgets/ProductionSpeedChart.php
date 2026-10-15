@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\OutputEntry;
+use App\Services\Production\ProductionService;
 use Filament\Widgets\LineChartWidget;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -10,8 +11,10 @@ use Illuminate\Contracts\Support\Htmlable;
  * Kecepatan produksi per interval 30 menit selama delapan jam terakhir
  * (SRS view #1, FR-019).
  *
- * Grafik ini memakai interval_start yang sudah dibulatkan service, sehingga
- * satu titik mewakili satu slot waktu nyata di lantai produksi.
+ * Satu titik mewakili satu slot waktu nyata di lantai produksi. Awal pengerjaan
+ * dibulatkan ke slot 30 menitnya saat dihitung — laporan yang diukur penjahit
+ * dengan stopwatch punya waktu awal apa adanya, dan tanpa pembulatan ini
+ * laporan tersebut tidak akan masuk slot mana pun.
  */
 class ProductionSpeedChart extends LineChartWidget
 {
@@ -42,7 +45,8 @@ class ProductionSpeedChart extends LineChartWidget
             ->get(['quantity', 'interval_start']);
 
         foreach ($entries as $entry) {
-            $label = $entry->interval_start->format('H:i');
+            [$slotStart] = app(ProductionService::class)->calculateInterval($entry->interval_start);
+            $label = $slotStart->format('H:i');
 
             if (array_key_exists($label, $buckets)) {
                 $buckets[$label] += (int) $entry->quantity;

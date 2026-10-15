@@ -195,11 +195,19 @@ class ProductionService
     }
 
     /**
-     * Mencatat output penjahit untuk satu interval 30 menit (FR-011).
+     * Mencatat output penjahit untuk satu interval pengerjaan (FR-011).
      *
-     * Waktu yang diberikan dibulatkan ke batas interval terdekat supaya satu
-     * penjahit hanya menghasilkan satu catatan per komponen per interval, sesuai
+     * Bila $intervalEnd tidak diberikan, waktu pada $intervalAt dibulatkan ke
+     * batas interval 30 menit terdekat supaya satu penjahit hanya menghasilkan
+     * satu catatan per komponen per interval, sesuai
      * unique(user_id, component_id, interval_start).
+     *
+     * Penjahit yang mengukur pengerjaannya sendiri dengan stopwatch menyerahkan
+     * awal dan akhir yang sebenarnya. Pasangan waktu itu dipakai apa adanya:
+     * membulatkannya akan membuang hasil pengukuran, padahal justru durasi nyata
+     * itulah yang dicatat. Karena awal yang dikirim tidak pernah jatuh tepat di
+     * batas 30 menit, aturan "satu catatan per interval" tidak lagi menahan
+     * laporan kedua dari penjahit yang sama untuk komponen yang sama.
      *
      * Line boleh kosong. Penugasan penjahit ditetapkan per komponen, sehingga
      * penjahit yang tidak sedang terdaftar di line mana pun tetap boleh
@@ -212,6 +220,7 @@ class ProductionService
         Component $component,
         int $quantity,
         DateTimeInterface $intervalAt,
+        ?DateTimeInterface $intervalEnd = null,
         ?string $notes = null,
     ): OutputEntry {
         if ($quantity < 1) {
@@ -265,7 +274,12 @@ class ProductionService
             }
         }
 
-        [$start, $end] = $this->calculateInterval($intervalAt);
+        [$start, $end] = $intervalEnd === null
+            ? $this->calculateInterval($intervalAt)
+            : [
+                Carbon::instance($intervalAt)->startOfSecond(),
+                Carbon::instance($intervalEnd)->startOfSecond(),
+            ];
 
         $existing = OutputEntry::query()
             ->where('user_id', $operator->getKey())
