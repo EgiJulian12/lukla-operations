@@ -198,6 +198,47 @@ Missing write permissions on `storage/` and `bootstrap/cache/`. On macOS or Linu
 **Stale config after editing `.env`**
 `php artisan config:clear`. Cached config ignores new `.env` values.
 
+## Telegram bots (optional)
+
+The app talks to two Telegram bots via the Bot API (webhook-based):
+
+| Bot | Audience | What it does |
+|---|---|---|
+| Owner bot | Internal staff | Reports, sample approve/reject buttons |
+| Client bot | Maklon clients | Order summaries, quote approve/reject buttons |
+
+Create both bots through @BotFather, then add the configuration to `.env`:
+
+```dotenv
+TELEGRAM_OWNER_BOT_TOKEN=123456:ABC...
+TELEGRAM_OWNER_BOT_USERNAME=lukla_owner_bot
+TELEGRAM_OWNER_WEBHOOK_SECRET=any-long-random-string
+TELEGRAM_CLIENT_BOT_TOKEN=654321:ABC...
+TELEGRAM_CLIENT_BOT_USERNAME=lukla_client_bot
+TELEGRAM_CLIENT_WEBHOOK_SECRET=another-long-random-string
+TELEGRAM_APP_URL=https://<public-https-url>
+```
+
+The webhook secret is validated twice on every update: once in the URL and once
+against Telegram's `X-Telegram-Bot-Api-Secret-Token` header.
+
+Register the webhook after the app is reachable via public HTTPS:
+
+```bash
+php artisan telegram:webhook set --bot=client
+php artisan telegram:webhook set --bot=owner
+```
+
+Webhook needs real HTTPS. Local development works behind a tunnel (ngrok or
+Cloudflare Tunnel): put the tunnel URL in `TELEGRAM_APP_URL` and re-run the set
+command whenever the tunnel address changes. To detach, run `telegram:webhook delete`.
+
+Binding: each user opens their panel (admin or portal), finds the "Telegram"
+widget on the dashboard, and clicks "Hubungkan Telegram" to receive a one-time
+deep link valid for 15 minutes. Sending `/start` from that link links the chat and
+enables notifications and approval buttons. Client-bot tokens only link via the
+client bot, owner-bot tokens only via the owner bot.
+
 ## Related documents
 
 - `docs/lukla-operations-engine.md` — business requirements and scope

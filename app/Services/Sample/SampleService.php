@@ -13,6 +13,7 @@ use App\Models\Sample;
 use App\Models\SampleRevision;
 use App\Models\TimeStudy;
 use App\Models\User;
+use App\Services\Telegram\TelegramNotifier;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,8 @@ use InvalidArgumentException;
  */
 class SampleService
 {
+    public function __construct(private readonly TelegramNotifier $telegram) {}
+
     /**
      * Membuat sample baru dalam status draf (FR-001). Pemilik klien mengikuti
      * artikel, bukan input pemanggil.
@@ -128,7 +131,7 @@ class SampleService
             throw InvalidSampleState::notApprovable($revision);
         }
 
-        return DB::transaction(function () use ($revision, $approver): SampleRevision {
+        $revision = DB::transaction(function () use ($revision, $approver): SampleRevision {
             $revision->update([
                 'status' => SampleStatus::APPROVED,
                 'approved_by' => $approver?->getKey() ?? auth()->id(),
@@ -142,11 +145,15 @@ class SampleService
 
             return $revision->refresh();
         });
+
+        $this->telegram->notifySampleRevisionApproved($revision);
+
+        return $revision;
     }
 
     public function rejectRevision(SampleRevision $revision, ?string $reason = null): SampleRevision
     {
-        return DB::transaction(function () use ($revision, $reason): SampleRevision {
+        $revision = DB::transaction(function () use ($revision, $reason): SampleRevision {
             $revision->update([
                 'status' => SampleStatus::REJECTED,
                 'notes' => $reason ?? $revision->notes,
@@ -156,6 +163,10 @@ class SampleService
 
             return $revision->refresh();
         });
+
+        $this->telegram->notifySampleRevisionRejected($revision);
+
+        return $revision;
     }
 
     /**
