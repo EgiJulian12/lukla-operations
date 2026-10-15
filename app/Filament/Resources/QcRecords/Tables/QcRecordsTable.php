@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\QcRecords\Tables;
 
 use App\Enums\QcResult;
+use App\Models\QcRecord;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Icons\Heroicon;
