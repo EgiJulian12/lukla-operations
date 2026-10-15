@@ -48,8 +48,10 @@ class OrderForm
                     ->options(OrderStatus::class)
                     ->default(OrderStatus::DRAFT->value)
                     ->required(),
+                DatePicker::make('start_date')
+                    ->label('Perkiraan Mulai Project'),
                 DatePicker::make('due_date')
-                    ->label('Tenggat'),
+                    ->label('Tenggat Selesai'),
                 Textarea::make('notes')
                     ->label('Catatan')
                     ->columnSpanFull(),

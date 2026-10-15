@@ -41,4 +41,9 @@ class PortalQcRecordResource extends Resource
             'index' => ListPortalQcRecords::route('/'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 }

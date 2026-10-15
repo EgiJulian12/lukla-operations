@@ -77,6 +77,22 @@ class OrderPolicy
     }
 
     /**
+     * Penolakan penawaran adalah hak klien pemilik order saat penawaran diajukan (FR-025).
+     */
+    public function rejectQuote(User $user, Order $order): bool
+    {
+        return $this->ownsAsClient($user, $order) && $order->status->awaitingClientApproval();
+    }
+
+    /**
+     * Penolakan pesanan pada tahap permintaan/penawaran adalah wewenang owner (FR-004).
+     */
+    public function rejectRequest(User $user, Order $order): bool
+    {
+        return $this->canManage($user) && in_array($order->status, [OrderStatus::REQUESTED, OrderStatus::QUOTED], true);
+    }
+
+    /**
      * Permintaan sample hanya setelah penawaran disetujui, dan hanya sekali.
      */
     public function requestSample(User $user, Order $order): bool
@@ -84,6 +100,16 @@ class OrderPolicy
         return $this->canManage($user)
             && $order->status->isQuoteApproved()
             && $order->sample_id === null;
+    }
+
+    /**
+     * Membuat master artikel dan inisialisasi sample v1 dari order adalah hak eksklusif Tim Sample (FR-001, FR-004).
+     */
+    public function createArticleAndSample(User $user, Order $order): bool
+    {
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageSamples())
+            && $order->article_id === null
+            && in_array($order->status, [OrderStatus::QUOTE_APPROVED, OrderStatus::QUOTED, OrderStatus::REQUESTED], true);
     }
 
     /**
