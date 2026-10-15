@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Sample — prototipe sebelum produksi massal (FR-001).
@@ -109,5 +110,61 @@ class Sample extends Model
     {
         return $this->status === SampleStatus::APPROVED
             && $this->approved_revision_id !== null;
+    }
+
+    /**
+     * Mengambil daftar path berkas gambar desain acuan untuk sample ini.
+     *
+     * @return array<int, string>
+     */
+    public function designImages(): array
+    {
+        return $this->article?->order?->design_images
+            ?? $this->currentRevision?->specs['design_images']
+            ?? [];
+    }
+
+    /**
+     * Mengambil deskripsi permintaan acuan desain untuk sample ini.
+     */
+    public function designDescription(): ?string
+    {
+        return $this->article?->order?->description
+            ?? $this->currentRevision?->specs['description']
+            ?? null;
+    }
+
+    /**
+     * Menghasilkan URL gambar desain untuk ditampilkan di antarmuka (UI).
+     *
+     * @return array<int, string>
+     */
+    public function designImageUrls(): array
+    {
+        if ($this->article?->order) {
+            return $this->article->order->designImageUrls();
+        }
+
+        $images = $this->designImages();
+        if (empty($images)) {
+            return [];
+        }
+
+        $diskName = config('filesystems.default', 'local');
+        $disk = Storage::disk($diskName);
+
+        return array_map(
+            function (string $path) use ($disk): string {
+                try {
+                    return $disk->temporaryUrl(
+                        $path,
+                        now()->addMinutes(config('filament.temporary_file_url_expiry_minutes', 30)),
+                    );
+                } catch (\Throwable) {
+                    return $disk->url($path);
+                }
+            },
+            $images,
+        );
     }
 }

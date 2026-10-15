@@ -66,13 +66,13 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 
 #### Acceptance Criteria
 
-1. WHEN a Penjahit submits output, THE Output Recorder SHALL create an Output record containing: timestamp (UTC with millisecond precision), line_id, station_id, component_id, quantity (integer between 1 and 100)
+1. WHEN a Penjahit submits output, THE Output Recorder SHALL create an Output record containing: timestamp (UTC with minute precision), line_id (optional), station_id, component_id, quantity (integer ≥ 1 unit)
 2. WHEN output is submitted, THE Output Validator SHALL calculate current interval as floor(submission_time minutes / 30) × 30 minutes
 3. THE Output Validator SHALL verify submission_time falls within [Interval_Start, Interval_End) where Interval_End = Interval_Start + 30 minutes
 4. WHEN submission_time is within valid interval, THE Output Recorder SHALL create Output record with status "SUBMITTED"
 5. IF submission_time is outside [Interval_Start, Interval_End), THE Output Validator SHALL reject the submission with error indicating: current time, valid interval range, and next interval start time
-6. WHEN output is validated, THE Output Recorder SHALL verify Penjahit_id exists and has active assignment to Line_id; IF verification fails, THE Output Recorder SHALL reject with error indicating invalid Penjahit-Line assignment
-7. WHEN output is successfully recorded, THE System SHALL mark it as "PENDING_VERIFICATION"
+6. WHEN output is validated, THE Output Recorder SHALL verify Penjahit has active assignment; IF verification fails, THE Output Recorder SHALL reject with error indicating invalid assignment
+7. WHEN output is successfully recorded, THE System SHALL mark it as "PENDING_VERIFICATION" (status SUBMITTED)
 
 ### Requirement 4: Output Verification Workflow
 
@@ -80,13 +80,13 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 
 #### Acceptance Criteria
 
-1. WHEN Mandor or Kepala Produksi accesses the verification view, THE Verifier SHALL display up to 100 pending SUBMITTED output records for their assigned production lines
-2. WHEN verifier selects APPROVE for an output record, THE Output Manager SHALL transition the Output status to "Verified" and THE System SHALL mark the Output as eligible for payroll
+1. WHEN Mandor or Kepala Produksi accesses the verification view, THE Verifier SHALL display pending SUBMITTED output records for their assigned production lines/orders
+2. WHEN verifier selects APPROVE for an output record, THE Output Manager SHALL transition the Output status to "Verified" and THE System SHALL mark the Output as eligible for payroll and lock it from further tailor modification
 3. IF verifier attempts to select APPROVE without authorization, THE System SHALL reject the action with an error indicating permission denied
-4. WHEN verifier selects REJECT for an output record, THE Output Manager SHALL transition the Output status to "Rejected" and THE System SHALL send a notification to the assigned Penjahit
+4. WHEN verifier selects REJECT for an output record, THE Output Manager SHALL transition the Output status to "Rejected" and record the rejection reason
 5. IF notification delivery to Penjahit fails, THE Output Manager SHALL still complete the status transition and record the notification failure in the system log
-6. IF verifier selects REJECT, THE Verifier SHALL require a rejection reason with a minimum of 10 characters and a maximum of 500 characters before confirming the REJECT action
-7. WHERE Output status is REJECTED, THE Penjahit SHALL be allowed to resubmit corrected output within 7 days of rejection, with a maximum of 3 resubmission attempts per Output
+6. IF verifier selects REJECT, THE Verifier SHALL require a rejection reason before confirming the REJECT action
+7. WHERE Output status is REJECTED, THE Penjahit SHALL be allowed to resubmit corrected output
 8. THE Audit Logger SHALL record verifier_id, ISO 8601 timestamp with second precision, and decision for every verification action
 9. IF Penjahit resubmits rejected output, THE System SHALL transition the Output status from "Rejected" back to "Submitted"
 
@@ -165,17 +165,19 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 
 ### Requirement 10: Order State Management
 
-**User Story:** sebagai Kepala Produksi, saya ingin sistem mengelola status pesanan melalui lifecycle yang jelas (Pending → Confirmed → In Production → QC Phase → Completed → Closed), sehingga tracking status pesanan selalu akurat.
+**User Story:** sebagai Owner dan Kepala Produksi, saya ingin sistem mengelola status pesanan melalui lifecycle yang jelas mulai dari pra-produksi (Permintaan Klien → Penawaran → Persetujuan Penawaran), pengembangan sample, hingga siklus produksi (Dikonfirmasi → Siap Produksi → Dalam Produksi → Dalam QC → Selesai → Closed), sehingga tracking status pesanan selalu akurat di setiap tahapan.
 
 #### Acceptance Criteria
 
-1. WHEN Order is created, THE Order Manager SHALL initialize status as "Pending"
-2. WHEN Deal Agreement is finalized, THE Order Manager SHALL transition status to "Confirmed"
-3. WHEN Mandor assigns first Penjahit to Order, THE Order Manager SHALL transition status to "In Production"
-4. WHEN 100% of expected Order units reach QC Station, THE Order Manager SHALL transition status to "QC Phase"
-5. WHEN 100% of produced units have QC Status "PASSED", THE Order Manager SHALL transition status to "Completed"
-6. WHEN Owner confirms delivery complete AND Finance marks invoice as "PAID", THE Order Manager SHALL transition status to "Closed"
-7. WHERE Order status is "Closed", THE System SHALL prevent status changes, line item modifications, and rate changes
+1. WHEN Client submits a new manufacturing request from the portal, THE Order Manager SHALL initialize status as "REQUESTED"
+2. WHEN Owner submits quotation pricing for the request, THE Order Manager SHALL transition status to "QUOTED"
+3. WHEN Client approves the quotation, THE Order Manager SHALL transition status to "QUOTE_APPROVED", unlocking the sample development step
+4. WHEN approved sample is converted to mass order, THE Order Manager SHALL transition status to "CONFIRMED" and then "READY_FOR_PRODUCTION" (Siap Produksi di antrean lantai produksi)
+5. WHEN Mandor starts production and assigns tailors to all article components, THE Order Manager SHALL transition status to "IN_PRODUCTION"
+6. WHEN assembled goods enter QC inspection queue, THE Order Manager SHALL transition status to "IN_QC"
+7. WHEN 100% of produced units have QC Status "PASSED", THE Order Manager SHALL transition status to "COMPLETED"
+8. WHEN delivery is confirmed and Finance marks invoice as "PAID", THE Order Manager SHALL transition status to "CLOSED"
+9. WHERE Order status is "COMPLETED", "CLOSED", or "CANCELLED", THE System SHALL lock transaction records and prevent line item or rate modifications (FR-021)
 
 ### Requirement 11: Production Line and Station Allocation
 
@@ -211,16 +213,15 @@ Sistem ini mendukung tiga skema maklon (CMT, Semi-CMT, Full Package) dengan trac
 
 ### Requirement 13: Repair Workflow Management
 
-**User Story:** sebagai QC Inspector, saya ingin sistem mengelola unit REPAIR yang kembali ke produksi untuk QC ulang, sehingga defect terbaiki dan dapat diterima.
+**User Story:** sebagai QC Inspector dan Mandor/Repairer, saya ingin sistem mengelola unit REPAIR yang dialihkan dari QC untuk diperbaiki dan dikembalikan ke antrean produksi/QC ulang, sehingga defect teratasi dengan tuntas dan terpantau statusnya.
 
 #### Acceptance Criteria
 
-1. WHEN QC result is REPAIR, THE Repair Manager SHALL create Repair record with: repair_reason_id, assigned_repairer_id, repair_deadline (48 hours from creation), and repair_attempt = 1
-2. WHEN repair is completed, THE Repair Manager SHALL transition repair status to "COMPLETED" AND return unit to production queue
-3. WHEN QC Inspector selects repaired unit for re-inspection, THE QC Manager SHALL allow re-inspection workflow
-4. IF repaired unit fails QC (REPAIR or SCRAP) AND repair_attempt < 3, THE Repair Manager SHALL increment repair_attempt by 1 AND return unit to repair area
-5. IF repaired unit fails QC (REPAIR or SCRAP) AND repair_attempt = 3, THE Repair Manager SHALL force SCRAP decision AND transition repair status to "MAX_ATTEMPTS_EXCEEDED"
-6. THE Repair Tracker SHALL increment counter for each QC REPAIR result AND reset counter to 0 when QC result is PASS
+1. WHEN QC result is REPAIR, THE Repair Manager SHALL create a Repair record with: qc_record_id, assigned_repairer_id (optional), status "PENDING", and notes
+2. WHEN repair work begins, THE Repair Manager SHALL transition repair status to "IN_REPAIR"
+3. WHEN repair is completed, THE Repair Manager SHALL transition repair status to "COMPLETED", record completed_at, and return the unit to production / QC inspection queue
+4. WHEN QC Inspector selects repaired unit for re-inspection, THE QC Manager SHALL allow re-inspection workflow
+5. IF a unit repeatedly fails inspection or is damaged beyond repair, THE QC Inspector SHALL have discretion to mark the unit as SCRAP, routing it to waste records
 
 ### Requirement 14: Waste and Defect Categorization
 

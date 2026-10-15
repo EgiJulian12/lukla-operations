@@ -4,6 +4,7 @@ namespace App\Filament\Resources\OutputEntries\Tables;
 
 use App\Enums\OutputStatus;
 use App\Filament\Resources\OutputEntries\Actions\RejectOutputAction;
+use App\Filament\Resources\OutputEntries\Actions\ResubmitOutputAction;
 use App\Filament\Resources\OutputEntries\Actions\VerifyOutputAction;
 use App\Models\OutputEntry;
 use Filament\Tables\Columns\TextColumn;
@@ -65,6 +66,7 @@ class OutputEntriesTable
             ->recordActions([
                 VerifyOutputAction::make(),
                 RejectOutputAction::make(),
+                ResubmitOutputAction::make(),
             ])
             ->defaultSort('interval_start', 'desc');
     }

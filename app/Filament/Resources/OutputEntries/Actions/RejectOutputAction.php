@@ -32,7 +32,7 @@ class RejectOutputAction
                     ->required(),
             ])
             ->action(fn (OutputEntry $record, array $data) => app(ProductionService::class)
-                ->rejectOutput($record, $data['reason']))
+                ->rejectOutput($record, $data['reason'], auth()->user()))
             ->successNotificationTitle('Output ditolak');
     }
 }

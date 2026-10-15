@@ -18,6 +18,7 @@ class LineAssignment extends Model
     protected $fillable = [
         'production_line_id',
         'user_id',
+        'station_number',
         'assigned_at',
         'unassigned_at',
     ];
@@ -43,5 +44,10 @@ class LineAssignment extends Model
     public function isActive(): bool
     {
         return $this->unassigned_at === null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('unassigned_at');
     }
 }

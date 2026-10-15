@@ -30,4 +30,22 @@ class InvalidSampleState extends RuntimeException
             $sample->getKey(),
         ));
     }
+
+    public static function cannotBeRevised(SampleRevision $revision): self
+    {
+        return new self(sprintf(
+            'Revisi v%d dari sample #%d masih berstatus draf atau tidak memenuhi syarat untuk direvisi ulang.',
+            $revision->version,
+            $revision->sample_id,
+        ));
+    }
+
+    public static function notEditable(SampleRevision $revision): self
+    {
+        return new self(sprintf(
+            'Revisi v%d dari sample #%d sudah tidak dapat disunting (hanya draf yang dapat diubah).',
+            $revision->version,
+            $revision->sample_id,
+        ));
+    }
 }

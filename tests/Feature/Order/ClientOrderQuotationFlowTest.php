@@ -4,6 +4,7 @@ namespace Tests\Feature\Order;
 
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
+use App\Enums\WorkScheme;
 use App\Exceptions\InvalidOrderQuotationState;
 use App\Filament\Portal\Resources\Orders\Pages\CreatePortalOrder;
 use App\Filament\Portal\Resources\Orders\Pages\ViewPortalOrder;
@@ -35,7 +36,11 @@ class ClientOrderQuotationFlowTest extends TestCase
         parent::setUp();
 
         $this->seed(RoleSeeder::class);
-        Storage::fake('s3');
+        $disk = $this->getTestDisk();
+        Storage::fake($disk);
+        if ($disk !== 's3') {
+            Storage::fake('s3');
+        }
     }
 
     public function test_a_client_request_keeps_the_design_and_the_clients_own_identity(): void
@@ -59,6 +64,40 @@ class ClientOrderQuotationFlowTest extends TestCase
             'orders/designs/kaos-2.png',
         ], $order->design_images);
         $this->assertStringStartsWith('REQ-', $order->order_number);
+    }
+
+    public function test_client_request_can_include_order_quantity_and_confirm_it_upon_quote_approval(): void
+    {
+        $client = Client::factory()->create();
+        $requester = $this->clientUser($client);
+
+        // Klien mengisi jumlah order saat submit request pertama kali
+        $order = $this->service()->submitRequest(
+            client: $client,
+            designPaths: ['orders/designs/jersey-front.png'],
+            description: 'Jersey Futsal Dryfit 24s',
+            requester: $requester,
+            quantity: 250,
+        );
+
+        $this->assertSame(OrderStatus::REQUESTED, $order->status);
+        $this->assertSame(250, $order->quantity);
+
+        // Owner memberi penawaran
+        $owner = $this->staffUser(UserRole::OWNER_EXECUTIVE);
+        $this->service()->provideQuote($order, 18750000.0, 'Harga per pcs 75.000 untuk 250 pcs.', $owner);
+
+        // Klien menyetujui penawaran dengan mengonfirmasi atau menyesuaikan jumlah order
+        $approved = $this->service()->approveQuote(
+            order: $order,
+            client: $requester,
+            quantity: 300,
+            notes: 'Tambah 50 pcs jadi total 300 pcs',
+        );
+
+        $this->assertSame(OrderStatus::QUOTE_APPROVED, $approved->status);
+        $this->assertSame(300, $approved->quantity);
+        $this->assertSame('Tambah 50 pcs jadi total 300 pcs', $approved->notes);
     }
 
     public function test_requests_from_different_clients_get_distinct_order_numbers(): void
@@ -289,8 +328,9 @@ class ClientOrderQuotationFlowTest extends TestCase
         $client = Client::factory()->create();
         $order = $this->requestedOrder($client, ['orders/designs/kaos.png']);
 
-        Storage::disk('s3')->put('orders/designs/kaos.png', 'dummy');
-        Storage::disk('s3')->buildTemporaryUrlsUsing(
+        $disk = $this->getTestDisk();
+        Storage::disk($disk)->put('orders/designs/kaos.png', 'dummy');
+        Storage::disk($disk)->buildTemporaryUrlsUsing(
             fn (string $path): string => 'https://signed.example/'.$path,
         );
 
@@ -314,8 +354,9 @@ class ClientOrderQuotationFlowTest extends TestCase
             'Kaos raglan lengan panjang, bahan katun combed 30s.',
         );
 
-        Storage::disk('s3')->put('orders/designs/kaos.png', 'dummy');
-        Storage::disk('s3')->buildTemporaryUrlsUsing(
+        $disk = $this->getTestDisk();
+        Storage::disk($disk)->put('orders/designs/kaos.png', 'dummy');
+        Storage::disk($disk)->buildTemporaryUrlsUsing(
             fn (string $path): string => 'https://signed.example/'.$path,
         );
 
@@ -380,6 +421,129 @@ class ClientOrderQuotationFlowTest extends TestCase
         $this->service()->approveQuote($order, $this->clientUser($client));
 
         return $order->refresh();
+    }
+
+    public function test_order_request_can_be_submitted_with_work_scheme_and_due_date(): void
+    {
+        $client = Client::factory()->create();
+        $requester = $this->clientUser($client);
+
+        $order = $this->service()->submitRequest(
+            $client,
+            ['orders/designs/jacket.png'],
+            'Jaket parasut outdoor.',
+            null,
+            $requester,
+            WorkScheme::SEMI_CMT,
+            '2026-11-20',
+        );
+
+        $this->assertSame(WorkScheme::SEMI_CMT, $order->work_scheme);
+        $this->assertSame('2026-11-20', $order->due_date->format('Y-m-d'));
+    }
+
+    public function test_quote_approval_can_update_work_scheme_due_date_and_notes(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client);
+        $this->service()->provideQuote($order, 5000000.0, 'Catatan.', $this->staffUser(UserRole::OWNER_EXECUTIVE));
+
+        $this->service()->approveQuote(
+            $order,
+            $this->clientUser($client),
+            dueDate: '2026-12-01',
+            workScheme: WorkScheme::FULL_PACKAGE,
+            notes: 'Harap aksesoris menggunakan resleting YKK metal.',
+        );
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::QUOTE_APPROVED, $order->status);
+        $this->assertSame('2026-12-01', $order->due_date->format('Y-m-d'));
+        $this->assertSame(WorkScheme::FULL_PACKAGE, $order->work_scheme);
+        $this->assertSame('Harap aksesoris menggunakan resleting YKK metal.', $order->notes);
+    }
+
+    public function test_view_portal_order_renders_back_button_and_dijawab_label_and_approve_button(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, ['orders/designs/shirt.png']);
+        $this->service()->provideQuote($order, 2500000.0, 'Penawaran awal.', $this->staffUser(UserRole::OWNER_EXECUTIVE));
+
+        Storage::disk($this->getTestDisk())->put('orders/designs/shirt.png', 'content');
+
+        $this->actingAs($this->clientUser($client));
+
+        $response = $this->get(ViewPortalOrder::getUrl(['record' => $order], panel: 'portal', tenant: $client));
+        $response->assertOk();
+        $response->assertSee('Dijawab');
+        $response->assertSee('Kembali');
+        $response->assertSee('Setuju');
+        $response->assertSee('Download Dokumen Desain');
+    }
+
+    public function test_client_can_download_their_own_order_design_file(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, ['orders/designs/kaos.png']);
+
+        Storage::disk($this->getTestDisk())->put('orders/designs/kaos.png', 'dummy image content');
+
+        $this->actingAs($this->clientUser($client));
+
+        $response = $this->get(route('orders.designs.download', $order));
+        $response->assertOk();
+        $this->assertSame('dummy image content', $response->streamedContent());
+    }
+
+    public function test_client_cannot_download_another_clients_order_design_file(): void
+    {
+        $clientA = Client::factory()->create();
+        $clientB = Client::factory()->create();
+        $orderA = $this->requestedOrder($clientA, ['orders/designs/secret.png']);
+
+        Storage::disk($this->getTestDisk())->put('orders/designs/secret.png', 'secret content');
+
+        $this->actingAs($this->clientUser($clientB));
+
+        $response = $this->get(route('orders.designs.download', $orderA));
+        $response->assertForbidden();
+    }
+
+    public function test_admin_can_download_any_order_design_file(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, ['orders/designs/sample.png']);
+
+        Storage::disk($this->getTestDisk())->put('orders/designs/sample.png', 'sample file content');
+
+        $this->actingAs($this->staffUser(UserRole::OWNER_EXECUTIVE));
+
+        $response = $this->get(route('orders.designs.download', $order));
+        $response->assertOk();
+        $this->assertSame('sample file content', $response->streamedContent());
+    }
+
+    public function test_multiple_design_files_download_as_zip_archive(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, [
+            'orders/designs/front.png',
+            'orders/designs/back.png',
+        ]);
+
+        Storage::disk($this->getTestDisk())->put('orders/designs/front.png', 'front content');
+        Storage::disk($this->getTestDisk())->put('orders/designs/back.png', 'back content');
+
+        $this->actingAs($this->clientUser($client));
+
+        $response = $this->get(route('orders.designs.download', $order));
+        $response->assertOk();
+        $this->assertStringContainsString('.zip', (string) $response->headers->get('content-disposition'));
+    }
+
+    private function getTestDisk(): string
+    {
+        return config('filesystems.default', 'local');
     }
 
     private function clientUser(Client $client): User

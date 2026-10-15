@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use RuntimeException;
 
@@ -17,6 +18,24 @@ class InvalidOrderState extends RuntimeException
             'Order %s berstatus %s, sehingga produksi belum dapat dimulai.',
             $order->order_number,
             $order->status->getLabel(),
+        ));
+    }
+
+    public static function cannotTransition(Order $order, OrderStatus $target): self
+    {
+        return new self(sprintf(
+            'Order %s tidak dapat berpindah status dari %s ke %s.',
+            $order->order_number,
+            $order->status->getLabel(),
+            $target->getLabel(),
+        ));
+    }
+
+    public static function notEligibleForClosure(Order $order): self
+    {
+        return new self(sprintf(
+            'Order %s belum memenuhi syarat untuk ditutup (harus berstatus Selesai dan seluruh tagihan telah lunas).',
+            $order->order_number,
         ));
     }
 }

@@ -12,7 +12,6 @@ use App\Models\Order;
 use App\Models\Sample;
 use App\Models\User;
 use App\Services\Sample\SampleService;
-use App\Services\Telegram\TelegramNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -26,7 +25,7 @@ use Illuminate\Support\Str;
  */
 class OrderQuotationService
 {
-    public function __construct(private readonly SampleService $samples, private readonly TelegramNotifier $telegram) {}
+    public function __construct(private readonly SampleService $samples) {}
 
     /**
      * Permintaan klien: gambar design dan deskripsi tanpa jumlah unit.
@@ -43,12 +42,17 @@ class OrderQuotationService
         string $description,
         ?Article $article = null,
         ?User $requester = null,
+        WorkScheme $workScheme = WorkScheme::CMT,
+        mixed $dueDate = null,
+        ?int $quantity = null,
     ): Order {
         return Order::create([
             'client_id' => $client->getKey(),
             'article_id' => $article?->getKey(),
             'order_number' => $this->nextOrderNumber(),
-            'work_scheme' => WorkScheme::CMT,
+            'work_scheme' => $workScheme,
+            'quantity' => $quantity,
+            'due_date' => $dueDate,
             'description' => $description,
             'design_images' => $designPaths,
             'status' => OrderStatus::REQUESTED,
@@ -69,7 +73,7 @@ class OrderQuotationService
             throw InvalidOrderQuotationState::notAwaitingQuotation($order);
         }
 
-        $order = DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner): Order {
+        return DB::transaction(function () use ($order, $estimatedCost, $quoteNotes, $owner): Order {
             $order->update([
                 'estimated_cost' => $estimatedCost,
                 'quote_notes' => $quoteNotes,
@@ -84,37 +88,59 @@ class OrderQuotationService
 
             return $order->refresh();
         });
-
-        $this->telegram->notifyQuotationProvided($order);
-
-        return $order;
     }
 
     /**
      * Klien menyetujui penawaran, membuka langkah permintaan sample.
      */
-    public function approveQuote(Order $order, ?User $client = null): Order
-    {
+    public function approveQuote(
+        Order $order,
+        ?User $client = null,
+        mixed $dueDate = null,
+        ?WorkScheme $workScheme = null,
+        ?string $notes = null,
+        ?int $quantity = null,
+    ): Order {
         if (! $order->status->awaitingClientApproval()) {
             throw InvalidOrderQuotationState::notAwaitingClientApproval($order);
         }
 
-        $order = DB::transaction(function () use ($order, $client): Order {
-            $order->update([
+        return DB::transaction(function () use ($order, $client, $dueDate, $workScheme, $notes, $quantity): Order {
+            $updateData = [
                 'quote_approved_at' => now(),
                 'status' => OrderStatus::QUOTE_APPROVED,
-            ]);
+            ];
+
+            if ($quantity !== null && $quantity > 0) {
+                $updateData['quantity'] = $quantity;
+            }
+
+            if ($dueDate !== null) {
+                $updateData['due_date'] = $dueDate;
+            }
+
+            if ($workScheme !== null) {
+                $updateData['work_scheme'] = $workScheme;
+            }
+
+            if ($notes !== null && trim($notes) !== '') {
+                $updateData['notes'] = $notes;
+            }
+
+            $order->update($updateData);
 
             $this->audit($order, 'quotation_approved', [
-                'after' => ['estimated_cost' => $order->estimated_cost],
+                'after' => [
+                    'estimated_cost' => $order->estimated_cost,
+                    'quantity' => $order->quantity,
+                    'due_date' => $order->due_date,
+                    'work_scheme' => $order->work_scheme?->value,
+                    'notes' => $order->notes,
+                ],
             ], $client);
 
             return $order->refresh();
         });
-
-        $this->telegram->notifyQuotationApproved($order);
-
-        return $order;
     }
 
     /**
@@ -128,7 +154,7 @@ class OrderQuotationService
 
         $notes = trim(implode("\n", array_filter([$order->quote_notes, $reason])));
 
-        $order = DB::transaction(function () use ($order, $notes): Order {
+        return DB::transaction(function () use ($order, $notes): Order {
             $order->update([
                 'status' => OrderStatus::REQUESTED,
                 'quote_notes' => $notes !== '' ? $notes : null,
@@ -138,10 +164,6 @@ class OrderQuotationService
 
             return $order->refresh();
         });
-
-        $this->telegram->notifyQuotationRejected($order);
-
-        return $order;
     }
 
     /**
@@ -197,6 +219,7 @@ class OrderQuotationService
     {
         return Article::create([
             'client_id' => $order->client_id,
+            'order_id' => $order->getKey(),
             'code' => $order->order_number,
             'name' => Str::limit(trim((string) $order->description), 120, '') ?: $order->order_number,
             'description' => $order->description,

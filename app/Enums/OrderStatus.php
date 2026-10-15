@@ -22,6 +22,7 @@ enum OrderStatus: string implements HasColor, HasLabel
     case IN_PRODUCTION = 'in_production';
     case IN_QC = 'in_qc';
     case COMPLETED = 'completed';
+    case CLOSED = 'closed';
     case CANCELLED = 'cancelled';
 
     public function getLabel(): string
@@ -36,6 +37,7 @@ enum OrderStatus: string implements HasColor, HasLabel
             self::IN_PRODUCTION => 'Dalam Produksi',
             self::IN_QC => 'Dalam QC',
             self::COMPLETED => 'Selesai',
+            self::CLOSED => 'Ditutup',
             self::CANCELLED => 'Dibatalkan',
         };
     }
@@ -52,17 +54,41 @@ enum OrderStatus: string implements HasColor, HasLabel
             self::IN_PRODUCTION => 'warning',
             self::IN_QC => 'primary',
             self::COMPLETED => 'success',
+            self::CLOSED => 'gray',
             self::CANCELLED => 'danger',
         };
     }
 
     /**
-     * Order yang sudah dibatalkan atau selesai tidak boleh diubah lagi —
-     * mendukung aturan "locked transaction history" pada matriks RBAC.
+     * Order yang sudah dibatalkan, selesai, atau ditutup tidak boleh diubah lagi —
+     * mendukung aturan "locked transaction history" pada matriks RBAC (FR-021).
      */
     public function isLocked(): bool
     {
-        return in_array($this, [self::COMPLETED, self::CANCELLED], true);
+        return in_array($this, [self::COMPLETED, self::CLOSED, self::CANCELLED], true);
+    }
+
+    /**
+     * Memeriksa apakah transisi dari status ini ke status target sah sesuai alur lifecycle order.
+     */
+    public function canTransitionTo(self $target): bool
+    {
+        if ($this === $target) {
+            return false;
+        }
+
+        return match ($this) {
+            self::REQUESTED => in_array($target, [self::QUOTED, self::CANCELLED], true),
+            self::QUOTED => in_array($target, [self::QUOTE_APPROVED, self::REQUESTED, self::CANCELLED], true),
+            self::QUOTE_APPROVED => in_array($target, [self::CONFIRMED, self::DRAFT, self::READY_FOR_PRODUCTION, self::CANCELLED], true),
+            self::DRAFT => in_array($target, [self::CONFIRMED, self::READY_FOR_PRODUCTION, self::CANCELLED], true),
+            self::CONFIRMED => in_array($target, [self::READY_FOR_PRODUCTION, self::CANCELLED], true),
+            self::READY_FOR_PRODUCTION => in_array($target, [self::IN_PRODUCTION, self::CANCELLED], true),
+            self::IN_PRODUCTION => in_array($target, [self::IN_QC, self::CANCELLED], true),
+            self::IN_QC => in_array($target, [self::COMPLETED, self::IN_PRODUCTION, self::CANCELLED], true),
+            self::COMPLETED => in_array($target, [self::CLOSED], true),
+            self::CLOSED, self::CANCELLED => false,
+        };
     }
 
     /**

@@ -100,7 +100,9 @@ class SamplesTable
                     })
                     ->successNotificationTitle('Order produksi massal dibuat'),
                 EditAction::make()
-                    ->label('Ubah'),
+                    ->label('Lihat')
+                    ->icon(Heroicon::OutlinedEye)
+                    ->color('gray'),
             ])
             ->defaultSort('created_at', 'desc');
     }

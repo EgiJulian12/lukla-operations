@@ -90,7 +90,7 @@ The remaining database values in `.env.example` already suit a default local ins
 php artisan migrate --seed
 ```
 
-This creates all 34 tables and seeds the eight RBAC roles plus the demo accounts listed
+This creates all database tables and seeds the eight RBAC roles plus the demo accounts listed
 further down.
 
 ## 5. Build the frontend

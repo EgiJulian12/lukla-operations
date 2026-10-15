@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\BelongsToClient;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -19,10 +20,16 @@ class Article extends Model
 
     protected $fillable = [
         'client_id',
+        'order_id',
         'code',
         'name',
         'description',
     ];
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
 
     public function components(): HasMany
     {
