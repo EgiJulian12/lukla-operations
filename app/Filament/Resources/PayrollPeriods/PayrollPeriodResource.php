@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PayrollPeriods;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\PayrollPeriods\Pages\CreatePayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\EditPayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\ListPayrollPeriods;
@@ -27,6 +28,8 @@ use UnitEnum;
  */
 class PayrollPeriodResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = PayrollPeriod::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;

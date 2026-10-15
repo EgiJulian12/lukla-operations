@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductionLines;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\ProductionLines\Pages\CreateProductionLine;
 use App\Filament\Resources\ProductionLines\Pages\EditProductionLine;
 use App\Filament\Resources\ProductionLines\Pages\ListProductionLines;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class ProductionLineResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = ProductionLine::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;

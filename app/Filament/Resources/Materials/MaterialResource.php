@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Materials;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Materials\Pages\CreateMaterial;
 use App\Filament\Resources\Materials\Pages\EditMaterial;
 use App\Filament\Resources\Materials\Pages\ListMaterials;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class MaterialResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Material::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBeaker;

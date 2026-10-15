@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PurchaseOrders;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
@@ -25,6 +26,8 @@ use UnitEnum;
  */
 class PurchaseOrderResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = PurchaseOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;

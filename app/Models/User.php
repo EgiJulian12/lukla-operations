@@ -12,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -63,6 +64,17 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * Komponen yang dipegang penjahit ini pada order-order produksi (FR-009).
+     * Terisi hanya untuk peran Penjahit; peran lain tidak pernah ditugaskan.
+     *
+     * @return HasMany<OrderComponentAssignment, $this>
+     */
+    public function componentAssignments(): HasMany
+    {
+        return $this->hasMany(OrderComponentAssignment::class);
     }
 
     // -----------------------------------------------------------------

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Clients;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class ClientResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Client::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;

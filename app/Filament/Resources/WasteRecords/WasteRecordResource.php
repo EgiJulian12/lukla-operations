@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\WasteRecords;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\WasteRecords\Pages\CreateWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\EditWasteRecord;
 use App\Filament\Resources\WasteRecords\Pages\ListWasteRecords;
@@ -25,6 +26,8 @@ use UnitEnum;
  */
 class WasteRecordResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = WasteRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowDownTray;

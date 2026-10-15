@@ -6,14 +6,17 @@ use App\Concerns\BelongsToClient;
 use App\Enums\MaterialResponsibility;
 use App\Enums\OrderMaterialStatus;
 use App\Enums\OrderStatus;
+use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Enums\WorkScheme;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -120,9 +123,147 @@ class Order extends Model
         return $this->hasMany(OutputEntry::class);
     }
 
+    /**
+     * Penjahit yang benar-benar mengerjakan order ini, diturunkan dari catatan
+     * output 30 menit.
+     *
+     * Bukan penugasan line: `line_assignments` menautkan penjahit ke line, dan
+     * satu line melayani order lintas klien, sehingga keanggotaan line tidak
+     * menunjukkan siapa mengerjakan order mana. Ditampilkan sebagai informasi,
+     * bukan sumber perhitungan — payroll tetap dihitung dari output terverifikasi.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function operators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'output_entries', 'order_id', 'user_id')
+            ->distinct();
+    }
+
     public function qcRecords(): HasMany
     {
         return $this->hasMany(QcRecord::class);
+    }
+
+    /**
+     * Rencana kerja order: penjahit pemegang tiap komponen (FR-009).
+     *
+     * Ditetapkan sekali saat produksi dimulai, sehingga satu komponen selalu
+     * punya tepat satu penjahit. Lihat ProductionService::startProduction().
+     *
+     * @return HasMany<OrderComponentAssignment, $this>
+     */
+    public function componentAssignments(): HasMany
+    {
+        return $this->hasMany(OrderComponentAssignment::class);
+    }
+
+    /**
+     * Seluruh komponen yang harus dijahit untuk order ini, diambil dari
+     * artikelnya dan diurutkan sesuai urutan pengerjaan.
+     *
+     * Order tanpa artikel — atau artikel yang komponennya belum dipecah — tidak
+     * punya komponen, sehingga daftarnya kosong.
+     *
+     * @return Collection<int, Component>
+     */
+    public function components(): Collection
+    {
+        return $this->article?->components ?? new Collection;
+    }
+
+    /**
+     * Komponen yang menjadi tanggung jawab seorang penjahit pada order ini.
+     * Kosong bila order belum punya rencana, atau penjahit itu tidak ditugaskan.
+     *
+     * @return Collection<int, Component>
+     */
+    public function componentsAssignedTo(User $tailor): Collection
+    {
+        return $this->componentAssignments()
+            ->where('user_id', $tailor->getKey())
+            ->with('component')
+            ->get()
+            ->pluck('component')
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * Apakah rencana penjahit sudah ditetapkan untuk order ini.
+     *
+     * Order yang berjalan sebelum penugasan per komponen ada tidak punya
+     * rencana; pemakainya membutuhkan pembeda ini agar tidak menyimpulkan
+     * "penjahit tidak ditugaskan apa pun" dari ketiadaan rencana.
+     */
+    public function hasComponentPlan(): bool
+    {
+        return $this->componentAssignments()->exists();
+    }
+
+    /**
+     * Jumlah output order ini yang masih menunggu keputusan mandor (FR-012).
+     */
+    public function pendingOutputVerificationCount(): int
+    {
+        return $this->outputEntries()
+            ->where('status', OutputStatus::SUBMITTED->value)
+            ->count();
+    }
+
+    public function hasPendingOutputVerification(): bool
+    {
+        return $this->pendingOutputVerificationCount() > 0;
+    }
+
+    /**
+     * Komponen artikel order yang belum punya satu pun output terverifikasi.
+     *
+     * Inilah yang menahan perakitan: perakitan menyatukan pekerjaan seluruh
+     * komponen, sehingga komponen yang belum lolos verifikasi berarti ada bagian
+     * produk yang belum jelas siapa mengerjakan dan berapa hasilnya. Output yang
+     * ditolak tidak dihitung — komponen itu harus dilaporkan ulang lalu
+     * diverifikasi.
+     *
+     * @return Collection<int, Component>
+     */
+    public function componentsWithoutVerifiedOutput(): Collection
+    {
+        $verifiedComponentIds = $this->outputEntries()
+            ->where('status', OutputStatus::VERIFIED->value)
+            ->pluck('component_id')
+            ->map(fn (int|string $id): int => (int) $id)
+            ->all();
+
+        return $this->components()
+            ->reject(fn (Component $component): bool => in_array((int) $component->getKey(), $verifiedComponentIds, true))
+            ->values();
+    }
+
+    /**
+     * Apakah order sudah boleh dirakit (FR-012 → FR-013).
+     *
+     * Pertanyaannya dijawab satu tempat saja — service dan UI sama-sama memakai
+     * method ini — supaya tombol yang aktif dan aksi yang diterima tidak pernah
+     * berbeda pendapat.
+     *
+     * Order yang artikelnya belum dipecah menjadi komponen tidak punya komponen
+     * untuk ditunggu; untuk order seperti itu cukup ada satu output terverifikasi
+     * sebagai bukti pekerjaannya memang berjalan.
+     */
+    public function isReadyForAssembly(): bool
+    {
+        if ($this->hasPendingOutputVerification()) {
+            return false;
+        }
+
+        if ($this->components()->isEmpty()) {
+            return $this->outputEntries()
+                ->where('status', OutputStatus::VERIFIED->value)
+                ->exists();
+        }
+
+        return $this->componentsWithoutVerifiedOutput()->isEmpty();
     }
 
     public function invoices(): HasMany
@@ -210,6 +351,7 @@ class Order extends Model
         return $query->whereIn('status', [
             OrderStatus::DRAFT->value,
             OrderStatus::CONFIRMED->value,
+            OrderStatus::READY_FOR_PRODUCTION->value,
             OrderStatus::IN_PRODUCTION->value,
             OrderStatus::IN_QC->value,
             OrderStatus::COMPLETED->value,

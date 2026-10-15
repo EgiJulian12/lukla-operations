@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Invoices;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
@@ -25,6 +26,8 @@ use UnitEnum;
  */
 class InvoiceResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Invoice::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\RateCards;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\RateCards\Pages\CreateRateCard;
 use App\Filament\Resources\RateCards\Pages\EditRateCard;
 use App\Filament\Resources\RateCards\Pages\ListRateCards;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class RateCardResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = RateCard::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;

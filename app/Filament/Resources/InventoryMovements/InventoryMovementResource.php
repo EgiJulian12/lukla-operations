@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InventoryMovements;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\InventoryMovements\Pages\CreateInventoryMovement;
 use App\Filament\Resources\InventoryMovements\Pages\ListInventoryMovements;
 use App\Filament\Resources\InventoryMovements\Schemas\InventoryMovementForm;
@@ -29,6 +30,8 @@ use UnitEnum;
  */
 class InventoryMovementResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = InventoryMovement::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;

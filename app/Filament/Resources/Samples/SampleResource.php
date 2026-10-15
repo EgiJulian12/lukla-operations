@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Samples;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Samples\Pages\CreateSample;
 use App\Filament\Resources\Samples\Pages\EditSample;
 use App\Filament\Resources\Samples\Pages\ListSamples;
@@ -27,6 +28,8 @@ use UnitEnum;
  */
 class SampleResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Sample::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSwatch;

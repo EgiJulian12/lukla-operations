@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\OverheadAllocations;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OverheadAllocations\Pages\ListOverheadAllocations;
 use App\Filament\Resources\OverheadAllocations\Tables\OverheadAllocationsTable;
 use App\Models\OverheadAllocation;
@@ -20,6 +21,8 @@ use UnitEnum;
  */
 class OverheadAllocationResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = OverheadAllocation::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;

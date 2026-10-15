@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Order;
 use App\Models\User;
@@ -83,6 +84,17 @@ class OrderPolicy
         return $this->canManage($user)
             && $order->status->isQuoteApproved()
             && $order->sample_id === null;
+    }
+
+    /**
+     * Memulai produksi massal adalah wewenang Kepala Produksi, dan hanya untuk
+     * order yang sudah berstatus Siap Produksi (FR-004 → FR-009). Peran yang
+     * memelihara order (Tim Sample, Owner) tidak mengerjakan lantai produksi.
+     */
+    public function startProduction(User $user, Order $order): bool
+    {
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction())
+            && $order->status === OrderStatus::READY_FOR_PRODUCTION;
     }
 
     private function canManage(User $user): bool

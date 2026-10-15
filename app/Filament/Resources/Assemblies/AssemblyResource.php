@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Assemblies;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Assemblies\Pages\CreateAssembly;
 use App\Filament\Resources\Assemblies\Pages\ListAssemblies;
 use App\Filament\Resources\Assemblies\Schemas\AssemblyForm;
@@ -24,6 +25,8 @@ use UnitEnum;
  */
 class AssemblyResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Assembly::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;

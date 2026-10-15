@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\RateCardStatus;
 use App\Enums\RateType;
 use App\Models\Client;
 use App\Models\Component;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  * @extends Factory<RateCard>
  *
  * Tarif default tanpa artikel/komponen: berlaku sebagai tarif dasar klien.
- * Uji yang butuh tarif spesifik komponen menimpanya lewat create().
+ * Secara default berstatus APPROVED agar pengujian kalkulasi payroll berjalan lancar.
  */
 class RateCardFactory extends Factory
 {
@@ -27,9 +28,12 @@ class RateCardFactory extends Factory
             'component_id' => null,
             'rate_type' => RateType::SEWING,
             'rate' => fake()->randomFloat(2, 500, 5000),
+            'status' => RateCardStatus::APPROVED,
             'effective_from' => now()->subMonth()->toDateString(),
             'effective_to' => null,
             'created_by' => null,
+            'approved_by' => null,
+            'approved_at' => now(),
             'notes' => null,
         ];
     }
@@ -50,5 +54,24 @@ class RateCardFactory extends Factory
     public function effectiveFrom(string $date): static
     {
         return $this->state(fn (): array => ['effective_from' => $date]);
+    }
+
+    public function pending(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => RateCardStatus::PENDING,
+            'approved_by' => null,
+            'approved_at' => null,
+        ]);
+    }
+
+    public function rejected(?string $reason = null): static
+    {
+        return $this->state(fn (): array => [
+            'status' => RateCardStatus::REJECTED,
+            'notes' => $reason,
+            'approved_by' => null,
+            'approved_at' => null,
+        ]);
     }
 }

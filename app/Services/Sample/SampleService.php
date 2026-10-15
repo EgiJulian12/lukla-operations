@@ -14,6 +14,7 @@ use App\Models\SampleRevision;
 use App\Models\TimeStudy;
 use App\Models\User;
 use DateTimeInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -31,8 +32,12 @@ class SampleService
      * Membuat sample baru dalam status draf (FR-001). Pemilik klien mengikuti
      * artikel, bukan input pemanggil.
      */
-    public function createSample(Article $article, string $code, string $title, ?string $notes = null): Sample
-    {
+    public function createSample(
+        Article $article,
+        string $code,
+        string $title,
+        ?string $notes = null,
+    ): Sample {
         return Sample::create([
             'client_id' => $article->client_id,
             'article_id' => $article->getKey(),
@@ -163,7 +168,7 @@ class SampleService
         Sample $sample,
         WorkScheme $scheme,
         int $quantity,
-        ?DateTimeInterface $dueDate = null,
+        DateTimeInterface|string|null $dueDate = null,
         ?string $notes = null,
     ): Order {
         if (! $sample->isReadyForMassProduction()) {
@@ -174,18 +179,23 @@ class SampleService
             throw new InvalidArgumentException('Jumlah order massal harus minimal satu unit.');
         }
 
-        return DB::transaction(function () use ($sample, $scheme, $quantity, $dueDate, $notes): Order {
+        $parsedDueDate = is_string($dueDate) && filled($dueDate)
+            ? Carbon::parse($dueDate)
+            : $dueDate;
+
+        return DB::transaction(function () use ($sample, $scheme, $quantity, $parsedDueDate, $notes): Order {
             $revision = $sample->approvedRevision;
 
             return Order::create([
                 'client_id' => $sample->client_id,
+                'article_id' => $sample->article_id,
                 'sample_id' => $sample->getKey(),
                 'sample_revision_id' => $revision->getKey(),
                 'order_number' => $this->nextOrderNumber($sample, $revision),
                 'work_scheme' => $scheme,
                 'quantity' => $quantity,
                 'status' => OrderStatus::CONFIRMED,
-                'due_date' => $dueDate,
+                'due_date' => $parsedDueDate,
                 'notes' => $notes,
                 'created_by' => auth()->id(),
             ]);
