@@ -64,8 +64,8 @@ class ApprovedSampleInfolist
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Rincian Komponen, Time Study & Tarif Borongan')
-                    ->description('Daftar urutan komponen pengerjaan artikel, durasi standar time study (SMV), dan status tarif borongan (rate card) aktif untuk panduan kepala produksi.')
+                Section::make('Rincian Tahapan Jahit, Time Study & Tarif Borongan')
+                    ->description('Daftar urutan tahapan operasi jahit artikel, durasi standar time study (SMV), dan status tarif borongan (rate card) aktif untuk panduan kepala produksi.')
                     ->components([
                         ViewEntry::make('components_breakdown')
                             ->hiddenLabel()
@@ -83,8 +83,8 @@ class ApprovedSampleInfolist
                                 ->keyLabel('Parameter')
                                 ->valueLabel('Nilai / Deskripsi'),
                             KeyValueEntry::make('approvedRevision.material_usage')
-                                ->label('Konsumsi Bahan Baku (Consumption)')
-                                ->keyLabel('Bahan Baku / Komponen')
+                                ->label('Konsumsi Bahan Baku & Aksesoris Fisik (Consumption)')
+                                ->keyLabel('Bahan Baku / Aksesoris Fisik')
                                 ->valueLabel('Konsumsi per Pcs'),
                         ]),
                         TextEntry::make('approvedRevision.notes')

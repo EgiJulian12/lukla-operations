@@ -123,27 +123,8 @@ class RevisionsRelationManager extends RelationManager
 
                         $internalKeys = ['design_images', 'description', 'order_number'];
                         $userSpecs = array_diff_key($data['specs'] ?? [], array_flip($internalKeys));
-                        if (empty($userSpecs)) {
-                            $data['specs'] = [
-                                'Bahan Utama' => 'Katun Combed 30s Reaktif',
-                                'Warna' => 'Hitam Solid (Jet Black)',
-                                'Gramasi Kain' => '150 - 160 GSM',
-                                'Pola / Fitting' => 'Oversize Fit (Pola Drop Shoulder)',
-                                'Model Kerah' => 'O-Neck Rib Katun 2.5 cm',
-                                'Aksesoris / Sablon' => 'Sablon Plastisol Doff & Label Woven',
-                            ];
-                        } else {
-                            $data['specs'] = $userSpecs;
-                        }
-
-                        if (empty($data['material_usage'])) {
-                            $data['material_usage'] = [
-                                'Kain Utama (Combed 30s)' => '1.25 meter',
-                                'Rib Leher (Katun)' => '0.10 meter',
-                                'Benang Jahit' => '1 spool / 50 pcs',
-                                'Label Woven & Care Label' => '1 set',
-                            ];
-                        }
+                        $data['specs'] = $userSpecs;
+                        $data['material_usage'] = $data['material_usage'] ?? [];
 
                         return $data;
                     })
@@ -199,13 +180,13 @@ class RevisionsRelationManager extends RelationManager
                     ->color('info')
                     ->requiresConfirmation()
                     ->modalHeading('Ajukan Review Sample?')
-                    ->modalDescription('Pastikan komponen artikel dan waktu stopwatch telah diisi dengan lengkap sebelum diajukan ke Klien & Owner.')
+                    ->modalDescription('Pastikan seluruh tahapan operasi jahit dan durasi stopwatch telah diisi dengan lengkap sebelum diajukan ke Klien & Owner.')
                     ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT && (bool) auth()->user()?->can('update', $record))
                     ->action(function (SampleRevision $record): void {
                         if ($record->timeStudies()->count() === 0) {
                             Notification::make()
-                                ->title('Komponen Belum Diinput')
-                                ->body('Minimal 1 komponen beserta waktu pengerjaan wajib diinput sebelum mengajukan review.')
+                                ->title('Tahapan Jahit Belum Diinput')
+                                ->body('Minimal 1 tahapan jahit beserta durasi pengerjaan wajib diinput sebelum mengajukan review.')
                                 ->danger()
                                 ->send();
 
@@ -306,39 +287,26 @@ class RevisionsRelationManager extends RelationManager
                         ->keyLabel('Atribut Spesifikasi')
                         ->keyPlaceholder('Contoh: Bahan Utama, Warna, Pola...')
                         ->valueLabel('Nilai / Keterangan')
-                        ->valuePlaceholder('Contoh: Katun Combed 30s, Hitam Solid...')
-                        ->default([
-                            'Bahan Utama' => 'Katun Combed 30s Reaktif',
-                            'Warna' => 'Hitam Solid (Jet Black)',
-                            'Gramasi Kain' => '150 - 160 GSM',
-                            'Pola / Fitting' => 'Oversize Fit (Pola Drop Shoulder)',
-                            'Model Kerah' => 'O-Neck Rib Katun 2.5 cm',
-                            'Aksesoris / Sablon' => 'Sablon Plastisol Doff & Label Woven',
-                        ]),
+                        ->valuePlaceholder('Contoh: Katun Combed 30s, Hitam Solid...'),
                     KeyValue::make('material_usage')
-                        ->label('Estimasi Pemakaian Bahan per Unit')
-                        ->helperText('Contoh: Nama Bahan = Kain Utama, Jumlah & Satuan = 1.25 meter.')
-                        ->keyLabel('Nama Bahan')
-                        ->keyPlaceholder('Contoh: Kain Utama, Rib Leher, Benang...')
+                        ->label('Estimasi Pemakaian Bahan per Unit (Daftar Barang Fisik)')
+                        ->helperText('Daftar bahan dan aksesoris ini akan otomatis dikalikan target order massal dan menjadi acuan belanja/penerimaan barang bagi tim Gudang.')
+                        ->keyLabel('Nama Bahan Baku / Aksesoris Fisik')
+                        ->keyPlaceholder('Contoh: Kain Utama Kanvas, Resleting YKK No.5, Tali Webbing, Kancing Snap...')
                         ->valueLabel('Jumlah & Satuan per Pcs')
-                        ->valuePlaceholder('Contoh: 1.25 meter, 0.10 meter, 1 set...')
-                        ->default([
-                            'Kain Utama (Combed 30s)' => '1.25 meter',
-                            'Rib Leher (Katun)' => '0.10 meter',
-                            'Benang Jahit' => '1 spool / 50 pcs',
-                            'Label Woven & Care Label' => '1 set',
-                        ]),
+                        ->valuePlaceholder('Contoh: 1.25 meter, 1 pcs, 0.8 meter, 2 pcs...'),
                 ]),
 
-            Section::make('Section 2 — Penentuan Komponen & Waktu Pengerjaan (Stopwatch)')
-                ->description('Pecah produk menjadi komponen jahit dan catat waktu pengerjaannya menggunakan Digital Stopwatch.')
+            Section::make('Section 2 — Tahapan Pengerjaan Jahit & Waktu Stopwatch (Time Study)')
+                ->description('Pecah proses perakitan produk menjadi tahapan operasi jahit spesifik. Waktu stopwatch diukur untuk acuan kapasitas lini, pembagian tugas penjahit, dan penentuan tarif upah borongan (Rate Card).')
                 ->schema([
                     Repeater::make('component_time_studies')
-                        ->label('Daftar Komponen & Time Study')
+                        ->label('Daftar Tahapan Jahit & Waktu Stopwatch')
                         ->schema([
                             TextInput::make('component_name')
-                                ->label('Nama Komponen')
-                                ->placeholder('Contoh: Badan Depan, Kerah, Saku...')
+                                ->label('Nama Tahapan / Operasi Jahit')
+                                ->placeholder('Contoh: Penjahitan Gagang Tas, Pemasangan Resleting Saku, Assembling Badan Utama, Finishing Kelim...')
+                                ->helperText('Bukan nama bahan kain/aksesoris, melainkan nama proses/operasi kerja yang dilakukan penjahit.')
                                 ->datalist(function () use ($ownerRecord): array {
                                     if (! $ownerRecord?->article_id) {
                                         return [];
@@ -364,13 +332,13 @@ class RevisionsRelationManager extends RelationManager
                                 ->required()
                                 ->columnSpan(2),
                             TextInput::make('notes')
-                                ->label('Catatan Komponen')
-                                ->placeholder('Instruksi atau catatan...')
+                                ->label('Catatan Tahapan')
+                                ->placeholder('Instruksi atau catatan pengerjaan...')
                                 ->columnSpan(3),
                         ])
                         ->columns(12)
                         ->defaultItems(1)
-                        ->addActionLabel('Tambah Komponen Baru')
+                        ->addActionLabel('Tambah Tahapan Jahit Baru')
                         ->collapsible(),
                 ]),
 

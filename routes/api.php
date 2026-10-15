@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\OwnerBotController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TelegramWebhookController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

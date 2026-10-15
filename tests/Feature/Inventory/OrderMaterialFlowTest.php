@@ -8,15 +8,20 @@ use App\Enums\InventoryState;
 use App\Enums\MaterialResponsibility;
 use App\Enums\MovementType;
 use App\Enums\OrderMaterialStatus;
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkScheme;
 use App\Filament\Resources\OrderMaterialFlows\Pages\ListOrderMaterialFlows;
+use App\Models\Article;
 use App\Models\Client;
+use App\Models\Component;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Material;
 use App\Models\MaterialDispatch;
 use App\Models\Order;
+use App\Models\Sample;
+use App\Models\SampleRevision;
 use App\Models\User;
 use App\Services\Inventory\OrderMaterialFlowService;
 use Database\Seeders\RoleSeeder;
@@ -359,5 +364,115 @@ class OrderMaterialFlowTest extends TestCase
         $order->save();
         Livewire::test(ListOrderMaterialFlows::class)
             ->assertActionHidden(TestAction::make('accReceiveProduction')->table($order));
+    }
+
+    public function test_only_mass_production_orders_appear_in_order_material_flows_table(): void
+    {
+        $warehouseUser = User::factory()->create();
+        $warehouseUser->assignRole(UserRole::WAREHOUSE->value);
+        $this->actingAs($warehouseUser);
+
+        $client = Client::factory()->create();
+
+        // 1. Order pra-produksi (Belum dijadikan order massal)
+        $requestedOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'ORD-REQ-PRE',
+            'status' => OrderStatus::REQUESTED->value,
+        ]);
+
+        $quotedOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'ORD-QUOTED-PRE',
+            'status' => OrderStatus::QUOTED->value,
+        ]);
+
+        $quoteApprovedOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'ORD-QUOTE-APP-PRE',
+            'status' => OrderStatus::QUOTE_APPROVED->value,
+        ]);
+
+        $cancelledOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'ORD-CANCELLED',
+            'status' => OrderStatus::CANCELLED->value,
+        ]);
+
+        // 2. Order yang sudah disahkan menjadi order massal (READY_FOR_PRODUCTION)
+        $massOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'ORD-MASS-PROD-001',
+            'status' => OrderStatus::READY_FOR_PRODUCTION->value,
+        ]);
+
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertCanSeeTableRecords([$massOrder])
+            ->assertCanNotSeeTableRecords([
+                $requestedOrder,
+                $quotedOrder,
+                $quoteApprovedOrder,
+                $cancelledOrder,
+            ]);
+    }
+
+    public function test_requirements_strictly_sourced_from_material_usage_not_components(): void
+    {
+        $client = Client::factory()->create();
+        $article = Article::factory()->create(['client_id' => $client->getKey()]);
+
+        // Artikel memiliki komponen tahapan jahit (Time Study)
+        Component::create([
+            'article_id' => $article->getKey(),
+            'code' => 'CMP-01',
+            'name' => 'Penjahitan Gagang Tas',
+            'sequence' => 1,
+        ]);
+
+        $sample = Sample::factory()->create([
+            'client_id' => $client->getKey(),
+            'article_id' => $article->getKey(),
+        ]);
+
+        $revision = SampleRevision::factory()->create([
+            'sample_id' => $sample->getKey(),
+            'version' => 1,
+            'material_usage' => [
+                'Kain Cordura 500D' => '1.5 meter',
+                'Resleting YKK No.5' => '1 pcs',
+            ],
+        ]);
+        $sample->update(['approved_revision_id' => $revision->getKey()]);
+
+        $order = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'sample_id' => $sample->getKey(),
+            'sample_revision_id' => $revision->getKey(),
+            'work_scheme' => WorkScheme::FULL_PACKAGE,
+            'quantity' => 100,
+        ]);
+
+        $service = app(OrderMaterialFlowService::class);
+        $requirements = $service->initializeRequirements($order);
+
+        // Kebutuhan barang gudang harus persis 2 item sesuai material_usage
+        $this->assertCount(2, $requirements);
+
+        // Kuantitas kebutuhan = konsumsi per pcs x kuantitas order (100 pcs)
+        $cordura = $requirements->firstWhere('item_name', 'Kain Cordura 500D');
+        $this->assertNotNull($cordura);
+        $this->assertEquals(150.0, (float) $cordura->required_quantity);
+        $this->assertEquals('meter', $cordura->uom);
+
+        $zipper = $requirements->firstWhere('item_name', 'Resleting YKK No.5');
+        $this->assertNotNull($zipper);
+        $this->assertEquals(100.0, (float) $zipper->required_quantity);
+        $this->assertEquals('pcs', $zipper->uom);
+
+        // Validasi krusial: Tidak ada requirement gudang yang mengambil nama komponen jahit
+        $this->assertFalse(
+            $requirements->contains(fn ($r) => str_contains($r->item_name, 'Gagang Tas')),
+            'Data penerimaan gudang tidak boleh berisi nama komponen tahapan jahit!'
+        );
     }
 }

@@ -95,7 +95,7 @@ class OrderMaterialFlowsTable
             ->recordActions([
                 // 1. Aksi Modal Pratinjau Daftar Barang (Read-Only Preview)
                 Action::make('manageComponents')
-                    ->label('Daftar Barang')
+                    ->label('Daftar Barang & Bahan')
                     ->icon(Heroicon::OutlinedQueueList)
                     ->color('primary')
                     ->button()
@@ -136,7 +136,7 @@ class OrderMaterialFlowsTable
                                 TextEntry::make('status')
                                     ->badge(),
                             ])
-                            ->placeholder('Belum ada rincian bahan/komponen untuk pesanan ini.'),
+                            ->placeholder('Belum ada rincian bahan & aksesoris untuk pesanan ini.'),
                     ]),
 
                 // 2. Aksi: Pengajuan PO (Tanggungan Perusahaan)
@@ -436,8 +436,8 @@ class OrderMaterialFlowsTable
                     ->color('primary')
                     ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && $record->warehouse_material_status === OrderMaterialStatus::PREPARING_DELIVERY)
                     ->requiresConfirmation()
-                    ->modalHeading('Kirim Bundel Potongan ke Lantai Produksi')
-                    ->modalDescription('Seluruh komponen terpotong & aksesoris akan diserah-terimakan ke bagian produksi.')
+                    ->modalHeading('Kirim Bundel Potongan & Aksesoris ke Lantai Produksi')
+                    ->modalDescription('Seluruh bundel potongan kain dan kelengkapan aksesoris fisik akan diserah-terimakan ke bagian produksi.')
                     ->action(function (Order $record): void {
                         app(OrderMaterialFlowService::class)->dispatchToProduction($record, auth()->user());
 
@@ -537,7 +537,7 @@ class OrderMaterialFlowsTable
                                 ]);
                         }
 
-                        $components[] = Section::make('Daftar Verifikasi Kesesuaian Bahan & Komponen')
+                        $components[] = Section::make('Daftar Verifikasi Fisik Bahan & Aksesoris')
                             ->description('Kepala Produksi wajib memeriksa fisik tiap item. Bila ada selisih, pilih "Tidak Sesuai" dan inputkan angka fisik riil yang diterima.')
                             ->schema($itemRows);
 
@@ -582,7 +582,7 @@ class OrderMaterialFlowsTable
                         } else {
                             Notification::make()
                                 ->title('Bahan Resmi Diterima Produksi')
-                                ->body('Seluruh bahan & komponen pesanan telah diverifikasi sesuai dan resmi diterima oleh Bagian Produksi. Perakitan dan jahit siap dimulai.')
+                                ->body('Seluruh bahan kain terpotong & aksesoris pesanan telah diverifikasi sesuai dan resmi diterima oleh Bagian Produksi. Perakitan dan jahit siap dimulai.')
                                 ->success()
                                 ->send();
                         }

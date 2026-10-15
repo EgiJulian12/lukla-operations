@@ -6,9 +6,12 @@ use App\Enums\UserRole;
 use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\Assemblies\AssemblyResource;
+use App\Filament\Resources\Components\ComponentResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
+use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
 use App\Filament\Resources\OutputReviews\OutputReviewResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
@@ -78,13 +81,15 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($warehouse);
 
         $this->assertTrue(InventoryItemResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
         $this->assertTrue(MyPurchaseOrderResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertFalse(InvoiceResource::shouldRegisterNavigation());
     }
 
-    public function test_sample_team_sees_samples_and_articles_but_not_inventory_or_payroll(): void
+    public function test_sample_team_only_sees_sample_resource_in_sidebar(): void
     {
         $sampleTeam = User::factory()->create();
         $sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
@@ -92,10 +97,14 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($sampleTeam);
 
         $this->assertTrue(SampleResource::shouldRegisterNavigation());
-        $this->assertTrue(ArticleResource::shouldRegisterNavigation());
+        $this->assertFalse(ArticleResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderResource::shouldRegisterNavigation());
+        $this->assertFalse(ComponentResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderMaterialFlowResource::canAccess());
     }
 
     public function test_finance_sees_payroll_and_invoices_but_not_physical_inventory(): void
@@ -121,6 +130,8 @@ class RoleMenuAccessTest extends TestCase
 
         $this->actingAs($owner);
         $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
 
         $productionLead = User::factory()->create();
         $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
@@ -128,6 +139,8 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($productionLead);
 
         $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
 
         // Output 30 Menit milik Kepala Produksi berbariskan order dan tinggal di
@@ -220,7 +233,7 @@ class RoleMenuAccessTest extends TestCase
      * Line Produksi dan Perakitan adalah pengaturan lantai, sedangkan pekerjaan
      * harian mandor ada di Antrean Produksi dan Output 30 Menit. Pengajuan PO
      * Gudang pun bukan menunya: PurchaseOrderPolicy hanya membuka PO bagi
-     * gudang, Finance, dan Owner. Yang dilepas hanya pendaftaran menunya â€”
+     * gudang, Finance, dan Owner. Yang dilepas hanya pendaftaran menunya —
      * halamannya tetap dapat dibuka lewat URL.
      */
     public function test_the_production_lead_keeps_only_the_production_menus(): void
@@ -240,7 +253,7 @@ class RoleMenuAccessTest extends TestCase
 
     /**
      * Menu Pengajuan PO Gudang berjalan bersama peran yang memang bersinggungan
-     * dengan PO â€” pengajunya dan kedua peninjau yang sama dengan
+     * dengan PO — pengajunya dan kedua peninjau yang sama dengan
      * PurchaseOrderPolicy::canView().
      */
     public function test_the_po_menu_stays_with_the_warehouse_finance_and_the_owner(): void

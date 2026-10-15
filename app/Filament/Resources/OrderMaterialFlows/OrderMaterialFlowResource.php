@@ -4,6 +4,7 @@ namespace App\Filament\Resources\OrderMaterialFlows;
 
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OrderMaterialFlows\Pages\ListOrderMaterialFlows;
 use App\Filament\Resources\OrderMaterialFlows\Tables\OrderMaterialFlowsTable;
 use App\Models\Order;
@@ -19,6 +20,8 @@ use UnitEnum;
  */
 class OrderMaterialFlowResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
@@ -43,7 +46,6 @@ class OrderMaterialFlowResource extends Resource
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageInventory()
             || $role->canManageProduction()
             || $role->canConfigureSystem()
-            || $role->canManageOrders()
         );
     }
 
@@ -51,7 +53,14 @@ class OrderMaterialFlowResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['client', 'materialRequirements', 'sample'])
-            ->where('status', '!=', OrderStatus::CANCELLED->value);
+            ->whereIn('status', [
+                OrderStatus::READY_FOR_PRODUCTION->value,
+                OrderStatus::IN_PRODUCTION->value,
+                OrderStatus::IN_QC->value,
+                OrderStatus::COMPLETED->value,
+                OrderStatus::CLOSED->value,
+                OrderStatus::CONFIRMED->value,
+            ]);
     }
 
     public static function table(Table $table): Table

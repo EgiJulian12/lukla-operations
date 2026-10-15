@@ -14,7 +14,7 @@
             <tr>
                 <th scope="col" class="py-3 px-4 w-12 text-center">Urutan</th>
                 <th scope="col" class="py-3 px-4">Kode</th>
-                <th scope="col" class="py-3 px-4">Nama Komponen</th>
+                <th scope="col" class="py-3 px-4">Tahapan Jahit (Komponen)</th>
                 <th scope="col" class="py-3 px-4">Durasi Time Study</th>
                 <th scope="col" class="py-3 px-4">Tarif Borongan (Rate Card)</th>
                 <th scope="col" class="py-3 px-4">Status Tarif</th>
@@ -156,7 +156,7 @@
             @empty
                 <tr>
                     <td colspan="7" class="py-6 px-4 text-center text-sm text-gray-400 italic">
-                        Belum ada data komponen untuk artikel ini.
+                        Belum ada data tahapan jahit untuk artikel ini.
                     </td>
                 </tr>
             @endforelse

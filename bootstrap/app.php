@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Middleware\VerifyTelegramSignature;
 use App\Http\Middleware\EnsureOwnerBotAccess;
+use App\Http\Middleware\VerifyTelegramSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;

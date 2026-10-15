@@ -153,47 +153,7 @@ class OrderMaterialFlowService
                 }
             }
 
-            // 2. Jika tidak ada material_usage, cek komponen artikel produk yang dipesan
-            if ($createdRequirements->isEmpty() && $order->sample?->article?->components()->exists()) {
-                $components = $order->sample->article->components;
-
-                // Kain utama untuk pembuatan komponen
-                $fabricMaterial = Material::query()
-                    ->where(function ($q) use ($order) {
-                        $q->where('client_id', $order->client_id)->orWhereNull('client_id');
-                    })
-                    ->where('category', 'fabric')
-                    ->first();
-
-                $createdRequirements->push(OrderMaterialRequirement::create([
-                    'order_id' => $order->getKey(),
-                    'material_id' => $fabricMaterial?->getKey(),
-                    'item_name' => $fabricMaterial ? $fabricMaterial->name : ('Kain Bahan '.$order->sample->article->name),
-                    'item_type' => MaterialItemType::FABRIC,
-                    'responsibility' => $fabricResponsibility,
-                    'status' => ComponentMaterialStatus::EMPTY,
-                    'required_quantity' => round($order->quantity * 1.5, 2),
-                    'received_quantity' => 0,
-                    'uom' => $fabricMaterial?->uom ?? 'meter',
-                ]));
-
-                // Tambahkan aksesoris per komponen artikel
-                foreach ($components as $comp) {
-                    $createdRequirements->push(OrderMaterialRequirement::create([
-                        'order_id' => $order->getKey(),
-                        'component_id' => $comp->id,
-                        'item_name' => 'Aksesoris / Kelengkapan '.$comp->name,
-                        'item_type' => MaterialItemType::ACCESSORY,
-                        'responsibility' => $accessoryResponsibility,
-                        'status' => ComponentMaterialStatus::EMPTY,
-                        'required_quantity' => (float) $order->quantity,
-                        'received_quantity' => 0,
-                        'uom' => 'pcs',
-                    ]));
-                }
-            }
-
-            // 3. Jika benar-benar order manual tanpa sample, ambil material terdaftar milik klien
+            // 2. Jika order tanpa sample atau tanpa material_usage, ambil material terdaftar milik klien
             if ($createdRequirements->isEmpty()) {
                 $clientMaterials = Material::query()
                     ->where('client_id', $order->client_id)
