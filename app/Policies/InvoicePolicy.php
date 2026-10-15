@@ -18,11 +18,20 @@ class InvoicePolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole(UserRole::CLIENT_MAKLON)) {
+            return $user->client_id !== null;
+        }
+
         return $this->canView($user);
     }
 
     public function view(User $user, Invoice $invoice): bool
     {
+        if ($user->hasRole(UserRole::CLIENT_MAKLON)) {
+            return (int) $user->client_id === (int) $invoice->client_id
+                && $invoice->status !== InvoiceStatus::DRAFT;
+        }
+
         return $this->canView($user);
     }
 
@@ -50,6 +59,13 @@ class InvoicePolicy
     public function pay(User $user, Invoice $invoice): bool
     {
         return $this->canManage($user)
+            && in_array($invoice->status, [InvoiceStatus::ISSUED, InvoiceStatus::PAYMENT_CONFIRMED], true);
+    }
+
+    public function confirmPayment(User $user, Invoice $invoice): bool
+    {
+        return $user->hasRole(UserRole::CLIENT_MAKLON)
+            && (int) $user->client_id === (int) $invoice->client_id
             && $invoice->status === InvoiceStatus::ISSUED;
     }
 

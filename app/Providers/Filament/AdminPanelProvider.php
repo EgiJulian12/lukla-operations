@@ -8,6 +8,7 @@ use App\Filament\Resources\InventoryMovements\InventoryMovementResource;
 use App\Filament\Resources\Materials\MaterialResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
 use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
+use App\Filament\Resources\QcBonuses\QcBonusResource;
 use App\Filament\Resources\QcOrders\QcOrderResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
 use App\Filament\Resources\Repairs\RepairResource;
@@ -66,6 +67,7 @@ class AdminPanelProvider extends PanelProvider
                                 ...QcOrderResource::getNavigationItems(),
                                 ...QcRecordResource::getNavigationItems(),
                                 ...RepairResource::getNavigationItems(),
+                                ...QcBonusResource::getNavigationItems(),
                             ]
                         );
                 }

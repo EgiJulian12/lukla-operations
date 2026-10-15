@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Filament\Resources\MyPurchaseOrders\Pages\ListMyPurchaseOrders;
 use App\Filament\Resources\MyPurchaseOrders\Tables\MyPurchaseOrdersTable;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -34,7 +35,10 @@ class MyPurchaseOrderResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        return $user !== null && $user->hasRole(UserRole::WAREHOUSE);
     }
 
     public static function getEloquentQuery(): Builder
