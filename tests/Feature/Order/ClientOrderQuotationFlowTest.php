@@ -18,6 +18,7 @@ use App\Models\Order;
 use App\Models\Sample;
 use App\Models\User;
 use App\Services\Order\OrderQuotationService;
+use App\Services\Sample\SampleService;
 use Database\Seeders\RoleSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
@@ -147,7 +148,11 @@ class ClientOrderQuotationFlowTest extends TestCase
         $this->service()->provideQuote($order, 7500000.0, 'Harga per pcs 75rb.', $this->staffUser(UserRole::OWNER_EXECUTIVE));
         $this->service()->approveQuote($order, $this->clientUser($client));
 
-        $sample = $this->service()->requestSample($order, $this->staffUser(UserRole::OWNER_EXECUTIVE));
+        $sample = app(SampleService::class)->initializeSampleFromOrder($order, [
+            'name' => 'Polo Shirt Bordir',
+            'code' => $order->order_number,
+            'description' => 'Polo shirt bordir logo.',
+        ]);
 
         $this->assertInstanceOf(Sample::class, $sample);
         $this->assertSame($client->getKey(), $sample->client_id);
@@ -172,7 +177,10 @@ class ClientOrderQuotationFlowTest extends TestCase
         $this->service()->provideQuote($order, 1000000.0, null, $this->staffUser(UserRole::OWNER_EXECUTIVE));
         $this->service()->approveQuote($order, $this->clientUser($client));
 
-        $sample = $this->service()->requestSample($order, $this->staffUser(UserRole::OWNER_EXECUTIVE));
+        $sample = app(SampleService::class)->initializeSampleFromOrder($order, [
+            'article_mode' => 'existing',
+            'article_id' => $article->getKey(),
+        ]);
 
         $this->assertSame($article->getKey(), $sample->article_id);
     }
@@ -214,11 +222,12 @@ class ClientOrderQuotationFlowTest extends TestCase
         $client = Client::factory()->create();
         $order = $this->approvedOrder($client);
         $owner = $this->staffUser(UserRole::OWNER_EXECUTIVE);
+
         $this->service()->requestSample($order, $owner);
 
         $this->expectException(InvalidOrderQuotationState::class);
 
-        $this->service()->requestSample($order->refresh(), $owner);
+        $this->service()->requestSample($order, $owner);
     }
 
     public function test_a_rejected_quote_cancels_and_closes_the_order(): void

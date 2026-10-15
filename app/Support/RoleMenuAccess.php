@@ -4,15 +4,14 @@ namespace App\Support;
 
 use App\Enums\UserRole;
 use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
-use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\Clients\ClientResource;
-use App\Filament\Resources\Components\ComponentResource;
 use App\Filament\Resources\DefectCategories\DefectCategoryResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\InventoryMovements\InventoryMovementResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Materials\MaterialResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
+use App\Filament\Resources\OrderMaterialFlows\OrderMaterialFlowResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
 use App\Filament\Resources\OverheadAllocations\OverheadAllocationResource;
@@ -25,6 +24,7 @@ use App\Filament\Resources\RateCards\RateCardResource;
 use App\Filament\Resources\Repairs\RepairResource;
 use App\Filament\Resources\Samples\SampleResource;
 use App\Filament\Resources\TailorWages\TailorWageResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\WasteRecords\WasteRecordResource;
 use App\Models\User;
 
@@ -41,9 +41,6 @@ class RoleMenuAccess
         return [
             UserRole::SAMPLE_TEAM->value => [
                 SampleResource::class,
-                ArticleResource::class,
-                ComponentResource::class,
-                OrderResource::class,
             ],
 
             UserRole::WAREHOUSE->value => [
@@ -52,6 +49,7 @@ class RoleMenuAccess
                 WasteRecordResource::class,
                 MaterialResource::class,
                 MyPurchaseOrderResource::class,
+                OrderMaterialFlowResource::class,
             ],
 
             // Kepala Produksi memeriksa output lewat daftar berbasis order
@@ -72,6 +70,7 @@ class RoleMenuAccess
             // dapat dibuka lewat URL selama canAccess()-nya mengizinkan.
             UserRole::PRODUCTION_LEAD->value => [
                 ApprovedSampleResource::class,
+                OrderMaterialFlowResource::class,
             ],
 
             UserRole::TAILOR_OPERATOR->value => [
@@ -121,6 +120,7 @@ class RoleMenuAccess
                 QcOrderResource::class,
                 RepairResource::class,
                 MyPurchaseOrderResource::class,
+                OrderMaterialFlowResource::class,
             ],
         ];
     }

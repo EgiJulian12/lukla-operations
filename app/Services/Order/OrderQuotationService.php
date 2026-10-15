@@ -13,7 +13,6 @@ use App\Models\Sample;
 use App\Models\User;
 use App\Services\Sample\SampleService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Jalur tulis untuk fase pra-produksi order: permintaan klien, penawaran owner,
@@ -215,68 +214,29 @@ class OrderQuotationService
     }
 
     /**
-     * Owner mengirim permintaan sample dan membuat sample nyata dari design
-     * klien, sehingga alur sample → persetujuan → order massal dapat berlanjut
-     * (FR-001..004).
+     * Menandai permintaan sample ke Tim Sample untuk order yang telah disetujui.
      */
-    public function requestSample(Order $order, ?User $owner = null): Sample
+    public function requestSample(Order $order, ?User $owner = null): Order
     {
         if (! $order->status->isQuoteApproved()) {
             throw InvalidOrderQuotationState::notQuoteApproved($order);
         }
 
-        if ($order->sample_id !== null) {
+        if ($order->sample_requested_at !== null) {
             throw InvalidOrderQuotationState::sampleAlreadyRequested($order);
         }
 
-        return DB::transaction(function () use ($order, $owner): Sample {
-            $article = $order->article ?? $this->articleFromOrder($order);
-
-            $sample = $this->samples->createSample(
-                $article,
-                $order->order_number,
-                $this->sampleTitle($order),
-                $order->description,
-            );
-
-            $this->samples->addRevision($sample, [
-                'design_images' => $order->design_images ?? [],
-                'description' => $order->description,
-                'order_number' => $order->order_number,
-            ]);
-
+        return DB::transaction(function () use ($order, $owner): Order {
             $order->update([
-                'article_id' => $article->getKey(),
-                'sample_id' => $sample->getKey(),
                 'sample_requested_at' => now(),
             ]);
 
             $this->audit($order, 'sample_requested', [
-                'after' => ['sample_id' => $sample->getKey()],
+                'after' => ['sample_requested_at' => now()->toDateTimeString()],
             ], $owner);
 
-            return $sample;
+            return $order->refresh();
         });
-    }
-
-    /**
-     * Artikel penampung saat klien tidak memilih artikel. Sample mewajibkan
-     * article_id, sedangkan permintaan klien hanya membawa deskripsi.
-     */
-    private function articleFromOrder(Order $order): Article
-    {
-        return Article::create([
-            'client_id' => $order->client_id,
-            'order_id' => $order->getKey(),
-            'code' => $order->order_number,
-            'name' => Str::limit(trim((string) $order->description), 120, '') ?: $order->order_number,
-            'description' => $order->description,
-        ]);
-    }
-
-    private function sampleTitle(Order $order): string
-    {
-        return Str::limit(trim((string) $order->description), 120, '') ?: 'Sample '.$order->order_number;
     }
 
     /**

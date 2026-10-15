@@ -62,8 +62,19 @@ class SampleVersioningFlowTest extends TestCase
         $this->quotationService->approveQuote($order);
         $this->assertSame(OrderStatus::QUOTE_APPROVED, $order->status);
 
-        // 4. Owner kirim permintaan sample -> Otomatis terbit Artikel 1-to-1 dan Sample v1
-        $sample = $this->quotationService->requestSample($order, $owner);
+        // 4. Owner kirim permintaan sample ke Tim Sample
+        $this->quotationService->requestSample($order, $owner);
+        $order->refresh();
+        $this->assertNotNull($order->sample_requested_at);
+        $this->assertNull($order->sample_id);
+
+        // 5. Tim Sample menentukan artikel (baru) dan memulai sample v1
+        $sample = $this->sampleService->initializeSampleFromOrder($order, [
+            'article_mode' => 'new',
+            'name' => 'Hoodie Oversize Katun Fleece',
+            'code' => $order->order_number,
+            'description' => $order->description,
+        ]);
 
         $order->refresh();
         $this->assertNotNull($order->article_id);
