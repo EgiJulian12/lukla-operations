@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Repairs;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Repairs\Pages\ListRepairs;
 use App\Filament\Resources\Repairs\Tables\RepairsTable;
 use App\Models\Repair;
