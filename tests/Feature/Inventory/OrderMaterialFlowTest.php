@@ -9,6 +9,7 @@ use App\Enums\MaterialResponsibility;
 use App\Enums\MovementType;
 use App\Enums\OrderMaterialStatus;
 use App\Enums\OrderStatus;
+use App\Enums\SampleStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkScheme;
 use App\Filament\Resources\OrderMaterialFlows\Pages\ListOrderMaterialFlows;
@@ -517,22 +518,21 @@ class OrderMaterialFlowTest extends TestCase
         $order->refresh();
         $this->assertEquals(OrderMaterialStatus::PREPARING_DELIVERY, $order->warehouse_material_status);
 
-        // KEDUA batch kain harus memiliki log ISSUE_TO_CUTTING
+        // KEDUA batch kain harus memiliki log ISSUE_TO_CUTTING informasional (quantity = 0.00)
         $issueLogs = InventoryMovement::where('order_id', $order->id)
             ->where('movement_type', MovementType::ISSUE_TO_CUTTING->value)
-            ->orderBy('quantity')
             ->get();
         $this->assertCount(2, $issueLogs, 'Harus ada 2 log ISSUE_TO_CUTTING (satu per batch kain)');
-        $issueQtys = $issueLogs->pluck('quantity')->map(fn ($q) => abs((float) $q))->sort()->values();
-        $this->assertEquals(40.0, $issueQtys[0]);
-        $this->assertEquals(60.0, $issueQtys[1]);
+        foreach ($issueLogs as $log) {
+            $this->assertEquals(0.0, (float) $log->quantity, 'Log cutting tidak boleh mengurangi stok (quantity harus 0)');
+        }
 
-        // Stok kedua batch kain harus 0 setelah dikeluarkan ke cutting
+        // Stok kedua batch kain TIDAK berkurang setelah masuk proses cutting (tetap utuh 40 dan 60)
         $fabricItems = InventoryItem::where('order_id', $order->id)
             ->where('material_id', $fabricReq->fresh()->material_id)->get();
         $this->assertCount(2, $fabricItems);
         foreach ($fabricItems as $fi) {
-            $this->assertEquals(0.0, (float) $fi->fresh()->quantity, "Stok kain batch {$fi->batch} harus 0 setelah keluar ke cutting");
+            $this->assertGreaterThan(0.0, (float) $fi->fresh()->quantity, "Stok kain batch {$fi->batch} harus tetap utuh saat proses cutting");
         }
 
         // --- Kirim ke Produksi ---
@@ -561,6 +561,11 @@ class OrderMaterialFlowTest extends TestCase
             ->get();
         $this->assertCount(3, $transferLogs, 'Harus ada 3 log TRANSFER (2 batch kain + 1 aksesoris)');
 
+        // Setelah diserah-terimakan ke produksi (TRANSFER), barulah stok fisik kain menjadi 0
+        foreach ($fabricItems as $fi) {
+            $this->assertEquals(0.0, (float) $fi->fresh()->quantity, "Stok kain batch {$fi->batch} harus 0 setelah transfer ke produksi");
+        }
+
         // --- ACC Penerimaan Produksi ---
         $prodLead = User::factory()->create();
         $prodLead->assignRole(UserRole::PRODUCTION_LEAD->value);
@@ -585,5 +590,64 @@ class OrderMaterialFlowTest extends TestCase
                 "Item {$item->id} (batch: {$item->batch}) harus berstatus WIP setelah ACC produksi"
             );
         }
+    }
+
+    public function test_sample_material_usage_with_cm_and_gram_units_are_converted_properly(): void
+    {
+        $client = Client::factory()->create();
+        $article = Article::factory()->create(['client_id' => $client->id]);
+        $sample = Sample::factory()->create([
+            'client_id' => $client->id,
+            'article_id' => $article->id,
+            'status' => SampleStatus::APPROVED,
+        ]);
+
+        $revision = SampleRevision::factory()->approved()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $client->id,
+            'material_usage' => [
+                'Kain Anti Air' => '150 cm',
+                'Plastik Mika' => '200 cm',
+                'Kain Rib Leher' => '250 gram',
+                'Resleting YKK 50cm' => '1 pcs',
+                'Kancing Snap' => '3 pcs',
+            ],
+        ]);
+        $sample->update(['approved_revision_id' => $revision->id]);
+
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'sample_id' => $sample->id,
+            'sample_revision_id' => $revision->id,
+            'quantity' => 50,
+        ]);
+
+        $service = app(OrderMaterialFlowService::class);
+        $requirements = $service->initializeRequirements($order);
+
+        $kain = $requirements->firstWhere('item_name', 'Kain Anti Air');
+        $this->assertNotNull($kain);
+        $this->assertEquals('meter', $kain->uom);
+        $this->assertEquals(75.00, (float) $kain->required_quantity);
+
+        $plastik = $requirements->firstWhere('item_name', 'Plastik Mika');
+        $this->assertNotNull($plastik);
+        $this->assertEquals('meter', $plastik->uom);
+        $this->assertEquals(100.00, (float) $plastik->required_quantity);
+
+        $rib = $requirements->firstWhere('item_name', 'Kain Rib Leher');
+        $this->assertNotNull($rib);
+        $this->assertEquals('kg', $rib->uom);
+        $this->assertEquals(12.50, (float) $rib->required_quantity);
+
+        $resleting = $requirements->firstWhere('item_name', 'Resleting YKK 50cm');
+        $this->assertNotNull($resleting);
+        $this->assertEquals('pcs', $resleting->uom);
+        $this->assertEquals(50.00, (float) $resleting->required_quantity);
+
+        $kancing = $requirements->firstWhere('item_name', 'Kancing Snap');
+        $this->assertNotNull($kancing);
+        $this->assertEquals('pcs', $kancing->uom);
+        $this->assertEquals(150.00, (float) $kancing->required_quantity);
     }
 }
