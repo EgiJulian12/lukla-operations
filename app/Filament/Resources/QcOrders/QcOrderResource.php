@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\QcOrders;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\QcOrders\Pages\ListQcOrders;
 use App\Filament\Resources\QcOrders\Tables\QcOrdersTable;
 use App\Models\Order;
@@ -18,9 +19,16 @@ use UnitEnum;
  *
  * Menampilkan pesanan yang sedang dalam proses produksi, status kesiapan QC,
  * rangkuman berapa yang sudah lolos, diperbaiki, dan ditolak.
+ *
+ * Menu ini milik grup Quality Control, jadi pendaftarannya mengikuti matriks
+ * RoleMenuAccess seperti dua menu QC lainnya. canAccess() di bawah tetap
+ * membiarkan Kepala Produksi membukanya lewat URL — yang dijaga matriks hanya
+ * sidebar-nya.
  */
 class QcOrderResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;

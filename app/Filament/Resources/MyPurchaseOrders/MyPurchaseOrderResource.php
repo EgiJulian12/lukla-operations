@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MyPurchaseOrders;
 
 use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\MyPurchaseOrders\Pages\ListMyPurchaseOrders;
 use App\Filament\Resources\MyPurchaseOrders\Tables\MyPurchaseOrdersTable;
 use App\Models\PurchaseOrder;
@@ -15,9 +16,18 @@ use UnitEnum;
 
 /**
  * Menu Sidebar untuk melihat riwayat dan status pengajuan PO khusus milik pengguna yang sedang login.
+ *
+ * Menu ini berjalan bersama tiga peran yang sama dengan PurchaseOrderPolicy:
+ * gudang mengajukan PO-nya sendiri, Finance dan Owner meninjau seluruhnya.
+ * Karena itu pendaftaran sidebar-nya mengikuti matriks RoleMenuAccess —
+ * sebelumnya menu ini muncul di sidebar semua peran hanya karena tidak ikut
+ * matriks. canAccess() di bawah tetap membuka halamannya lewat URL bagi siapa
+ * pun yang sudah login.
  */
 class MyPurchaseOrderResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = PurchaseOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;

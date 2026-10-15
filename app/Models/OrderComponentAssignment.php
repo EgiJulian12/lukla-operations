@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\OutputStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +20,8 @@ class OrderComponentAssignment extends Model
     private ?OutputEntry $cachedLatestOutput = null;
 
     private bool $hasResolvedLatestOutput = false;
+
+    private ?bool $cachedHasReachedQcTarget = null;
 
     protected $fillable = [
         'order_id',
@@ -83,16 +84,23 @@ class OrderComponentAssignment extends Model
     }
 
     /**
-     * Apakah komponen ini sudah dilaporkan dan laporannya belum ditolak.
+     * Apakah tugas komponen ini sudah selesai — target QC order-nya tercapai.
      *
-     * Inilah yang menutup tugas di daftar kerja penjahit: begitu komponennya
-     * dilaporkan, tombol "Laporkan" tidak lagi ditawarkan. Laporan yang ditolak
-     * membuka tugasnya kembali, karena penjahit memang harus mengerjakan ulang.
+     * Inilah yang menutup tugas di daftar kerja penjahit. Batasnya diletakkan
+     * di tingkat order, bukan di tingkat laporan: satu komponen masih perlu
+     * dikerjakan selama order-nya belum menyelesaikan pemeriksaan QC, sehingga
+     * penjahit dapat terus melaporkan output intervalnya sampai unit yang lolos
+     * QC mencukupi jumlah yang dipesan. Lihat Order::hasReachedQcTarget().
+     *
+     * Hasilnya diingat selama instance ini hidup karena satu baris tabel
+     * pekerjaan penjahit menanyakannya lebih dari sekali dalam satu render.
      */
-    public function isReported(): bool
+    public function hasReachedQcTarget(): bool
     {
-        $latest = $this->latestOutput();
+        if ($this->cachedHasReachedQcTarget !== null) {
+            return $this->cachedHasReachedQcTarget;
+        }
 
-        return $latest !== null && $latest->status !== OutputStatus::REJECTED;
+        return $this->cachedHasReachedQcTarget = $this->order?->hasReachedQcTarget() ?? false;
     }
 }

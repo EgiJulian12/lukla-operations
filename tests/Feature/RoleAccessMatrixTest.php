@@ -136,7 +136,7 @@ class RoleAccessMatrixTest extends TestCase
         $this->assertFalse($this->userWithRole(UserRole::TAILOR_OPERATOR)->can('viewAny', PayrollPeriod::class));
     }
 
-    public function test_sample_conversion_needs_both_an_approved_revision_and_authority(): void
+    public function test_only_the_owner_turns_an_approved_sample_into_a_mass_order(): void
     {
         $sample = Sample::factory()->create();
         $revision = SampleRevision::factory()->create([
@@ -150,17 +150,34 @@ class RoleAccessMatrixTest extends TestCase
             'approved_revision_id' => $revision->getKey(),
         ]);
 
-        $this->assertTrue($this->userWithRole(UserRole::SAMPLE_TEAM)->can('convertToOrder', $sample->refresh()));
+        // Tim Sample menyiapkan revisinya, tetapi konversi ke order massal
+        // dipegang Owner — lihat SamplePolicy::convertToOrder().
+        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('convertToOrder', $sample->refresh()));
+        $this->assertFalse($this->userWithRole(UserRole::SAMPLE_TEAM)->can('convertToOrder', $sample->refresh()));
         $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('convertToOrder', $sample->refresh()));
     }
 
-    public function test_the_sample_team_and_the_owner_may_approve_a_sample(): void
+    public function test_the_client_approves_the_sample_and_internal_staff_do_not(): void
     {
         $sample = Sample::factory()->create();
 
-        $this->assertTrue($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('approve', $sample));
-        $this->assertTrue($this->userWithRole(UserRole::SAMPLE_TEAM)->can('approve', $sample));
+        $client = User::factory()->create(['client_id' => $sample->client_id]);
+        $client->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $this->assertTrue($client->can('approve', $sample));
+        $this->assertTrue($client->can('reject', $sample));
+
+        // Pemisahan tugas: persetujuan sample adalah ACC klien atas hasil
+        // evaluasi fisik pakaian, bukan keputusan internal (FR-003, FR-026).
+        $this->assertFalse($this->userWithRole(UserRole::OWNER_EXECUTIVE)->can('approve', $sample));
+        $this->assertFalse($this->userWithRole(UserRole::SAMPLE_TEAM)->can('approve', $sample));
         $this->assertFalse($this->userWithRole(UserRole::WAREHOUSE)->can('approve', $sample));
+
+        // Klien hanya memutuskan sample miliknya sendiri (NFR-004).
+        $otherClient = User::factory()->create(['client_id' => Client::factory()->create()->getKey()]);
+        $otherClient->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $this->assertFalse($otherClient->can('approve', $sample));
     }
 
     public function test_purchase_orders_and_invoices_belong_to_finance(): void

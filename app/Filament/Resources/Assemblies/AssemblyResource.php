@@ -22,6 +22,11 @@ use UnitEnum;
  *
  * Perakitan menyatukan output terverifikasi dari beberapa penjahit, lalu
  * memindahkan produk ke keadaan siap QC.
+ *
+ * Seperti Line Produksi, menunya tidak berdiri di sidebar Kepala Produksi:
+ * perakitan dijalankan dari halaman Output 30 Menit milik order yang
+ * bersangkutan. Halamannya tetap dapat dibuka lewat URL; yang diatur matriks
+ * RoleMenuAccess hanya pendaftaran menunya.
  */
 class AssemblyResource extends Resource
 {

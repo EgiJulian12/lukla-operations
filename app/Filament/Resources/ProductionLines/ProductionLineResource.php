@@ -24,6 +24,11 @@ use UnitEnum;
  *
  * Kapasitas line bersifat cair: jumlah mesin pada kolom kapasitas hanya
  * indikator, bukan batas jumlah penjahit yang boleh dialokasikan.
+ *
+ * Menu ini tidak berdiri di sidebar Kepala Produksi — pengaturan line bukan
+ * pekerjaan harian mandor, dan pekerjaan hariannya ada di Antrean Produksi
+ * serta Output 30 Menit. Halamannya tetap dapat dibuka lewat URL; yang diatur
+ * matriks RoleMenuAccess hanya pendaftaran menunya.
  */
 class ProductionLineResource extends Resource
 {

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Repairs;
 
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Repairs\Pages\ListRepairs;
 use App\Filament\Resources\Repairs\Tables\RepairsTable;
 use App\Models\Repair;
@@ -14,11 +15,17 @@ use UnitEnum;
 /**
  * Terminal perbaikan barang cacat QC (FR-014, BR 4.6).
  *
- * Di sini Kepala Produksi dan QC Inspector dapat melihat barang cacat,
- * menugaskan teknisi, menandai selesai perbaikan, dan melakukan QC ulang.
+ * Di sini QC Inspector dan Owner dapat melihat barang cacat, menugaskan
+ * teknisi, menandai selesai perbaikan, dan melakukan QC ulang.
+ *
+ * Tiket repair boleh dibuka Kepala Produksi lewat policy-nya — koordinasi
+ * perbaikan memang di lantai produksi — tetapi menunya milik grup Quality
+ * Control, jadi pendaftaran sidebar-nya mengikuti matriks RoleMenuAccess.
  */
 class RepairResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Repair::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
