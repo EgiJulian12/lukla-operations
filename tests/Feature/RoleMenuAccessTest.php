@@ -83,6 +83,7 @@ class RoleMenuAccessTest extends TestCase
         $this->assertTrue(ArticleResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
+        $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
     }
 
     public function test_finance_sees_payroll_and_invoices_but_not_physical_inventory(): void
@@ -99,8 +100,14 @@ class RoleMenuAccessTest extends TestCase
         $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
     }
 
-    public function test_production_lead_sees_approved_samples_in_sidebar(): void
+    public function test_owner_and_production_lead_can_see_approved_samples_in_sidebar(): void
     {
+        $owner = User::factory()->create();
+        $owner->assignRole(UserRole::OWNER_EXECUTIVE->value);
+
+        $this->actingAs($owner);
+        $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
+
         $productionLead = User::factory()->create();
         $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
 

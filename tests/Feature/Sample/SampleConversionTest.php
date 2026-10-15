@@ -2,14 +2,18 @@
 
 namespace Tests\Feature\Sample;
 
+use App\Enums\MaterialResponsibility;
 use App\Enums\OrderStatus;
 use App\Enums\SampleStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkScheme;
 use App\Exceptions\InvalidSampleState;
 use App\Models\Article;
+use App\Models\Material;
+use App\Models\PurchaseOrder;
 use App\Models\Sample;
 use App\Models\User;
+use App\Services\Inventory\OrderMaterialFlowService;
 use App\Services\Sample\SampleService;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,5 +114,82 @@ class SampleConversionTest extends TestCase
         $this->assertSame(95, $study->duration_seconds);
         $this->assertSame($revision->getKey(), $study->sample_revision_id);
         $this->assertSame($revision->client_id, $study->client_id);
+    }
+
+    public function test_converting_approved_sample_automatically_syncs_materials_and_requirements_to_warehouse(): void
+    {
+        $sampleService = app(SampleService::class);
+        $flowService = app(OrderMaterialFlowService::class);
+        $article = Article::factory()->create();
+
+        $sample = $sampleService->createSample($article, 'SMP-MAT-01', 'Kemeja Flannel Pria');
+        $revision = $sampleService->addRevision(
+            sample: $sample,
+            specs: ['warna' => 'Navy Plaid'],
+            materialUsage: [
+                'Kain Katun Flannel' => '1.5 meter',
+                'Kancing Batok 18L' => '6 pcs',
+            ],
+            notes: 'Spesifikasi bahan final sample'
+        );
+
+        $owner = User::factory()->create();
+        $owner->assignRole(UserRole::OWNER_EXECUTIVE->value);
+
+        $sampleService->submitForReview($revision);
+        $sampleService->approveRevision($revision, $owner);
+        $sample->refresh();
+
+        // 1. Konversi ke order massal 200 pcs dengan skema Full Package
+        $order = $sampleService->convertToOrder($sample, WorkScheme::FULL_PACKAGE, 200);
+
+        // 2. Verifikasi bahan otomatis terdaftar di master data bahan gudang (tabel materials)
+        $fabricMaterial = Material::where('name', 'Kain Katun Flannel')->first();
+        $this->assertNotNull($fabricMaterial);
+        $this->assertSame('fabric', $fabricMaterial->category);
+        $this->assertSame('meter', $fabricMaterial->uom);
+
+        $accMaterial = Material::where('name', 'Kancing Batok 18L')->first();
+        $this->assertNotNull($accMaterial);
+        $this->assertSame('accessory', $accMaterial->category);
+        $this->assertSame('pcs', $accMaterial->uom);
+
+        // 3. Verifikasi data kebutuhan bahan di alur gudang (order_material_requirements)
+        $requirements = $order->materialRequirements()->get();
+        $this->assertCount(2, $requirements);
+
+        $fabricReq = $requirements->firstWhere('material_id', $fabricMaterial->id);
+        $this->assertNotNull($fabricReq);
+        $this->assertEquals(300.0, (float) $fabricReq->required_quantity); // 1.5 * 200
+        $this->assertSame('meter', $fabricReq->uom);
+        $this->assertSame(MaterialResponsibility::COMPANY, $fabricReq->responsibility);
+
+        $accReq = $requirements->firstWhere('material_id', $accMaterial->id);
+        $this->assertNotNull($accReq);
+        $this->assertEquals(1200.0, (float) $accReq->required_quantity); // 6 * 200
+        $this->assertSame('pcs', $accReq->uom);
+        $this->assertSame(MaterialResponsibility::COMPANY, $accReq->responsibility);
+
+        // 4. Verifikasi gudang mengajukan PO untuk kebutuhan bahan order tersebut
+        $flowService->triggerPoRequest($order, 'PT Tekstil Sentosa');
+        $po = PurchaseOrder::where('order_id', $order->id)->first();
+        $this->assertNotNull($po);
+        $this->assertCount(2, $po->items);
+
+        $poFabricItem = $po->items->firstWhere('material_id', $fabricMaterial->id);
+        $this->assertNotNull($poFabricItem);
+        $this->assertEquals(300.0, (float) $poFabricItem->quantity);
+
+        $poAccItem = $po->items->firstWhere('material_id', $accMaterial->id);
+        $this->assertNotNull($poAccItem);
+        $this->assertEquals(1200.0, (float) $poAccItem->quantity);
+
+        // 5. Verifikasi syncRequirementsForOrder saat jumlah order diubah (misal jadi 300 pcs)
+        $order->update(['quantity' => 300]);
+        $flowService->syncRequirementsForOrder($order);
+
+        $refreshedRequirements = $order->fresh()->materialRequirements()->get();
+        $refreshedFabricReq = $refreshedRequirements->firstWhere('material_id', $fabricMaterial->id);
+        $this->assertEquals(450.0, (float) $refreshedFabricReq->required_quantity); // 1.5 * 300
     }
 }

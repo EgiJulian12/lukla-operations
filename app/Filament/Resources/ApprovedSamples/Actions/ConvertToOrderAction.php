@@ -7,20 +7,23 @@ use App\Enums\WorkScheme;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use App\Models\Sample;
+use App\Services\Inventory\OrderMaterialFlowService;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Aksi "Jadikan Order Produksi" untuk sample yang sudah disetujui.
+ * Aksi "Jadikan Order Produksi" untuk sample yang sudah disetujui (FR-004, FR-4.1).
  *
  * Dipakai bersama oleh halaman detail dan tabel daftar sample disetujui agar isi modal
- * dan perilakunya identik. Skema maklon, jumlah, dan tenggat selesai diambil dari order
- * terakhir sample — bukan diisi ulang oleh pengguna — lalu order baru langsung
- * dipindahkan ke status Siap Produksi.
+ * dan perilakunya identik. Pengguna dapat mengonfirmasi pilihan skema maklon, jumlah produksi,
+ * dan tenggat selesai, lalu order baru langsung dipindahkan ke status Siap Produksi.
  */
 class ConvertToOrderAction
 {
@@ -31,7 +34,7 @@ class ConvertToOrderAction
     public static function make(): Action
     {
         return Action::make('convert')
-            ->label('Jadikan Order Produksi')
+            ->label('Jadikan Order Massal')
             ->icon(Heroicon::OutlinedTruck)
             ->color('success')
             ->visible(fn (Sample $record): bool => (bool) auth()->user()?->can('convertToOrder', $record))
@@ -55,23 +58,29 @@ class ConvertToOrderAction
                             Placeholder::make('client_name')
                                 ->label('Klien')
                                 ->content($record->client?->name ?? '-'),
+                            Placeholder::make('approved_version')
+                                ->label('Versi Disetujui')
+                                ->content($record->approvedRevision?->version_label ?? '-'),
                         ]),
 
                     Section::make('Detail Order Produksi')
-                        ->description('Skema maklon, jumlah, dan tenggat mengikuti order terakhir sample ini.')
+                        ->description('Tentukan skema maklon, kuantitas massal, dan tenggat penyelesaian.')
                         ->columns(2)
                         ->schema([
-                            Placeholder::make('work_scheme_info')
+                            Select::make('work_scheme')
                                 ->label('Skema Maklon')
-                                ->content($latestOrder?->work_scheme?->getLabel() ?? '-'),
-                            Placeholder::make('quantity_info')
-                                ->label('Jumlah Produksi Massal')
-                                ->content($latestOrder?->quantity
-                                    ? number_format($latestOrder->quantity).' pcs'
-                                    : '-'),
-                            Placeholder::make('due_date_info')
+                                ->options(WorkScheme::class)
+                                ->default($latestOrder?->work_scheme?->value ?? WorkScheme::CMT->value)
+                                ->required(),
+                            TextInput::make('quantity')
+                                ->label('Jumlah Produksi Massal (pcs)')
+                                ->numeric()
+                                ->minValue(1)
+                                ->default($latestOrder?->quantity ?? 100)
+                                ->required(),
+                            DatePicker::make('due_date')
                                 ->label('Tenggat Selesai')
-                                ->content($latestOrder?->due_date?->translatedFormat('d F Y') ?? '-'),
+                                ->default($latestOrder?->due_date),
                             Textarea::make('notes')
                                 ->label('Catatan Order')
                                 ->columnSpanFull(),
@@ -79,20 +88,39 @@ class ConvertToOrderAction
                 ];
             })
             ->action(function (Sample $record, array $data): void {
-                $latestOrder = self::latestOrder($record);
+                $rawScheme = $data['work_scheme'] ?? null;
+                $scheme = $rawScheme instanceof WorkScheme
+                    ? $rawScheme
+                    : (is_string($rawScheme) || is_int($rawScheme) ? WorkScheme::tryFrom($rawScheme) : null) ?? WorkScheme::CMT;
+                $quantity = (int) $data['quantity'];
+                $existingOrder = $record->article?->order;
 
-                $order = app(SampleService::class)->convertToOrder(
-                    sample: $record,
-                    scheme: $latestOrder?->work_scheme ?? WorkScheme::CMT,
-                    quantity: $latestOrder?->quantity ?? 1,
-                    dueDate: $latestOrder?->due_date,
-                    notes: $data['notes'] ?? null,
-                );
+                if ($existingOrder !== null) {
+                    $existingOrder->update([
+                        'sample_id' => $record->getKey(),
+                        'sample_revision_id' => $record->approved_revision_id,
+                        'work_scheme' => $scheme,
+                        'quantity' => $quantity,
+                        'due_date' => $data['due_date'] ?? $existingOrder->due_date,
+                        'notes' => $data['notes'] ?? $existingOrder->notes,
+                        'status' => OrderStatus::READY_FOR_PRODUCTION,
+                    ]);
 
-                $order->update(['status' => OrderStatus::READY_FOR_PRODUCTION]);
+                    app(OrderMaterialFlowService::class)->syncRequirementsForOrder($existingOrder);
+                } else {
+                    $order = app(SampleService::class)->convertToOrder(
+                        sample: $record,
+                        scheme: $scheme,
+                        quantity: $quantity,
+                        dueDate: $data['due_date'] ?? null,
+                        notes: $data['notes'] ?? null,
+                    );
+
+                    $order->update(['status' => OrderStatus::READY_FOR_PRODUCTION]);
+                }
             })
             ->successRedirectUrl(fn (): string => OrderResource::getUrl('index'))
-            ->successNotificationTitle('Order produksi massal berhasil dibuat dari sample disetujui');
+            ->successNotificationTitle('Order produksi massal siap dikerjakan di lantai produksi');
     }
 
     /**

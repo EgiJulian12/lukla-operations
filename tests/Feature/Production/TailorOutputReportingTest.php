@@ -104,7 +104,7 @@ class TailorOutputReportingTest extends TestCase
     public function test_the_laporkan_button_returns_when_the_report_is_rejected(): void
     {
         $entry = $this->report();
-        app(ProductionService::class)->rejectOutput($entry, 'Jahitan kerah tidak rapi');
+        app(ProductionService::class)->rejectOutput($entry, 'Jahitan kerah tidak rapi', $this->productionLead());
 
         Livewire::test(ListOutputEntries::class)
             ->assertTableActionVisible('report', $this->assignment)
@@ -120,7 +120,7 @@ class TailorOutputReportingTest extends TestCase
         app(ProductionService::class)->verifyOutput($verified, $this->productionLead());
 
         $rejected = $this->report(at: Carbon::parse('2026-10-12 08:35'));
-        app(ProductionService::class)->rejectOutput($rejected, 'Ukuran meleset');
+        app(ProductionService::class)->rejectOutput($rejected, 'Ukuran meleset', $this->productionLead());
 
         $this->assertFalse($this->assignment->isReported());
 

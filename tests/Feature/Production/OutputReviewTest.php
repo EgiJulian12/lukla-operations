@@ -71,7 +71,7 @@ class OutputReviewTest extends TestCase
 
     public function test_only_orders_in_production_with_output_appear_in_the_review_list(): void
     {
-        $component = $this->articleComponent('KOMP-01', 1);
+        $component = $this->createComponent('KOMP-01', 1);
         $this->report($component, Carbon::parse('2026-10-12 08:05'));
 
         // Order berjalan yang belum dilaporkan siapa pun belum ada yang bisa diperiksa.
@@ -98,8 +98,8 @@ class OutputReviewTest extends TestCase
 
     public function test_verify_all_verifies_every_pending_output_and_leaves_the_others_alone(): void
     {
-        $first = $this->articleComponent('KOMP-01', 1);
-        $second = $this->articleComponent('KOMP-02', 2);
+        $first = $this->createComponent('KOMP-01', 1);
+        $second = $this->createComponent('KOMP-02', 2);
 
         $pendingFirst = $this->report($first, Carbon::parse('2026-10-12 08:05'));
         $pendingSecond = $this->report($second, Carbon::parse('2026-10-12 08:35'));
@@ -124,8 +124,8 @@ class OutputReviewTest extends TestCase
 
     public function test_assembly_is_refused_until_every_component_has_verified_output(): void
     {
-        $first = $this->articleComponent('KOMP-01', 1);
-        $this->articleComponent('KOMP-02', 2);
+        $first = $this->createComponent('KOMP-01', 1);
+        $this->createComponent('KOMP-02', 2);
 
         $verified = $this->report($first, Carbon::parse('2026-10-12 08:05'));
         app(ProductionService::class)->verifyOutput($verified, $this->lead);
@@ -138,7 +138,7 @@ class OutputReviewTest extends TestCase
 
     public function test_an_order_is_not_ready_for_assembly_while_anything_is_still_waiting(): void
     {
-        $component = $this->articleComponent('KOMP-01', 1);
+        $component = $this->createComponent('KOMP-01', 1);
 
         $this->assertFalse($this->order->isReadyForAssembly());
 
@@ -171,7 +171,7 @@ class OutputReviewTest extends TestCase
 
     public function test_the_detail_page_offers_verify_all_only_while_something_is_pending(): void
     {
-        $component = $this->articleComponent('KOMP-01', 1);
+        $component = $this->createComponent('KOMP-01', 1);
         $entry = $this->report($component, Carbon::parse('2026-10-12 08:05'));
 
         Livewire::test(ViewOutputReview::class, ['record' => $this->order->getRouteKey()])
@@ -189,8 +189,8 @@ class OutputReviewTest extends TestCase
 
     public function test_the_assembly_button_unlocks_once_every_component_is_verified(): void
     {
-        $first = $this->articleComponent('KOMP-01', 1);
-        $second = $this->articleComponent('KOMP-02', 2);
+        $first = $this->createComponent('KOMP-01', 1);
+        $second = $this->createComponent('KOMP-02', 2);
 
         $firstEntry = $this->report($first, Carbon::parse('2026-10-12 08:05'));
         $secondEntry = $this->report($second, Carbon::parse('2026-10-12 08:35'));
@@ -215,8 +215,8 @@ class OutputReviewTest extends TestCase
 
     public function test_the_assembly_button_records_an_assembly_from_verified_output(): void
     {
-        $first = $this->articleComponent('KOMP-01', 1);
-        $second = $this->articleComponent('KOMP-02', 2);
+        $first = $this->createComponent('KOMP-01', 1);
+        $second = $this->createComponent('KOMP-02', 2);
 
         $firstEntry = $this->report($first, Carbon::parse('2026-10-12 08:05'));
         $secondEntry = $this->report($second, Carbon::parse('2026-10-12 08:35'));
@@ -249,7 +249,7 @@ class OutputReviewTest extends TestCase
 
     public function test_the_output_list_on_the_detail_page_verifies_one_report(): void
     {
-        $component = $this->articleComponent('KOMP-01', 1);
+        $component = $this->createComponent('KOMP-01', 1);
         $entry = $this->report($component, Carbon::parse('2026-10-12 08:05'));
 
         Livewire::test(OutputEntriesRelationManager::class, [
@@ -280,10 +280,9 @@ class OutputReviewTest extends TestCase
     }
 
     /**
-     * Komponen artikel order yang sedang diuji. Nama memakai akhiran berbeda
-     * karena TestCase sudah memegang protected component($name).
+     * Komponen artikel order yang sedang diuji.
      */
-    private function articleComponent(string $code, int $sequence): Component
+    private function createComponent(string $code, int $sequence): Component
     {
         return Component::create([
             'article_id' => $this->article->getKey(),

@@ -10,6 +10,7 @@ use App\Exceptions\DuplicateOutputInterval;
 use App\Exceptions\IncompleteComponentAssignment;
 use App\Exceptions\InvalidOrderState;
 use App\Exceptions\InvalidOutputState;
+use App\Exceptions\UnassignedOperatorException;
 use App\Models\Assembly;
 use App\Models\Component;
 use App\Models\LineAssignment;
@@ -70,7 +71,7 @@ class ProductionService
         $plan = $this->validateComponentAssignments($order, $components, $componentAssignments);
 
         return DB::transaction(function () use ($order, $plan): Order {
-            $order->update(['status' => OrderStatus::IN_PRODUCTION]);
+            $order->transitionTo(OrderStatus::IN_PRODUCTION);
 
             foreach ($plan as $assignment) {
                 OrderComponentAssignment::create([
@@ -79,6 +80,38 @@ class ProductionService
                     'user_id' => $assignment['user_id'],
                     'assigned_at' => now(),
                 ]);
+            }
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * Memperbarui penugasan penjahit per komponen saat order sedang dalam proses produksi.
+     *
+     * @param  array<int, array{component_id: int, user_id: int}>  $componentAssignments
+     */
+    public function updateComponentAssignments(Order $order, array $componentAssignments): Order
+    {
+        if ($order->status !== OrderStatus::IN_PRODUCTION) {
+            throw InvalidOrderState::notInProduction($order);
+        }
+
+        $components = $order->components();
+        $plan = $this->validateComponentAssignments($order, $components, $componentAssignments);
+
+        return DB::transaction(function () use ($order, $plan): Order {
+            foreach ($plan as $assignment) {
+                OrderComponentAssignment::updateOrCreate(
+                    [
+                        'order_id' => $order->getKey(),
+                        'component_id' => $assignment['component_id'],
+                    ],
+                    [
+                        'user_id' => $assignment['user_id'],
+                        'assigned_at' => now(),
+                    ]
+                );
             }
 
             return $order->refresh();
@@ -144,29 +177,21 @@ class ProductionService
     }
 
     /**
-     * Menugaskan penjahit ke sebuah line (FR-009). Tanpa batas jumlah slot,
-     * sehingga kapasitas line bersifat cair mengikuti volume order (NFR-001).
+     * Menugaskan penjahit ke sebuah line dan opsional stasiun (FR-009, NFR-001).
+     * Didelegasikan ke LineAllocationService untuk penutupan alokasi aktif sebelumnya secara otomatis.
      */
-    public function assignOperator(ProductionLine $line, User $operator): LineAssignment
+    public function assignOperator(ProductionLine $line, User $operator, ?string $station = null): LineAssignment
     {
-        return LineAssignment::create([
-            'production_line_id' => $line->getKey(),
-            'user_id' => $operator->getKey(),
-            'assigned_at' => now(),
-        ]);
+        return app(LineAllocationService::class)->assignOperator($line, $operator, $station);
     }
 
     /**
      * Menutup penugasan dengan mengisi unassigned_at, bukan menghapusnya, agar
-     * riwayat alokasi tetap dapat diaudit.
+     * riwayat alokasi tetap dapat diaudit (FR-022).
      */
     public function unassignOperator(LineAssignment $assignment): LineAssignment
     {
-        if ($assignment->isActive()) {
-            $assignment->update(['unassigned_at' => now()]);
-        }
-
-        return $assignment->refresh();
+        return app(LineAllocationService::class)->unassignOperator($assignment);
     }
 
     /**
@@ -193,7 +218,54 @@ class ProductionService
             throw new InvalidArgumentException('Jumlah output minimal satu unit.');
         }
 
-        [$start, $end] = $this->intervalBounds($intervalAt);
+        // Validasi peran penjahit jika pengguna memiliki role terdaftar
+        if ($operator->roles()->exists() && ! $operator->hasRoleSatisfying(fn (UserRole $role): bool => $role->canSubmitOutput())) {
+            throw UnassignedOperatorException::notTailor($operator);
+        }
+
+        // Validasi penugasan komponen: jika order memiliki penugasan komponen spesifik,
+        // hanya penjahit yang ditugaskan ke komponen tersebut yang boleh melaporkan output.
+        if ($order->componentAssignments()->exists()) {
+            $isAssignedToComponent = $order->componentAssignments()
+                ->where('component_id', $component->getKey())
+                ->where('user_id', $operator->getKey())
+                ->exists();
+
+            if (! $isAssignedToComponent) {
+                throw UnassignedOperatorException::forComponent($operator, $component, $order);
+            }
+        }
+
+        // Validasi penugasan line: jika line diberikan, pastikan operator tidak memiliki
+        // alokasi line yang sudah ditutup atau alokasi aktif di line lain.
+        if ($line !== null) {
+            $hasLineHistory = LineAssignment::query()
+                ->where('production_line_id', $line->getKey())
+                ->where('user_id', $operator->getKey())
+                ->exists();
+
+            $hasActiveInLine = LineAssignment::query()
+                ->where('production_line_id', $line->getKey())
+                ->where('user_id', $operator->getKey())
+                ->whereNull('unassigned_at')
+                ->exists();
+
+            if ($hasLineHistory && ! $hasActiveInLine) {
+                throw UnassignedOperatorException::forLine($operator, $line);
+            }
+
+            $hasActiveInOtherLine = LineAssignment::query()
+                ->where('production_line_id', '!=', $line->getKey())
+                ->where('user_id', $operator->getKey())
+                ->whereNull('unassigned_at')
+                ->exists();
+
+            if ($hasActiveInOtherLine && ! $hasActiveInLine) {
+                throw UnassignedOperatorException::forLine($operator, $line);
+            }
+        }
+
+        [$start, $end] = $this->calculateInterval($intervalAt);
 
         $existing = OutputEntry::query()
             ->where('user_id', $operator->getKey())
@@ -220,12 +292,23 @@ class ProductionService
     }
 
     /**
-     * Memverifikasi output sehingga layak masuk perhitungan payroll (FR-012).
+     * Memverifikasi output sehingga layak masuk perhitungan payroll (FR-012, BR 4.5).
+     *
+     * Hanya mandor / kepala produksi yang berhak memverifikasi. Penjahit dilarang
+     * memverifikasi pekerjaannya sendiri untuk menegakkan separasi tugas.
      */
     public function verifyOutput(OutputEntry $entry, User $verifier): OutputEntry
     {
         if ($entry->status !== OutputStatus::SUBMITTED) {
             throw InvalidOutputState::notAwaitingVerification($entry);
+        }
+
+        if (! $verifier->hasRoleSatisfying(fn (UserRole $role): bool => $role->canVerifyOutput())) {
+            throw InvalidOutputState::unauthorizedVerifier();
+        }
+
+        if ((int) $entry->user_id === (int) $verifier->getKey()) {
+            throw InvalidOutputState::selfVerificationForbidden($entry);
         }
 
         $entry->update([
@@ -237,15 +320,59 @@ class ProductionService
         return $entry->refresh();
     }
 
-    public function rejectOutput(OutputEntry $entry, ?string $reason = null): OutputEntry
+    /**
+     * Menolak output yang tidak memenuhi standar kualitas (FR-012, BR 4.5).
+     *
+     * Keputusan penolakan dicatat lengkap dengan alasan dan penanggung jawabnya
+     * agar penjahit mengetahui koreksi yang diperlukan saat mengajukan ulang.
+     */
+    public function rejectOutput(OutputEntry $entry, ?string $reason = null, ?User $rejector = null): OutputEntry
     {
         if ($entry->status !== OutputStatus::SUBMITTED) {
             throw InvalidOutputState::notAwaitingVerification($entry);
         }
 
+        $rejector = $rejector ?? (auth()->check() ? auth()->user() : null);
+
+        if ($rejector !== null) {
+            if (! $rejector->hasRoleSatisfying(fn (UserRole $role): bool => $role->canVerifyOutput())) {
+                throw InvalidOutputState::unauthorizedVerifier();
+            }
+
+            if ((int) $entry->user_id === (int) $rejector->getKey()) {
+                throw InvalidOutputState::selfVerificationForbidden($entry);
+            }
+        }
+
         $entry->update([
             'status' => OutputStatus::REJECTED,
+            'rejection_reason' => $reason,
+            'rejected_by' => $rejector?->getKey(),
             'notes' => $reason ?? $entry->notes,
+        ]);
+
+        return $entry->refresh();
+    }
+
+    /**
+     * Mengajukan kembali output yang sebelumnya ditolak setelah dilakukan perbaikan (BR 4.5).
+     *
+     * Status kembali menjadi SUBMITTED sehingga mandor dapat meninjau ulang.
+     */
+    public function resubmitOutput(OutputEntry $entry, int $newQuantity, ?string $notes = null): OutputEntry
+    {
+        if ($entry->status !== OutputStatus::REJECTED) {
+            throw InvalidOutputState::notRejected($entry);
+        }
+
+        if ($newQuantity < 1) {
+            throw new InvalidArgumentException('Jumlah output minimal satu unit.');
+        }
+
+        $entry->update([
+            'status' => OutputStatus::SUBMITTED,
+            'quantity' => $newQuantity,
+            'notes' => $notes ?? $entry->notes,
         ]);
 
         return $entry->refresh();
@@ -344,6 +471,12 @@ class ProductionService
 
             $assembly->outputEntries()->sync($entries->pluck('id')->all());
 
+            // Transisi ke IN_QC jika seluruh target pesanan telah selesai dirakit (Req 10 AC 6)
+            $totalAssembled = (int) $order->assemblies()->sum('quantity');
+            if ($order->status === OrderStatus::IN_PRODUCTION && $totalAssembled >= $order->quantity && $order->canTransitionTo(OrderStatus::IN_QC)) {
+                $order->transitionTo(OrderStatus::IN_QC);
+            }
+
             return $assembly->refresh();
         });
     }
@@ -379,16 +512,26 @@ class ProductionService
     }
 
     /**
-     * Membulatkan waktu ke batas interval 30 menit (:00 atau :30).
+     * Membulatkan waktu ke batas interval 30 menit (:00 atau :30) (Task 2.2, FR-011).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function calculateInterval(DateTimeInterface $time): array
+    {
+        $moment = Carbon::instance($time)->seconds(0);
+        $minute = (int) $moment->format('i') < 30 ? 0 : 30;
+        $start = $moment->copy()->setTime((int) $moment->format('H'), $minute, 0);
+
+        return [$start, $start->copy()->addMinutes(30)];
+    }
+
+    /**
+     * Alias privat untuk backward-compatibility internal.
      *
      * @return array{0: Carbon, 1: Carbon}
      */
     private function intervalBounds(DateTimeInterface $at): array
     {
-        $moment = Carbon::instance($at)->seconds(0);
-        $minute = (int) $moment->format('i') < 30 ? 0 : 30;
-        $start = $moment->copy()->setTime((int) $moment->format('H'), $minute, 0);
-
-        return [$start, $start->copy()->addMinutes(30)];
+        return $this->calculateInterval($at);
     }
 }

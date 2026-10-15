@@ -89,7 +89,7 @@ class ProductionOrderQueueTest extends TestCase
                     $lengan->getKey() => $secondSewer->getKey(),
                 ],
             ])
-            ->assertHasNoActionErrors();
+            ->assertHasNoTableActionErrors();
 
         $this->assertSame(OrderStatus::IN_PRODUCTION, $order->refresh()->status);
 
@@ -239,6 +239,77 @@ class ProductionOrderQueueTest extends TestCase
         $this->expectException(InvalidOrderState::class);
 
         app(ProductionService::class)->startProduction($order, []);
+    }
+
+    public function test_production_lead_can_update_component_assignments_while_in_production(): void
+    {
+        $order = $this->readyOrder(['Kerah', 'Lengan']);
+        [$kerah, $lengan] = $order->components()->all();
+
+        $sewer1 = $this->tailor('Siti Penjahit');
+        $sewer2 = $this->tailor('Budi Penjahit');
+        $sewer3 = $this->tailor('Joko Penjahit');
+
+        app(ProductionService::class)->startProduction($order, [
+            ['component_id' => $kerah->getKey(), 'user_id' => $sewer1->getKey()],
+            ['component_id' => $lengan->getKey(), 'user_id' => $sewer2->getKey()],
+        ]);
+
+        $this->actingAs($this->productionLead);
+
+        Livewire::test(ListProductionOrders::class)
+            ->assertCanSeeTableRecords([$order])
+            ->assertTableActionHidden('startProduction', $order)
+            ->assertTableActionVisible('updateAssignments', $order)
+            ->callTableAction('updateAssignments', $order, [
+                'assignments' => [
+                    $kerah->getKey() => $sewer1->getKey(),
+                    $lengan->getKey() => $sewer3->getKey(),
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $plan = $order->refresh()->componentAssignments()->get();
+
+        $this->assertCount(2, $plan);
+        $this->assertSame($sewer1->getKey(), (int) $plan->firstWhere('component_id', $kerah->getKey())->user_id);
+        $this->assertSame($sewer3->getKey(), (int) $plan->firstWhere('component_id', $lengan->getKey())->user_id);
+
+        Livewire::test(ListProductionOrders::class)
+            ->assertSee('Lengan: Joko Penjahit');
+    }
+
+    public function test_update_assignments_is_hidden_for_ready_for_production_and_in_qc(): void
+    {
+        $ready = Order::factory()->create(['status' => OrderStatus::READY_FOR_PRODUCTION]);
+        $inQc = Order::factory()->create(['status' => OrderStatus::IN_QC]);
+
+        $this->actingAs($this->productionLead);
+
+        Livewire::test(ListProductionOrders::class)
+            ->assertTableActionHidden('updateAssignments', $ready)
+            ->assertTableActionHidden('updateAssignments', $inQc);
+    }
+
+    public function test_other_roles_cannot_update_component_assignments(): void
+    {
+        $order = Order::factory()->create(['status' => OrderStatus::IN_PRODUCTION]);
+
+        foreach ([UserRole::TAILOR_OPERATOR, UserRole::SAMPLE_TEAM, UserRole::QC_INSPECTOR, UserRole::WAREHOUSE] as $role) {
+            $user = User::factory()->create();
+            $user->assignRole($role->value);
+
+            $this->assertFalse($user->can('updateComponentAssignments', $order));
+        }
+    }
+
+    public function test_cannot_update_assignments_if_order_is_not_in_production(): void
+    {
+        $order = Order::factory()->create(['status' => OrderStatus::READY_FOR_PRODUCTION]);
+
+        $this->expectException(InvalidOrderState::class);
+
+        app(ProductionService::class)->updateComponentAssignments($order, []);
     }
 
     /**

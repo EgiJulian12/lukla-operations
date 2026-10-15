@@ -87,17 +87,17 @@ The following actor boundaries define which business data each role may view or 
 
 The MVP boundary focuses on the minimum operational loop required to protect inventory ownership, track production, complete QC, and calculate payroll.
 
-### In-Scope (Fokus MVP / Rilis Awal)
+### In-Scope (Fokus MVP / Rilis Awal — Status per Oktober 2026)
 
-- [ ] Sample and time-study tracking with revision history.
-- [ ] Approval of an eligible sample and conversion to a mass-production order.
-- [ ] CMT, Semi-CMT, and Full Package order classification.
-- [ ] Multi-client inventory receiving, client/order tagging, cutting issue validation, and waste tracking.
-- [ ] Dynamic production-line allocation and 30-minute output entry with supervisor verification.
-- [ ] Component assembly and QC status of pass, repair, or scrap/defect.
-- [ ] Weekly piece-rate payroll, configurable meal allowance, QC bonus pool, and monthly overhead-per-unit reporting.
-- [ ] Role-based access for the eight operational personas and client-scoped data visibility.
-- [ ] Operational dashboard, floor production terminal, QC terminal, and payroll workspace.
+- [x] Sample and time-study tracking with revision history (`SampleService`, `SampleRevision`, `TimeStudy`).
+- [x] Approval of an eligible sample and conversion to a mass-production order (`SampleService::convertToOrder`, `ConvertToOrderAction`).
+- [x] CMT, Semi-CMT, and Full Package order classification (`Order`, `WorkScheme`, `WorkSchemeInventoryHandlingTest`).
+- [x] Multi-client inventory receiving, client/order tagging, cutting issue validation, and waste tracking (`InventoryService`, `MaterialDispatchService`, `tag_id`, `WasteRecord`).
+- [ ] Dynamic production-line allocation and 30-minute output entry with supervisor verification (30-min capture & supervisor verify selesai; rotasi line & station number dalam penyelesaian).
+- [x] Component assembly and QC status of pass, repair, or scrap/defect (`Assembly`, `ProductionService::assemble`, `QcService`, `RepairManager`).
+- [x] Weekly piece-rate payroll, configurable meal allowance, QC bonus pool, and monthly overhead-per-unit reporting (`PayrollService`, `QcBonusDistributionService`).
+- [x] Role-based access for the eight operational personas and client-scoped data visibility (`UserRole`, Spatie Permission, `BelongsToClient`, client portal).
+- [x] Operational dashboard, floor production terminal, QC terminal, and payroll workspace (Filament resources & actions).
 
 ### Out-of-Scope (Backlog Fase / Iterasi Berikutnya)
 

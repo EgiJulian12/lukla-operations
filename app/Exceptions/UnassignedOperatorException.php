@@ -2,6 +2,8 @@
 
 namespace App\Exceptions;
 
+use App\Models\Component;
+use App\Models\Order;
 use App\Models\ProductionLine;
 use App\Models\User;
 use RuntimeException;
@@ -22,6 +24,26 @@ class UnassignedOperatorException extends RuntimeException
             $operator->name,
             $line->getKey(),
             $line->name,
+        ));
+    }
+
+    public static function forComponent(User $operator, Component $component, Order $order): self
+    {
+        return new self(sprintf(
+            'Operator #%d (%s) tidak ditugaskan untuk komponen %s pada order %s.',
+            $operator->getKey(),
+            $operator->name,
+            $component->name,
+            $order->order_number,
+        ));
+    }
+
+    public static function notTailor(User $operator): self
+    {
+        return new self(sprintf(
+            'Pengguna #%d (%s) tidak memiliki peran Penjahit sehingga tidak dapat mencatat output.',
+            $operator->getKey(),
+            $operator->name,
         ));
     }
 }

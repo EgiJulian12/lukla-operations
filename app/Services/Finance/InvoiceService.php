@@ -45,6 +45,11 @@ class InvoiceService
 
         $invoice->update(['status' => InvoiceStatus::PAID]);
 
+        $order = $invoice->order;
+        if ($order && $order->isEligibleForClosure()) {
+            $order->close();
+        }
+
         return $invoice->refresh();
     }
 

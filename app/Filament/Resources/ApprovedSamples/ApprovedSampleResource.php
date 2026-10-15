@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ApprovedSamples;
 
 use App\Enums\OrderStatus;
 use App\Enums\SampleStatus;
+use App\Enums\UserRole;
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\ApprovedSamples\Pages\ListApprovedSamples;
 use App\Filament\Resources\ApprovedSamples\Pages\ViewApprovedSample;
@@ -46,16 +47,24 @@ class ApprovedSampleResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $productionStatuses = [
-            OrderStatus::READY_FOR_PRODUCTION->value,
-            OrderStatus::IN_PRODUCTION->value,
-            OrderStatus::IN_QC->value,
-            OrderStatus::COMPLETED->value,
-        ];
+        $query = parent::getEloquentQuery()
+            ->where('status', SampleStatus::APPROVED->value);
 
-        return parent::getEloquentQuery()
-            ->where('status', SampleStatus::APPROVED->value)
-            ->whereDoesntHave('orders', fn (Builder $query) => $query->whereIn('status', $productionStatuses));
+        $user = auth()->user();
+
+        // Kepala Produksi hanya melihat sample yang ordernya sudah siap di produksi massal
+        if ($user?->hasRoleSatisfying(fn (UserRole $role): bool => $role === UserRole::PRODUCTION_LEAD)) {
+            $query->whereHas('orders', function (Builder $q): void {
+                $q->whereIn('status', [
+                    OrderStatus::READY_FOR_PRODUCTION->value,
+                    OrderStatus::IN_PRODUCTION->value,
+                    OrderStatus::IN_QC->value,
+                    OrderStatus::COMPLETED->value,
+                ]);
+            });
+        }
+
+        return $query;
     }
 
     public static function infolist(Schema $schema): Schema

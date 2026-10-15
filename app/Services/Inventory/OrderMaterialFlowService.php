@@ -61,8 +61,9 @@ class OrderMaterialFlowService
             };
 
             // 1. Cek apakah ada sampleRevision dan spesifikasi material_usage pada order
-            $order->loadMissing(['sampleRevision.sample.article.components', 'client']);
-            $materialUsage = $order->sampleRevision?->material_usage;
+            $order->loadMissing(['sampleRevision.sample.article.components', 'sample.approvedRevision', 'client']);
+            $sampleRevision = $order->sampleRevision ?? $order->sample?->approvedRevision;
+            $materialUsage = $sampleRevision?->material_usage;
 
             if (! empty($materialUsage) && is_array($materialUsage)) {
                 foreach ($materialUsage as $rawKey => $usagePerUnit) {
@@ -75,11 +76,38 @@ class OrderMaterialFlowService
 
                     $itemType = $isFabric ? MaterialItemType::FABRIC : MaterialItemType::ACCESSORY;
                     $responsibility = $isFabric ? $fabricResponsibility : $accessoryResponsibility;
-                    $uom = $isFabric ? 'meter' : 'pcs';
 
-                    $requiredQty = is_numeric($usagePerUnit)
-                        ? round((float) $usagePerUnit * $order->quantity, 2)
-                        : (float) $order->quantity;
+                    $usageStr = trim((string) $usagePerUnit);
+                    $numericVal = 1.0;
+                    $detectedUom = null;
+
+                    if (preg_match('/^([0-9]+(?:[\.,][0-9]+)?)\s*(.*)$/i', $usageStr, $matches)) {
+                        $numericVal = (float) str_replace(',', '.', $matches[1]);
+                        $rawUom = strtolower(trim($matches[2] ?? ''));
+
+                        if (str_contains($rawUom, 'meter') || $rawUom === 'm') {
+                            $detectedUom = 'meter';
+                        } elseif (str_contains($rawUom, 'yard') || $rawUom === 'yd') {
+                            $detectedUom = 'yard';
+                        } elseif (str_contains($rawUom, 'pcs') || str_contains($rawUom, 'buah') || str_contains($rawUom, 'biji')) {
+                            $detectedUom = 'pcs';
+                        } elseif (str_contains($rawUom, 'roll')) {
+                            $detectedUom = 'roll';
+                        } elseif (str_contains($rawUom, 'spool')) {
+                            $detectedUom = 'spool';
+                        } elseif (str_contains($rawUom, 'set')) {
+                            $detectedUom = 'set';
+                        } elseif (str_contains($rawUom, 'lusin') || str_contains($rawUom, 'dz')) {
+                            $detectedUom = 'lusin';
+                        } elseif (! empty($rawUom)) {
+                            $detectedUom = Str::limit($rawUom, 15, '');
+                        }
+                    } elseif (is_numeric($usagePerUnit)) {
+                        $numericVal = (float) $usagePerUnit;
+                    }
+
+                    $uom = $detectedUom ?? ($isFabric ? 'meter' : 'pcs');
+                    $requiredQty = round($numericVal * (float) $order->quantity, 2);
 
                     // Cari material yang cocok jika ada
                     $matchedMaterial = Material::query()
@@ -93,16 +121,33 @@ class OrderMaterialFlowService
                         })
                         ->first();
 
+                    // Jika belum terdaftar di master data bahan gudang, otomatis daftarkan
+                    if (! $matchedMaterial) {
+                        $cleanSlug = strtoupper(Str::slug(Str::limit($keyName, 8, '')));
+                        $code = 'MAT-'.($cleanSlug ?: 'ITEM').'-'.rand(100, 999);
+                        while (Material::where('code', $code)->exists()) {
+                            $code = 'MAT-'.strtoupper(Str::random(6));
+                        }
+
+                        $matchedMaterial = Material::create([
+                            'client_id' => $order->client_id,
+                            'code' => $code,
+                            'name' => $keyName,
+                            'category' => $itemType === MaterialItemType::FABRIC ? 'fabric' : 'accessory',
+                            'uom' => $uom,
+                        ]);
+                    }
+
                     $req = OrderMaterialRequirement::create([
                         'order_id' => $order->getKey(),
-                        'material_id' => $matchedMaterial?->getKey(),
-                        'item_name' => $matchedMaterial ? $matchedMaterial->name : $keyName,
+                        'material_id' => $matchedMaterial->getKey(),
+                        'item_name' => $matchedMaterial->name,
                         'item_type' => $itemType,
                         'responsibility' => $responsibility,
                         'status' => ComponentMaterialStatus::EMPTY,
                         'required_quantity' => $requiredQty,
                         'received_quantity' => 0,
-                        'uom' => $matchedMaterial?->uom ?? $uom,
+                        'uom' => $matchedMaterial->uom ?: $uom,
                     ]);
                     $createdRequirements->push($req);
                 }
@@ -200,6 +245,25 @@ class OrderMaterialFlowService
             }
 
             return $createdRequirements;
+        });
+    }
+
+    /**
+     * Sinkronkan ulang kebutuhan bahan order saat kuantitas atau spesifikasi sample diperbarui,
+     * selama belum ada bahan yang berstatus diterima fisik di gudang.
+     *
+     * @return Collection<int, OrderMaterialRequirement>
+     */
+    public function syncRequirementsForOrder(Order $order): Collection
+    {
+        return DB::transaction(function () use ($order): Collection {
+            $hasReceived = $order->materialRequirements()->where('received_quantity', '>', 0)->exists();
+
+            if (! $hasReceived) {
+                $order->materialRequirements()->delete();
+            }
+
+            return $this->initializeRequirements($order);
         });
     }
 

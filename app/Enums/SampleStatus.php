@@ -16,6 +16,7 @@ enum SampleStatus: string implements HasColor, HasLabel
     case IN_REVIEW = 'in_review';
     case APPROVED = 'approved';
     case REJECTED = 'rejected';
+    case REVISED = 'revised';
 
     public function getLabel(): string
     {
@@ -24,6 +25,7 @@ enum SampleStatus: string implements HasColor, HasLabel
             self::IN_REVIEW => 'Menunggu Persetujuan',
             self::APPROVED => 'Disetujui',
             self::REJECTED => 'Ditolak',
+            self::REVISED => 'Telah Direvisi',
         };
     }
 
@@ -34,11 +36,28 @@ enum SampleStatus: string implements HasColor, HasLabel
             self::IN_REVIEW => 'warning',
             self::APPROVED => 'success',
             self::REJECTED => 'danger',
+            self::REVISED => 'gray',
         };
     }
 
     /**
-     * Hanya sample yang disetujui boleh dikonversi menjadi order produksi massal (FR-004).
+     * Hanya revisi yang berstatus draf yang dapat diubah atau ditambahkan time study.
+     */
+    public function isEditable(): bool
+    {
+        return $this === self::DRAFT;
+    }
+
+    /**
+     * Revisi yang sedang ditinjau atau ditolak dapat dibuatkan revisi berikutnya (cloning).
+     */
+    public function canBeRevised(): bool
+    {
+        return in_array($this, [self::IN_REVIEW, self::REJECTED], true);
+    }
+
+    /**
+     * Hanya sample yang menunggu persetujuan yang boleh disetujui/ditolak (FR-003).
      */
     public function isApprovable(): bool
     {

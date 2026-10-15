@@ -40,7 +40,17 @@ Each maklon scheme requires distinct handling for material ownership, cost struc
 
 ### Order Management Component
 
-The Order Management component coordinates the order lifecycle from creation through completion. The Order Manager handles order creation with scheme validation, ensuring scheme_type cannot change after production begins. It enforces status transition rules based on trigger conditions: Deal Agreement finalization moves status to Confirmed, first Penjahit assignment moves to In Production, 100% of expected units reaching QC moves to QC Phase, 100% of units passing QC moves to Completed, and Owner delivery confirmation with Finance invoice payment moves to Closed. The component integrates with the Rate Card component to retrieve component rates for payroll calculation and with the Inventory component to validate material availability.
+The Order Management component coordinates the order lifecycle from client portal request through production and final completion. The Order Manager handles order creation with scheme validation, ensuring scheme_type cannot change after production begins. It enforces status transition rules across pre-production and production lifecycles:
+- Client request from portal creates order with status `REQUESTED`
+- Owner pricing proposal moves status to `QUOTED`
+- Client quote acceptance moves status to `QUOTE_APPROVED`, unlocking sample creation
+- Approved sample conversion initializes mass order status as `CONFIRMED`
+- Order queued for floor production transitions to `READY_FOR_PRODUCTION`
+- Mandor start production with tailor assignments per article component moves status to `IN_PRODUCTION`
+- Completed assemblies entering QC inspection queue transition order status to `IN_QC`
+- 100% of produced units passing QC transitions status to `COMPLETED`
+- Delivery confirmation with Finance invoice payment moves status to `CLOSED`
+- Orders with status `COMPLETED`, `CLOSED`, or `CANCELLED` are locked from further transactional modifications.
 
 The Order Repository provides CRUD operations for Order aggregates, supporting queries by client_id for multi-tenant filtering, by status for workflow dashboards, by scheme_type for reporting, and by date range for historical analysis. The Order Factory encapsulates creation logic for each scheme type, initializing appropriate defaults and invoking rate validation.
 
@@ -54,15 +64,15 @@ The component exposes interfaces for payroll calculation to retrieve active comp
 
 ### Output Recording Component
 
-The Output Recording component manages the 30-minute interval output system for Penjahit workers. The Output Recorder creates Output records with millisecond-precision UTC timestamps, validates submission timing against the current 30-minute interval, verifies Penjahit-Line assignment exists and is active, and marks records as SUBMITTED then PENDING_VERIFICATION.
+The Output Recording component manages the 30-minute interval output system for Penjahit workers. The Output Recorder creates Output records with minute-precision timestamps, validates submission timing against the 30-minute interval, validates quantity (minimum 1 unit), ensures uniqueness per operator, component, and interval start, and marks records as `SUBMITTED`.
 
-The Output Validator calculates the current interval as floor(submission_time minutes / 30) times 30 minutes, validates submission_time falls within [Interval_Start, Interval_End), and rejects submissions outside valid intervals with helpful error messages showing current time, valid range, and next interval start. The Output Manager handles verification workflow transitions between SUBMITTED, VERIFIED, and REJECTED statuses, managing resubmission logic within the 7-day window and 3-attempt limit.
+The Output Validator calculates the current interval as floor(submission_time minutes / 30) times 30 minutes, validates submission_time falls within [Interval_Start, Interval_End), and rejects submissions outside valid intervals with clear error messages. The Output Manager handles verification workflow transitions between `SUBMITTED`, `VERIFIED`, and `REJECTED` statuses, allowing resubmission for rejected outputs.
 
 The Output Repository supports queries by Penjahit for earnings calculation, by Line and Station for supervisor dashboards, by status for verification queues, by interval for payroll locking, and by date range for reporting. The component integrates with the Payroll component to provide verified output for earnings calculation.
 
 ### Output Verification Component
 
-The Output Verification component implements the Mandor and Kepala Produksi review workflow. The Verifier retrieves up to 100 pending SUBMITTED output records for assigned production lines, presenting them for approve or reject decisions. The Verification Handler processes verification decisions, transitioning status to VERIFIED for approvals and REJECTED for rejections with mandatory reason text between 10 and 500 characters.
+The Output Verification component implements the Mandor and Kepala Produksi review workflow. The Verifier retrieves pending `SUBMITTED` output records for assigned production lines and orders, presenting them for approve or reject decisions, with support for batch verification (`verifyAllPendingOutputs`). The Verification Handler processes verification decisions, transitioning status to `VERIFIED` for approvals (locking the record for payroll eligibility) and `REJECTED` for rejections with recorded reason text.
 
 The Notification Service sends alerts to Penjahit when output is rejected, handling delivery failures gracefully by logging the failure while still completing the status transition. The Audit Logger records verifier_id, ISO 8601 timestamp with second precision, and decision for every verification action, supporting compliance reporting and dispute resolution.
 
@@ -102,11 +112,11 @@ The Payable Generator creates payment records for each worker category: Penjahit
 
 ### Repair Component
 
-The Repair Component manages the repair workflow for units with QC REPAIR disposition. The Repair Manager creates Repair records on REPAIR result with repair_reason_id, assigned_repairer_id, repair_deadline 48 hours from creation, and repair_attempt set to 1. The Repair Tracker counts repair attempts per unit, incrementing on each subsequent REPAIR result and resetting to 0 when QC result is PASS.
+The Repair Component manages the repair workflow for units with QC REPAIR disposition. The Repair Manager creates Repair records on REPAIR result with `qc_record_id`, optional `assigned_repairer_id`, status `PENDING`, and notes.
 
-The Repair Handler processes completion events, transitioning repair status to COMPLETED and returning units to production queue. The Max Attempt Enforcer applies the 3-attempt limit, forcing SCRAP decision when a unit fails QC for the third time and transitioning status to MAX_ATTEMPTS_EXCEEDED. The component integrates with QC Component for re-inspection workflow and with Inventory Component for material consumption tracking.
+The Repair Handler processes completion events, transitioning repair status to `COMPLETED` and returning units to the production / QC re-inspection queue. If an item cannot be repaired, QC inspectors retain the authority to classify the unit as SCRAP, routing it to waste records.
 
-The Repair Repository supports queries by status for repair queue management, by repairer_id for workload tracking, by deadline for overdue alerts, and by unit for repair history. The component exposes interfaces for repair assignment, completion tracking, and quality reports.
+The Repair Repository supports queries by status for repair queue management, by repairer_id for workload tracking, and by unit for repair history. The component exposes interfaces for repair assignment, completion tracking, and quality reports.
 
 ### Sample Management Component
 
@@ -128,11 +138,11 @@ The Line Repository supports queries by Penjahit for assignment verification, by
 
 ### Order Entity
 
-The Order aggregate represents a manufacturing order from a client. It contains order_id (UUID primary key), client_id (foreign key to Client), scheme_type (enum: CMT, Semi-CMT, Full Package), order_number (unique string), description (text), expected_quantity (integer), current_quantity (integer), rate_order_id (foreign key to RateOrder), status (enum: Pending, Confirmed, In Production, QC Phase, Completed, Closed), created_at, updated_at, and deleted_at for soft deletes. The aggregate enforces scheme_type immutability after In Production status, validates status transitions match defined rules, and computes progress percentage from current versus expected quantity.
+The Order aggregate represents a manufacturing order from a client. It contains `order_id` (primary key), `client_id` (foreign key to Client), `work_scheme` (enum: CMT, Semi-CMT, Full Package), `order_number` (unique string), `article_id` (foreign key to Article, nullable), `sample_id` (foreign key to Sample, nullable), `sample_revision_id` (foreign key to SampleRevision, nullable), `quantity` (integer), `status` (enum: REQUESTED, QUOTED, QUOTE_APPROVED, DRAFT, CONFIRMED, READY_FOR_PRODUCTION, IN_PRODUCTION, IN_QC, COMPLETED, CANCELLED, CLOSED), `due_date` (date/timestamp), `notes` (text), `created_by` (foreign key to User), `timestamps`, and soft deletes. The aggregate enforces scheme_type immutability after In Production status, validates status transitions, and enforces transaction locking for completed/closed/cancelled orders.
 
 ### Output Entity
 
-The Output aggregate represents a piece-rate worker's production output. It contains output_id (UUID primary key), order_id (foreign key to Order), line_id (foreign key to Line), station_id (foreign key to Station), component_id (foreign key to RateKomponen), penjahit_id (foreign key to Worker), quantity (integer, 1-100), interval_start (datetime UTC), interval_end (datetime UTC), status (enum: SUBMITTED, VERIFIED, REJECTED), qc_status (enum: PENDING, PASSED, REPAIR, SCRAP), verification_id (foreign key to Verification), verification_time (datetime), rejection_reason (text), resubmission_count (integer 0-3), created_at, and updated_at. The aggregate validates quantity range, enforces resubmission limits, tracks verification and rejection history, and supports payroll locking on period close.
+The Output aggregate represents a piece-rate worker's production output. It contains `output_id` (primary key), `client_id` (foreign key to Client), `order_id` (foreign key to Order), `production_line_id` (foreign key to ProductionLine, nullable), `user_id` (foreign key to User / Tailor), `component_id` (foreign key to Component), `quantity` (integer ≥ 1), `interval_start` (datetime UTC+7), `interval_end` (datetime UTC+7), `status` (enum: SUBMITTED, VERIFIED, REJECTED), `verified_by` (foreign key to User, nullable), `verified_at` (datetime, nullable), `rejection_reason` (text, nullable), `notes` (text, nullable), and `timestamps`. The aggregate validates quantity range, prevents duplicate interval submissions, and supports payroll locking on period close.
 
 ### QCRecord Entity
 
@@ -164,7 +174,7 @@ Every material received into the warehouse is stamped with a unique `tag_id` for
 
 ### Repair Entity
 
-The Repair entity represents a repair workflow instance. It contains repair_id (UUID primary key), output_id (foreign key to Output), qc_record_id (foreign key to QCRecord), repair_reason_id (foreign key to DefectCategory), assigned_repairer_id (foreign key to Worker), status (enum: PENDING, IN_PROGRESS, COMPLETED, MAX_ATTEMPTS_EXCEEDED), repair_attempt (integer), deadline (datetime UTC), completed_at (datetime UTC), created_at, and updated_at. The entity enforces the 3-attempt maximum, tracks deadlines for overdue alerts, and increments attempt counter on each REPAIR result.
+The Repair entity represents a repair workflow instance. It contains `id` (primary key), `qc_record_id` (foreign key to QcRecord), `assigned_repairer_id` (foreign key to User, nullable), `status` (enum: PENDING, IN_REPAIR, COMPLETED), `completed_at` (datetime, nullable), `notes` (text, nullable), and `timestamps`. Marking a repair as completed returns the unit to the production / QC inspection queue.
 
 ### RateOrder Entity
 
@@ -240,9 +250,9 @@ For any inventory movement, client_id of the source material MUST equal client_i
 
 **Invariant**: `Output.status ∈ {SUBMITTED, VERIFIED, REJECTED}`
 
-**Transitions**: SUBMITTED → VERIFIED (Mandor approval), SUBMITTED → REJECTED (Mandor rejection), REJECTED → SUBMITTED (Penjahit resubmit)
+**Transitions**: SUBMITTED → VERIFIED (Supervisor approval), SUBMITTED → REJECTED (Supervisor rejection), REJECTED → SUBMITTED (Tailor resubmission)
 
-All output records MUST have status from the allowed set. Status transitions MUST follow allowed paths only. Payroll calculation MUST include only VERIFIED output. Resubmission MUST respect the 7-day window and 3-attempt limit.
+All output records MUST have status from the allowed set. Status transitions MUST follow allowed paths only. Payroll calculation MUST include only VERIFIED output. Once verified, output entries are locked against modification by tailors.
 
 **Validates: Requirements 4.2, 4.4, 4.8**
 
