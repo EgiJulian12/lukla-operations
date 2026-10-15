@@ -4,9 +4,11 @@ namespace App\Filament\Resources\Orders;
 
 use App\Enums\UserRole;
 use App\Filament\Concerns\RestrictsNavigationToFullAction;
+use App\Filament\Portal\Resources\Orders\Schemas\PortalOrderInfolist;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Resources\Orders\Tables\OrdersTable;
 use App\Models\Order;
@@ -47,6 +49,11 @@ class OrderResource extends Resource
         return OrderForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return PortalOrderInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return OrdersTable::configure($table);
@@ -57,13 +64,14 @@ class OrderResource extends Resource
         return [
             'index' => ListOrders::route('/'),
             'create' => CreateOrder::route('/create'),
+            'view' => ViewOrder::route('/{record}'),
             'edit' => EditOrder::route('/{record}/edit'),
         ];
     }
 
     /**
      * Finance hanya mengelola tarif, payroll, invoice, dan PO — bukan order produksi.
-     * Tim Sample membuat order via konversi sample, bukan dari menu Order langsung.
+     * Tim Sample mengakses Order Massal untuk membuat master Artikel & inisialisasi Sample.
      */
     public static function canAccess(): bool
     {
@@ -71,8 +79,7 @@ class OrderResource extends Resource
         $user = auth()->user();
 
         return ! $user->hasRoleSatisfying(
-            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
-                || $role === UserRole::SAMPLE_TEAM,
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
         );
     }
 }

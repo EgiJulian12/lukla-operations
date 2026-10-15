@@ -26,11 +26,18 @@ class PortalOrderForm
                     ->minValue(1)
                     ->default(100)
                     ->required(),
-                DatePicker::make('due_date')
-                    ->label('Bayangan Tenggat Produksi')
-                    ->helperText('Estimasi waktu selesai yang diharapkan.')
+                DatePicker::make('start_date')
+                    ->label('Perkiraan Mulai Project')
+                    ->helperText('Estimasi tanggal project mulai dikerjakan.')
                     ->native(false)
-                    ->minDate(now()->startOfDay()),
+                    ->minDate(now()->startOfDay())
+                    ->required(),
+                DatePicker::make('due_date')
+                    ->label('Tenggat Selesai')
+                    ->helperText('Estimasi tenggat waktu pesanan harus selesai diproduksi.')
+                    ->native(false)
+                    ->afterOrEqual('start_date')
+                    ->required(),
                 Select::make('work_scheme')
                     ->label('Skema Kerja Sama')
                     ->options(WorkScheme::class)

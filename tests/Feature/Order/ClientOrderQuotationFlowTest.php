@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Enums\WorkScheme;
 use App\Exceptions\InvalidOrderQuotationState;
 use App\Filament\Portal\Resources\Orders\Pages\CreatePortalOrder;
+use App\Filament\Portal\Resources\Orders\Pages\ListPortalOrders;
 use App\Filament\Portal\Resources\Orders\Pages\ViewPortalOrder;
 use App\Filament\Portal\Resources\Orders\PortalOrderResource;
 use App\Filament\Resources\Orders\OrderResource;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Services\Order\OrderQuotationService;
 use Database\Seeders\RoleSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -219,16 +221,65 @@ class ClientOrderQuotationFlowTest extends TestCase
         $this->service()->requestSample($order->refresh(), $owner);
     }
 
-    public function test_a_rejected_quote_returns_the_request_to_the_owner(): void
+    public function test_a_rejected_quote_cancels_and_closes_the_order(): void
     {
         $client = Client::factory()->create();
         $order = $this->requestedOrder($client);
         $this->service()->provideQuote($order, 9000000.0, 'Harga awal.', $this->staffUser(UserRole::OWNER_EXECUTIVE));
 
-        $rejected = $this->service()->rejectQuote($order, 'Terlalu mahal, mohon ditinjau.');
+        $rejected = $this->service()->rejectQuote($order, $this->clientUser($client), 'Biaya melebihi anggaran.');
 
-        $this->assertSame(OrderStatus::REQUESTED, $rejected->status);
-        $this->assertStringContainsString('Terlalu mahal', $rejected->quote_notes);
+        $this->assertSame(OrderStatus::CANCELLED, $rejected->status);
+        $this->assertSame('Biaya melebihi anggaran.', $rejected->cancellation_reason);
+        $this->assertNotNull($rejected->cancelled_at);
+        $this->assertTrue($rejected->status->isLocked());
+    }
+
+    public function test_owner_can_reject_client_order_request_with_reason(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client);
+        $owner = $this->staffUser(UserRole::OWNER_EXECUTIVE);
+
+        $rejected = $this->service()->rejectRequest($order, $owner, 'Kapasitas produksi sedang penuh.');
+
+        $this->assertSame(OrderStatus::CANCELLED, $rejected->status);
+        $this->assertSame('Kapasitas produksi sedang penuh.', $rejected->cancellation_reason);
+        $this->assertSame($owner->getKey(), $rejected->cancelled_by);
+        $this->assertNotNull($rejected->cancelled_at);
+        $this->assertTrue($rejected->status->isLocked());
+    }
+
+    public function test_owner_can_provide_quote_with_schedule_dates(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->service()->submitRequest(
+            $client,
+            ['orders/designs/jacket.png'],
+            'Jaket bomber.',
+            null,
+            $this->clientUser($client),
+            WorkScheme::CMT,
+            dueDate: '2026-11-20',
+            quantity: 500,
+            startDate: '2026-11-01',
+        );
+
+        $this->assertSame('2026-11-01', $order->start_date?->format('Y-m-d'));
+        $this->assertSame('2026-11-20', $order->due_date?->format('Y-m-d'));
+
+        $quoted = $this->service()->provideQuote(
+            $order,
+            15000000,
+            'Sanggup mulai 5 Nov.',
+            $this->staffUser(UserRole::OWNER_EXECUTIVE),
+            startDate: '2026-11-05',
+            dueDate: '2026-11-25',
+        );
+
+        $this->assertSame(OrderStatus::QUOTED, $quoted->status);
+        $this->assertSame('2026-11-05', $quoted->start_date?->format('Y-m-d'));
+        $this->assertSame('2026-11-25', $quoted->due_date?->format('Y-m-d'));
     }
 
     public function test_only_the_owner_can_quote_and_dispatch_the_sample_request(): void
@@ -389,6 +440,8 @@ class ClientOrderQuotationFlowTest extends TestCase
         Livewire::test(ListOrders::class)
             ->callAction(TestAction::make('provideQuote')->table($order), data: [
                 'estimated_cost' => 12500000,
+                'start_date' => now()->addDay()->format('Y-m-d'),
+                'due_date' => now()->addDays(14)->format('Y-m-d'),
                 'quote_notes' => 'Termasuk bahan dan finishing.',
             ])
             ->assertHasNoFormErrors();
@@ -485,7 +538,20 @@ class ClientOrderQuotationFlowTest extends TestCase
         $response->assertSee('Dijawab');
         $response->assertSee('Kembali');
         $response->assertSee('Setuju');
+        $response->assertSee('Tolak Penawaran');
         $response->assertSee('Download Dokumen Desain');
+    }
+
+    public function test_portal_order_creation_page_shows_start_date_and_due_date(): void
+    {
+        $client = Client::factory()->create();
+
+        $this->actingAs($this->clientUser($client));
+
+        $this->get(CreatePortalOrder::getUrl(panel: 'portal', tenant: $client))
+            ->assertOk()
+            ->assertSee('Perkiraan Mulai Project')
+            ->assertSee('Tenggat Selesai');
     }
 
     public function test_client_can_download_their_own_order_design_file(): void
@@ -546,6 +612,73 @@ class ClientOrderQuotationFlowTest extends TestCase
         $response = $this->get(route('orders.designs.download', $order));
         $response->assertOk();
         $this->assertStringContainsString('.zip', (string) $response->headers->get('content-disposition'));
+    }
+
+    public function test_client_sees_owner_quote_details_in_approval_modal(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, ['orders/designs/kaos.png']);
+        $this->service()->provideQuote(
+            $order,
+            12500000.0,
+            'Termasuk bahan premium dan bordir komputer.',
+            $this->staffUser(UserRole::OWNER_EXECUTIVE),
+            startDate: '2026-11-05',
+            dueDate: '2026-11-25',
+        );
+
+        $this->actingAs($this->clientUser($client));
+
+        Filament::setCurrentPanel(Filament::getPanel('portal'));
+        Filament::setTenant($client);
+
+        Livewire::test(ViewPortalOrder::class, ['record' => $order->getKey()])
+            ->assertActionVisible('approveQuote')
+            ->mountAction('approveQuote')
+            ->assertMountedActionModalSee('Rincian Penawaran Owner')
+            ->assertMountedActionModalSee('Termasuk bahan premium dan bordir komputer.')
+            ->fillForm([
+                'notes' => 'Disetujui, tolong dikerjakan sesuai spesifikasi.',
+            ])
+            ->callMountedAction()
+            ->assertHasNoFormErrors();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::QUOTE_APPROVED, $order->status);
+        $this->assertSame('Disetujui, tolong dikerjakan sesuai spesifikasi.', $order->notes);
+    }
+
+    public function test_client_sees_owner_quote_details_in_portal_orders_table_approval_modal(): void
+    {
+        $client = Client::factory()->create();
+        $order = $this->requestedOrder($client, ['orders/designs/celana.png']);
+        $this->service()->provideQuote(
+            $order,
+            9000000.0,
+            'Termasuk bahan drill dan kancing metal.',
+            $this->staffUser(UserRole::OWNER_EXECUTIVE),
+            startDate: '2026-11-10',
+            dueDate: '2026-11-30',
+        );
+
+        $this->actingAs($this->clientUser($client));
+
+        Filament::setCurrentPanel(Filament::getPanel('portal'));
+        Filament::setTenant($client);
+
+        Livewire::test(ListPortalOrders::class)
+            ->mountAction(TestAction::make('approveQuote')->table($order))
+            ->assertMountedActionModalSee('Rincian Penawaran Owner')
+            ->assertMountedActionModalSee('Termasuk bahan drill dan kancing metal.')
+            ->fillForm([
+                'notes' => 'Siap diproses.',
+            ])
+            ->callMountedAction()
+            ->assertHasNoFormErrors();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::QUOTE_APPROVED, $order->status);
+        $this->assertSame('Siap diproses.', $order->notes);
     }
 
     private function getTestDisk(): string
