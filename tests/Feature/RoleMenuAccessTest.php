@@ -7,12 +7,16 @@ use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
 use App\Filament\Resources\OutputEntries\OutputEntryResource;
 use App\Filament\Resources\OutputReviews\OutputReviewResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
 use App\Filament\Resources\ProductionLines\ProductionLineResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\QcBonuses\QcBonusResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
 use App\Filament\Resources\Samples\SampleResource;
+use App\Filament\Resources\TailorWages\TailorWageResource;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +48,7 @@ class RoleMenuAccessTest extends TestCase
 
         // Verifikasi output per order adalah wewenang Kepala Produksi, bukan penjahit.
         $this->assertFalse(OutputReviewResource::canAccess());
+        $this->assertTrue(TailorWageResource::canAccess());
     }
 
     public function test_qc_inspector_only_sees_qc_and_defect_categories(): void
@@ -54,6 +59,7 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($qc);
 
         $this->assertTrue(QcRecordResource::shouldRegisterNavigation());
+        $this->assertTrue(QcBonusResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
@@ -67,6 +73,7 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($warehouse);
 
         $this->assertTrue(InventoryItemResource::shouldRegisterNavigation());
+        $this->assertTrue(MyPurchaseOrderResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertFalse(InvoiceResource::shouldRegisterNavigation());
@@ -95,6 +102,8 @@ class RoleMenuAccessTest extends TestCase
 
         $this->assertTrue(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertTrue(InvoiceResource::shouldRegisterNavigation());
+        $this->assertTrue(PurchaseOrderResource::shouldRegisterNavigation());
+        $this->assertFalse(MyPurchaseOrderResource::canAccess());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
         $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());

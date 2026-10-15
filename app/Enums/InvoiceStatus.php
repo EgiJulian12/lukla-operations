@@ -12,6 +12,7 @@ enum InvoiceStatus: string implements HasColor, HasLabel
 {
     case DRAFT = 'draft';
     case ISSUED = 'issued';
+    case PAYMENT_CONFIRMED = 'payment_confirmed';
     case PAID = 'paid';
 
     public function getLabel(): string
@@ -19,6 +20,7 @@ enum InvoiceStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::DRAFT => 'Draf',
             self::ISSUED => 'Terbit',
+            self::PAYMENT_CONFIRMED => 'Menunggu Konfirmasi Finance',
             self::PAID => 'Lunas',
         };
     }
@@ -28,6 +30,7 @@ enum InvoiceStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::DRAFT => 'gray',
             self::ISSUED => 'warning',
+            self::PAYMENT_CONFIRMED => 'info',
             self::PAID => 'success',
         };
     }

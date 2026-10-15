@@ -36,7 +36,8 @@ class QcRecordsTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('order.order_number')
-                    ->label('Order')
+                    ->label('Order / Proyek')
+                    ->description(fn (QcRecord $record): ?string => $record->order?->article?->name)
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('result')

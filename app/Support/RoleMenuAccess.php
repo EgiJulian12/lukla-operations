@@ -20,9 +20,11 @@ use App\Filament\Resources\OverheadRecords\OverheadRecordResource;
 use App\Filament\Resources\PayrollPeriods\PayrollPeriodResource;
 use App\Filament\Resources\ProductionLines\ProductionLineResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\QcBonuses\QcBonusResource;
 use App\Filament\Resources\QcRecords\QcRecordResource;
 use App\Filament\Resources\RateCards\RateCardResource;
 use App\Filament\Resources\Samples\SampleResource;
+use App\Filament\Resources\TailorWages\TailorWageResource;
 use App\Filament\Resources\WasteRecords\WasteRecordResource;
 use App\Models\User;
 
@@ -64,11 +66,13 @@ class RoleMenuAccess
 
             UserRole::TAILOR_OPERATOR->value => [
                 OutputEntryResource::class,
+                TailorWageResource::class,
             ],
 
             UserRole::QC_INSPECTOR->value => [
                 QcRecordResource::class,
                 DefectCategoryResource::class,
+                QcBonusResource::class,
             ],
 
             UserRole::FINANCE_PAYROLL->value => [

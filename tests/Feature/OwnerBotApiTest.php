@@ -28,7 +28,10 @@ class OwnerBotApiTest extends TestCase
         parent::setUp();
 
         $this->seed(RoleSeeder::class);
-        config(['services.owner_bot.api_key' => $this->apiKey]);
+        config([
+            'services.owner_bot.api_key' => $this->apiKey,
+            'services.owner_bot.allowed_telegram_user_ids' => ['987654321'],
+        ]);
     }
 
     public function test_unauthenticated_request_is_rejected(): void
