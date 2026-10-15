@@ -99,7 +99,11 @@ class InventoryItemsTable
                     ])
                     ->default('in_warehouse')
                     ->query(function (Builder $query, array $data): Builder {
-                        $value = $data['value'] ?? 'in_warehouse';
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value) || $value === 'all') {
+                            return $query;
+                        }
 
                         return match ($value) {
                             'in_warehouse' => $query->whereDoesntHave('dispatches', function ($q) {
@@ -126,7 +130,6 @@ class InventoryItemsTable
                                     DispatchStatus::COMPLETED,
                                 ]);
                             }),
-                            'all' => $query,
                             default => $query,
                         };
                     }),

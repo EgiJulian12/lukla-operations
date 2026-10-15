@@ -10,6 +10,7 @@ use App\Enums\MovementType;
 use App\Enums\OrderMaterialStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkScheme;
+use App\Filament\Resources\OrderMaterialFlows\Pages\ListOrderMaterialFlows;
 use App\Models\Client;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
@@ -19,7 +20,9 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Inventory\OrderMaterialFlowService;
 use Database\Seeders\RoleSeeder;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -245,5 +248,116 @@ class OrderMaterialFlowTest extends TestCase
         $this->actingAs($prodUser);
         $response = $this->get('/admin/order-material-flows');
         $response->assertSuccessful();
+    }
+
+    public function test_acc_stock_arrival_action_visibility_lifecycle(): void
+    {
+        $client = Client::factory()->create();
+        $warehouseUser = User::factory()->create();
+        $warehouseUser->assignRole(UserRole::WAREHOUSE->value);
+        $this->actingAs($warehouseUser);
+
+        // 1. Pesanan baru dengan status awal EMPTY -> Tombol ACC Kedatangan Gudang TIDAK BOLEH muncul
+        $fpOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'work_scheme' => WorkScheme::FULL_PACKAGE,
+            'quantity' => 100,
+        ]);
+        app(OrderMaterialFlowService::class)->initializeRequirements($fpOrder);
+
+        $this->assertEquals(OrderMaterialStatus::EMPTY, $fpOrder->warehouse_material_status);
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('accStockArrival')->table($fpOrder));
+
+        // 2. Setelah Mengajukan PO -> Status berubah ke ITEM_REQUEST -> Tombol ACC Kedatangan Gudang HARUS muncul
+        app(OrderMaterialFlowService::class)->triggerPoRequest($fpOrder, 'PO Bahan 100 pcs');
+        $fpOrder->refresh();
+        $this->assertEquals(OrderMaterialStatus::ITEM_REQUEST, $fpOrder->warehouse_material_status);
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionVisible(TestAction::make('accStockArrival')->table($fpOrder));
+
+        // 3. Pesanan CMT -> Status awal EMPTY -> Tersembunyi, lalu setelah Konfirmasi Klien -> Status CLIENT_CONFIRMATION -> HARUS muncul
+        $cmtOrder = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'work_scheme' => WorkScheme::CMT,
+            'quantity' => 50,
+        ]);
+        app(OrderMaterialFlowService::class)->initializeRequirements($cmtOrder);
+
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('accStockArrival')->table($cmtOrder));
+
+        app(OrderMaterialFlowService::class)->triggerClientConfirmation($cmtOrder, 'Klien mengirim kain');
+        $cmtOrder->refresh();
+        $this->assertEquals(OrderMaterialStatus::CLIENT_CONFIRMATION, $cmtOrder->warehouse_material_status);
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionVisible(TestAction::make('accStockArrival')->table($cmtOrder));
+    }
+
+    public function test_production_lead_can_only_acc_production_receipt_and_cannot_run_warehouse_actions(): void
+    {
+        $client = Client::factory()->create();
+        $prodUser = User::factory()->create();
+        $prodUser->assignRole(UserRole::PRODUCTION_LEAD->value);
+
+        $warehouseUser = User::factory()->create();
+        $warehouseUser->assignRole(UserRole::WAREHOUSE->value);
+
+        $order = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'work_scheme' => WorkScheme::FULL_PACKAGE,
+            'quantity' => 100,
+        ]);
+        app(OrderMaterialFlowService::class)->initializeRequirements($order);
+
+        // A. Login sebagai KEPALA PRODUKSI
+        $this->actingAs($prodUser);
+
+        // 1. Pada order status STANDBY -> Mulai Cutting TIDAK BOLEH muncul bagi Kepala Produksi
+        $order->warehouse_material_status = OrderMaterialStatus::STANDBY;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('startCutting')->table($order));
+
+        // 2. Pada order status PREPARING_DELIVERY -> Kirim ke Produksi TIDAK BOLEH muncul bagi Kepala Produksi
+        $order->warehouse_material_status = OrderMaterialStatus::PREPARING_DELIVERY;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('dispatchToProduction')->table($order));
+
+        // 3. Pada order status EMPTY / ITEM_REQUEST -> Ajukan PO, Konfirmasi Klien, ACC Kedatangan Gudang TIDAK BOLEH muncul
+        $order->warehouse_material_status = OrderMaterialStatus::EMPTY;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('requestPo')->table($order))
+            ->assertActionHidden(TestAction::make('confirmClient')->table($order))
+            ->assertActionHidden(TestAction::make('accStockArrival')->table($order));
+
+        // 4. Pada order status DISPATCHED -> ACC Penerimaan HARUS muncul bagi Kepala Produksi
+        $order->warehouse_material_status = OrderMaterialStatus::DISPATCHED;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionVisible(TestAction::make('accReceiveProduction')->table($order));
+
+        // B. Login sebagai GUDANG
+        $this->actingAs($warehouseUser);
+
+        // 1. Gudang BISA melihat Mulai Cutting saat STANDBY
+        $order->warehouse_material_status = OrderMaterialStatus::STANDBY;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionVisible(TestAction::make('startCutting')->table($order));
+
+        // 2. Gudang BISA melihat Kirim ke Produksi saat PREPARING_DELIVERY
+        $order->warehouse_material_status = OrderMaterialStatus::PREPARING_DELIVERY;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionVisible(TestAction::make('dispatchToProduction')->table($order));
+
+        // 3. Gudang TIDAK BISA melihat ACC Penerimaan saat DISPATCHED
+        $order->warehouse_material_status = OrderMaterialStatus::DISPATCHED;
+        $order->save();
+        Livewire::test(ListOrderMaterialFlows::class)
+            ->assertActionHidden(TestAction::make('accReceiveProduction')->table($order));
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\OrderMaterialStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkScheme;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\Inventory\OrderMaterialFlowService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
@@ -144,7 +145,7 @@ class OrderMaterialFlowsTable
                     ->icon(Heroicon::OutlinedShoppingBag)
                     ->color('purple')
                     ->modalWidth('4xl')
-                    ->visible(fn (Order $record): bool => in_array($record->warehouse_material_status, [
+                    ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && in_array($record->warehouse_material_status, [
                         OrderMaterialStatus::EMPTY,
                         OrderMaterialStatus::CLIENT_CONFIRMATION,
                     ], true) && $record->hasCompanyMaterials())
@@ -245,7 +246,7 @@ class OrderMaterialFlowsTable
                     ->label('Konfirmasi Klien')
                     ->icon(Heroicon::OutlinedUserGroup)
                     ->color('info')
-                    ->visible(fn (Order $record): bool => in_array($record->warehouse_material_status, [
+                    ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && in_array($record->warehouse_material_status, [
                         OrderMaterialStatus::EMPTY,
                         OrderMaterialStatus::ITEM_REQUEST,
                     ], true) && $record->hasClientMaterials())
@@ -274,12 +275,11 @@ class OrderMaterialFlowsTable
                     ->icon(Heroicon::OutlinedClipboardDocumentCheck)
                     ->color('warning')
                     ->modalWidth('4xl')
-                    ->visible(fn (Order $record): bool => in_array($record->warehouse_material_status, [
+                    ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && in_array($record->warehouse_material_status, [
                         OrderMaterialStatus::ITEM_REQUEST,
                         OrderMaterialStatus::CLIENT_CONFIRMATION,
                         OrderMaterialStatus::PO_AND_CLIENT,
                         OrderMaterialStatus::DELIVERY_IN_TRANSIT,
-                        OrderMaterialStatus::EMPTY,
                     ], true))
                     ->modalHeading(fn (Order $record): string => "ACC Kedatangan Bahan — Order #{$record->order_number}")
                     ->modalDescription('Ceklist bahan/aksesoris yang telah tiba fisiknya di gudang. Item yang dicentang otomatis diterima penuh sesuai kebutuhan.')
@@ -415,7 +415,7 @@ class OrderMaterialFlowsTable
                     ->label('Mulai Cutting')
                     ->icon(Heroicon::OutlinedScissors)
                     ->color('info')
-                    ->visible(fn (Order $record): bool => $record->warehouse_material_status === OrderMaterialStatus::STANDBY)
+                    ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && $record->warehouse_material_status === OrderMaterialStatus::STANDBY)
                     ->requiresConfirmation()
                     ->modalHeading('Mulai Proses Cutting Kain')
                     ->modalDescription('Pastikan kain dan pola telah siap di meja potong gudang.')
@@ -434,7 +434,7 @@ class OrderMaterialFlowsTable
                     ->label('Kirim ke Produksi')
                     ->icon(Heroicon::OutlinedTruck)
                     ->color('primary')
-                    ->visible(fn (Order $record): bool => $record->warehouse_material_status === OrderMaterialStatus::PREPARING_DELIVERY)
+                    ->visible(fn (Order $record): bool => static::canManageWarehouseFlow() && $record->warehouse_material_status === OrderMaterialStatus::PREPARING_DELIVERY)
                     ->requiresConfirmation()
                     ->modalHeading('Kirim Bundel Potongan ke Lantai Produksi')
                     ->modalDescription('Seluruh komponen terpotong & aksesoris akan diserah-terimakan ke bagian produksi.')
@@ -589,5 +589,17 @@ class OrderMaterialFlowsTable
                     }),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    /**
+     * Memeriksa apakah pengguna yang aktif memiliki wewenang mengelola alur kerja gudang & cutting.
+     */
+    protected static function canManageWarehouseFlow(): bool
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        return $user?->hasRole(UserRole::WAREHOUSE)
+            || $user?->hasRole(UserRole::OWNER_EXECUTIVE);
     }
 }
