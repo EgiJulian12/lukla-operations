@@ -8,6 +8,7 @@ use App\Filament\Portal\Resources\ApprovedSamples\Pages\ViewPortalApprovedSample
 use App\Filament\Portal\Resources\ApprovedSamples\PortalApprovedSampleResource;
 use App\Filament\Portal\Resources\Samples\Pages\ViewPortalSample;
 use App\Filament\Portal\Resources\Samples\PortalSampleResource;
+use App\Filament\Portal\Resources\Samples\RelationManagers\PortalRevisionsRelationManager;
 use App\Filament\Resources\Samples\Pages\ViewSample;
 use App\Models\Article;
 use App\Models\Client;
@@ -16,6 +17,7 @@ use App\Models\User;
 use App\Services\Sample\SampleService;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -138,6 +140,63 @@ class PortalSampleResourceTest extends TestCase
     {
         $this->assertTrue(PortalSampleResource::shouldRegisterNavigation());
         $this->assertFalse(PortalApprovedSampleResource::shouldRegisterNavigation());
+    }
+
+    public function test_client_can_approve_sample_revision_via_portal_relation_manager(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->clientUser($client);
+        $article = Article::factory()->create(['client_id' => $client->getKey()]);
+        $sample = app(SampleService::class)->createSample($article, 'SMP-REV-01', 'Sample Kemeja Review');
+        $v1 = app(SampleService::class)->addRevision($sample);
+        app(SampleService::class)->submitForReview($v1);
+
+        $this->actingAs($user);
+
+        Livewire::test(PortalRevisionsRelationManager::class, [
+            'ownerRecord' => $sample,
+            'pageClass' => ViewPortalSample::class,
+        ])
+            ->assertTableActionVisible('approve', $v1)
+            ->callTableAction('approve', $v1)
+            ->assertHasNoTableActionErrors();
+
+        $v1->refresh();
+        $sample->refresh();
+
+        $this->assertSame(SampleStatus::APPROVED, $v1->status);
+        $this->assertSame(SampleStatus::APPROVED, $sample->status);
+        $this->assertSame($user->getKey(), $v1->approved_by);
+        $this->assertSame($v1->getKey(), $sample->approved_revision_id);
+    }
+
+    public function test_client_can_reject_sample_revision_via_portal_relation_manager(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->clientUser($client);
+        $article = Article::factory()->create(['client_id' => $client->getKey()]);
+        $sample = app(SampleService::class)->createSample($article, 'SMP-REV-02', 'Sample Jaket Review');
+        $v1 = app(SampleService::class)->addRevision($sample);
+        app(SampleService::class)->submitForReview($v1);
+
+        $this->actingAs($user);
+
+        Livewire::test(PortalRevisionsRelationManager::class, [
+            'ownerRecord' => $sample,
+            'pageClass' => ViewPortalSample::class,
+        ])
+            ->assertTableActionVisible('reject', $v1)
+            ->callTableAction('reject', $v1, data: [
+                'reason' => 'Perbaiki potongan kerah dan jahitan saku.',
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $v1->refresh();
+        $sample->refresh();
+
+        $this->assertSame(SampleStatus::REJECTED, $v1->status);
+        $this->assertSame(SampleStatus::REJECTED, $sample->status);
+        $this->assertSame('Perbaiki potongan kerah dan jahitan saku.', $v1->notes);
     }
 
     private function clientUser(Client $client): User

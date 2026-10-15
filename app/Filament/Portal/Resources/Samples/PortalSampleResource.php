@@ -4,9 +4,9 @@ namespace App\Filament\Portal\Resources\Samples;
 
 use App\Filament\Portal\Resources\Samples\Pages\ListPortalSamples;
 use App\Filament\Portal\Resources\Samples\Pages\ViewPortalSample;
+use App\Filament\Portal\Resources\Samples\RelationManagers\PortalRevisionsRelationManager;
+use App\Filament\Portal\Resources\Samples\Schemas\PortalSampleInfolist;
 use App\Filament\Portal\Resources\Samples\Tables\PortalSamplesTable;
-use App\Filament\Resources\Samples\RelationManagers\RevisionsRelationManager;
-use App\Filament\Resources\Samples\Schemas\SampleForm;
 use App\Models\Sample;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -34,9 +34,9 @@ class PortalSampleResource extends Resource
 
     protected static ?int $navigationSort = 12;
 
-    public static function form(Schema $schema): Schema
+    public static function infolist(Schema $schema): Schema
     {
-        return SampleForm::configure($schema);
+        return PortalSampleInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
@@ -47,7 +47,7 @@ class PortalSampleResource extends Resource
     public static function getRelations(): array
     {
         return [
-            RevisionsRelationManager::class,
+            PortalRevisionsRelationManager::class,
         ];
     }
 
