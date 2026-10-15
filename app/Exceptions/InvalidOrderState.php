@@ -38,4 +38,13 @@ class InvalidOrderState extends RuntimeException
             $order->order_number,
         ));
     }
+
+    public static function notInProduction(Order $order): self
+    {
+        return new self(sprintf(
+            'Order %s berstatus %s, penugasan penjahit hanya dapat diubah saat order sedang Dalam Produksi.',
+            $order->order_number,
+            $order->status->getLabel(),
+        ));
+    }
 }

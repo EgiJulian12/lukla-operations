@@ -87,6 +87,38 @@ class ProductionService
     }
 
     /**
+     * Memperbarui penugasan penjahit per komponen saat order sedang dalam proses produksi.
+     *
+     * @param  array<int, array{component_id: int, user_id: int}>  $componentAssignments
+     */
+    public function updateComponentAssignments(Order $order, array $componentAssignments): Order
+    {
+        if ($order->status !== OrderStatus::IN_PRODUCTION) {
+            throw InvalidOrderState::notInProduction($order);
+        }
+
+        $components = $order->components();
+        $plan = $this->validateComponentAssignments($order, $components, $componentAssignments);
+
+        return DB::transaction(function () use ($order, $plan): Order {
+            foreach ($plan as $assignment) {
+                OrderComponentAssignment::updateOrCreate(
+                    [
+                        'order_id' => $order->getKey(),
+                        'component_id' => $assignment['component_id'],
+                    ],
+                    [
+                        'user_id' => $assignment['user_id'],
+                        'assigned_at' => now(),
+                    ]
+                );
+            }
+
+            return $order->refresh();
+        });
+    }
+
+    /**
      * Memeriksa rencana penjahit sebelum order berjalan.
      *
      * Aturannya: setiap komponen artikel mendapat tepat satu penjahit, dan

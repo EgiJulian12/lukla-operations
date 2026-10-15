@@ -80,6 +80,7 @@ class RevisionsRelationManager extends RelationManager
                     ->icon(Heroicon::OutlinedPlus)
                     ->modalWidth('6xl')
                     ->modalHeading('Tambah Versi Sample Baru')
+                    ->visible(fn (): bool => $this->getOwnerRecord()->revisions()->count() === 0 && (bool) auth()->user()?->can('create', SampleRevision::class))
                     ->form(fn () => self::getRevisionFormSchema($this->getOwnerRecord()))
                     ->action(function (array $data): void {
                         $service = app(SampleService::class);
@@ -108,7 +109,7 @@ class RevisionsRelationManager extends RelationManager
                     ->color('primary')
                     ->modalWidth('6xl')
                     ->modalHeading(fn (SampleRevision $record): string => sprintf('Pengerjaan Sample %s (DRAFT)', $record->version_label))
-                    ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT)
+                    ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT && (bool) auth()->user()?->can('update', $record))
                     ->mutateRecordDataUsing(function (SampleRevision $record, array $data): array {
                         $data['component_time_studies'] = $record->timeStudies()
                             ->with('component')
@@ -166,11 +167,11 @@ class RevisionsRelationManager extends RelationManager
                     }),
 
                 ViewAction::make('viewRevision')
-                    ->label('Lihat Detail')
+                    ->label('Lihat Detail Hasil & Waktu')
                     ->icon(Heroicon::OutlinedEye)
                     ->modalWidth('6xl')
-                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Detail Sample %s (%s)', $record->version_label, $record->status->getLabel()))
-                    ->visible(fn (SampleRevision $record): bool => $record->status !== SampleStatus::DRAFT)
+                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Detail & Hasil Sample %s (%s)', $record->version_label, $record->status->getLabel()))
+                    ->visible(fn (): bool => true)
                     ->mutateRecordDataUsing(function (SampleRevision $record, array $data): array {
                         $data['component_time_studies'] = $record->timeStudies()
                             ->with('component')
@@ -199,7 +200,7 @@ class RevisionsRelationManager extends RelationManager
                     ->requiresConfirmation()
                     ->modalHeading('Ajukan Review Sample?')
                     ->modalDescription('Pastikan komponen artikel dan waktu stopwatch telah diisi dengan lengkap sebelum diajukan ke Klien & Owner.')
-                    ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT)
+                    ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT && (bool) auth()->user()?->can('update', $record))
                     ->action(function (SampleRevision $record): void {
                         if ($record->timeStudies()->count() === 0) {
                             Notification::make()
@@ -220,12 +221,12 @@ class RevisionsRelationManager extends RelationManager
                     }),
 
                 Action::make('createRevision')
-                    ->label('Tambah Sample / Buat Revisi (v+1)')
-                    ->icon(Heroicon::OutlinedDocumentDuplicate)
+                    ->label('Kerjakan Revisi Baru (v+1)')
+                    ->icon(Heroicon::OutlinedArrowPath)
                     ->color('warning')
-                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Tambah Revisi Sample dari %s', $record->version_label))
-                    ->modalDescription('Versi saat ini akan otomatis dikunci menjadi REVISED (read-only). Seluruh komponen dan waktu stopwatch akan disalin ke versi baru (DRAFT) untuk disesuaikan.')
-                    ->visible(fn (SampleRevision $record): bool => $record->canBeRevised())
+                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Kerjakan Revisi Sample Baru dari %s', $record->version_label))
+                    ->modalDescription('Versi saat ini akan otomatis diarsipkan (read-only). Seluruh spesifikasi, daftar komponen, dan waktu stopwatch akan disalin ke versi baru (DRAFT) untuk disesuaikan.')
+                    ->visible(fn (SampleRevision $record): bool => $record->canBeRevised() && (bool) auth()->user()?->can('update', $record))
                     ->form([
                         Textarea::make('notes')
                             ->label('Catatan Perubahan / Alasan Revisi')
@@ -254,7 +255,7 @@ class RevisionsRelationManager extends RelationManager
                     ->visible(fn (SampleRevision $record): bool => $record->status->isApprovable()
                         && (bool) auth()->user()?->can('approve', $record))
                     ->action(function (SampleRevision $record): void {
-                        app(SampleService::class)->approveRevision($record);
+                        app(SampleService::class)->approveRevision($record, auth()->user());
 
                         Notification::make()
                             ->title('Sample berhasil disetujui (APPROVED)')
@@ -272,7 +273,8 @@ class RevisionsRelationManager extends RelationManager
                         && (bool) auth()->user()?->can('reject', $record))
                     ->form([
                         Textarea::make('reason')
-                            ->label('Alasan Penolakan')
+                            ->label('Alasan Penolakan / Catatan Perbaikan')
+                            ->placeholder('Tuliskan catatan perbaikan yang perlu diperbaiki oleh Tim Sample...')
                             ->required(),
                     ])
                     ->action(function (SampleRevision $record, array $data): void {

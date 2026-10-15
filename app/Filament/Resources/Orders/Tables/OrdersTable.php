@@ -142,13 +142,6 @@ class OrdersTable
 
                         return redirect(SampleResource::getUrl('edit', ['record' => $sample->getKey()]));
                     }),
-                Action::make('openSampleWorkspace')
-                    ->label('Proses Sample')
-                    ->icon(Heroicon::OutlinedSwatch)
-                    ->color('info')
-                    ->tooltip('Masuk ke ruang kerja sample order ini')
-                    ->visible(fn (Order $record): bool => $record->sample_id !== null)
-                    ->url(fn (Order $record): string => SampleResource::getUrl('edit', ['record' => $record->sample_id])),
                 Action::make('provideQuote')
                     ->label('Berikan Penawaran')
                     ->icon(Heroicon::OutlinedBanknotes)

@@ -33,6 +33,8 @@ class ApprovedSampleResourceTest extends TestCase
 
     protected User $sampleTeam;
 
+    protected User $owner;
+
     protected Client $client;
 
     protected function setUp(): void
@@ -46,6 +48,9 @@ class ApprovedSampleResourceTest extends TestCase
 
         $this->sampleTeam = User::factory()->create();
         $this->sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
+
+        $this->owner = User::factory()->create();
+        $this->owner->assignRole(UserRole::OWNER_EXECUTIVE->value);
 
         $this->client = Client::factory()->create();
     }
@@ -78,6 +83,7 @@ class ApprovedSampleResourceTest extends TestCase
             'sample_id' => $cmtSample->id,
             'client_id' => $this->client->id,
             'work_scheme' => WorkScheme::CMT,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
         ]);
 
         $semiSample = Sample::factory()->create([
@@ -88,6 +94,7 @@ class ApprovedSampleResourceTest extends TestCase
             'sample_id' => $semiSample->id,
             'client_id' => $this->client->id,
             'work_scheme' => WorkScheme::SEMI_CMT,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
         ]);
 
         $fullSample = Sample::factory()->create([
@@ -98,6 +105,7 @@ class ApprovedSampleResourceTest extends TestCase
             'sample_id' => $fullSample->id,
             'client_id' => $this->client->id,
             'work_scheme' => WorkScheme::FULL_PACKAGE,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
         ]);
 
         $this->actingAs($this->productionLead);
@@ -177,6 +185,12 @@ class ApprovedSampleResourceTest extends TestCase
             'approved_at' => now(),
         ]);
 
+        Order::factory()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
+        ]);
+
         $this->actingAs($this->productionLead);
 
         $response = $this->get(ApprovedSampleResource::getUrl('view', ['record' => $sample]));
@@ -191,8 +205,11 @@ class ApprovedSampleResourceTest extends TestCase
             ->assertSee('2.500');
     }
 
-    public function test_sample_team_can_convert_approved_sample_to_order_from_detail_page(): void
+    public function test_owner_can_convert_approved_sample_to_order_from_detail_page_and_sample_team_cannot(): void
     {
+        $clientUser = User::factory()->create(['client_id' => $this->client->id]);
+        $clientUser->assignRole(UserRole::CLIENT_MAKLON->value);
+
         $article = Article::factory()->create(['client_id' => $this->client->id]);
 
         $sample = Sample::factory()->create([
@@ -206,7 +223,7 @@ class ApprovedSampleResourceTest extends TestCase
             'sample_id' => $sample->id,
             'version' => 1,
             'status' => SampleStatus::APPROVED,
-            'approved_by' => $this->sampleTeam->id,
+            'approved_by' => $clientUser->id,
             'approved_at' => now(),
         ]);
 
@@ -223,14 +240,21 @@ class ApprovedSampleResourceTest extends TestCase
             'due_date' => now()->addWeeks(2)->toDateString(),
         ]);
 
+        // Tim Sample tidak boleh mengonversi ke order massal
         $this->actingAs($this->sampleTeam);
+
+        Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
+            ->assertActionHidden('convert');
+
+        // Hanya Owner yang berhak mengonversi ke order massal
+        $this->actingAs($this->owner);
 
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
             ->assertActionVisible('convert')
             ->callAction('convert', [
                 'notes' => 'Pesanan batch pertama',
             ])
-            ->assertHasNoActionErrors();
+            ->assertHasNoFormErrors();
 
         $order = Order::query()->where('sample_id', $sample->id)->latest('id')->firstOrFail();
 
@@ -239,6 +263,16 @@ class ApprovedSampleResourceTest extends TestCase
         $this->assertSame(WorkScheme::SEMI_CMT, $order->work_scheme);
         $this->assertSame(OrderStatus::READY_FOR_PRODUCTION, $order->status);
         $this->assertSame('Pesanan batch pertama', $order->notes);
+
+        // Setelah berstatus Siap Produksi, tombol konversi order massal otomatis hilang
+        $this->assertTrue($sample->refresh()->hasReadyForProductionOrder());
+        $this->assertFalse($this->owner->can('convertToOrder', $sample));
+
+        Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
+            ->assertActionHidden('convert');
+
+        Livewire::test(ListApprovedSamples::class)
+            ->assertTableActionHidden('convert', $sample);
     }
 
     public function test_production_lead_can_update_component_rate_card_from_detail_page(): void
@@ -281,6 +315,12 @@ class ApprovedSampleResourceTest extends TestCase
             'approved_at' => now()->subDays(2),
         ]);
 
+        Order::factory()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
+        ]);
+
         $this->actingAs($this->productionLead);
 
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
@@ -288,12 +328,12 @@ class ApprovedSampleResourceTest extends TestCase
 
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
             ->mountAction('editRate', ['componentId' => $comp->id])
-            ->setActionData([
+            ->fillForm([
                 'rate' => 2750,
                 'notes' => 'Penyesuaian tingkat kesulitan kain oxford',
             ])
             ->callMountedAction()
-            ->assertHasNoActionErrors();
+            ->assertHasNoFormErrors();
 
         $rateCard->refresh();
 
@@ -359,7 +399,7 @@ class ApprovedSampleResourceTest extends TestCase
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
             ->mountAction('approveRate', ['componentId' => $comp->id])
             ->callMountedAction()
-            ->assertHasNoActionErrors();
+            ->assertHasNoFormErrors();
 
         $rateCard->refresh();
 
@@ -417,9 +457,9 @@ class ApprovedSampleResourceTest extends TestCase
 
         Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
             ->mountAction('rejectRate', ['componentId' => $comp->id])
-            ->setActionData(['reason' => 'Plafon tarif jahit kerah maksimal Rp 3.000'])
+            ->fillForm(['reason' => 'Plafon tarif jahit kerah maksimal Rp 3.000'])
             ->callMountedAction()
-            ->assertHasNoActionErrors();
+            ->assertHasNoFormErrors();
 
         $rateCard->refresh();
 
@@ -454,5 +494,159 @@ class ApprovedSampleResourceTest extends TestCase
             ->assertActionHidden('editRate')
             ->assertActionHidden('approveRate')
             ->assertActionHidden('rejectRate');
+    }
+
+    public function test_production_lead_only_sees_samples_with_ready_for_production_orders(): void
+    {
+        $samplePendingOrder = Sample::factory()->create([
+            'client_id' => $this->client->id,
+            'status' => SampleStatus::APPROVED,
+        ]);
+        Order::factory()->create([
+            'sample_id' => $samplePendingOrder->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::CONFIRMED,
+        ]);
+
+        $sampleReadyOrder = Sample::factory()->create([
+            'client_id' => $this->client->id,
+            'status' => SampleStatus::APPROVED,
+        ]);
+        Order::factory()->create([
+            'sample_id' => $sampleReadyOrder->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
+        ]);
+
+        // Kepala Produksi hanya melihat sample dengan order Siap Produksi
+        $this->actingAs($this->productionLead);
+        $leadRecords = ApprovedSampleResource::getEloquentQuery()->get();
+        $this->assertTrue($leadRecords->contains($sampleReadyOrder));
+        $this->assertFalse($leadRecords->contains($samplePendingOrder));
+
+        // Owner dapat melihat seluruh sample disetujui
+        $this->actingAs($this->owner);
+        $ownerRecords = ApprovedSampleResource::getEloquentQuery()->get();
+        $this->assertTrue($ownerRecords->contains($sampleReadyOrder));
+        $this->assertTrue($ownerRecords->contains($samplePendingOrder));
+    }
+
+    public function test_production_lead_can_input_rate_cards_via_table_action(): void
+    {
+        $article = Article::factory()->create(['client_id' => $this->client->id]);
+        $comp = Component::create([
+            'article_id' => $article->id,
+            'code' => 'BADAN-01',
+            'name' => 'Badan Depan',
+            'sequence' => 1,
+        ]);
+
+        $sample = Sample::factory()->create([
+            'client_id' => $this->client->id,
+            'article_id' => $article->id,
+            'status' => SampleStatus::APPROVED,
+        ]);
+        Order::factory()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
+        ]);
+
+        $this->actingAs($this->productionLead);
+
+        Livewire::test(ListApprovedSamples::class)
+            ->assertTableActionVisible('edit_rates', $sample)
+            ->callTableAction('edit_rates', $sample, [
+                'rates' => [
+                    $comp->id => 3500,
+                ],
+                'notes' => 'Tarif jahit bahan fleece tebal',
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $rateCard = RateCard::where('component_id', $comp->id)->first();
+        $this->assertNotNull($rateCard);
+        $this->assertEquals(3500, (float) $rateCard->rate);
+        $this->assertEquals(RateCardStatus::PENDING, $rateCard->status);
+    }
+
+    public function test_owner_can_approve_all_rate_cards_via_table_action_and_from_detail_header(): void
+    {
+        $article = Article::factory()->create(['client_id' => $this->client->id]);
+        $comp = Component::create([
+            'article_id' => $article->id,
+            'code' => 'BADAN-01',
+            'name' => 'Badan Depan',
+            'sequence' => 1,
+        ]);
+
+        $sample = Sample::factory()->create([
+            'client_id' => $this->client->id,
+            'article_id' => $article->id,
+            'status' => SampleStatus::APPROVED,
+        ]);
+        $revision = SampleRevision::create([
+            'client_id' => $this->client->id,
+            'sample_id' => $sample->id,
+            'version' => 1,
+            'specs' => ['Gramasi' => '200 GSM'],
+            'material_usage' => ['Kain' => '1.5 meter'],
+            'status' => SampleStatus::APPROVED,
+            'approved_by' => $this->sampleTeam->id,
+            'approved_at' => now(),
+        ]);
+        $sample->update(['approved_revision_id' => $revision->id]);
+
+        Order::factory()->create([
+            'sample_id' => $sample->id,
+            'client_id' => $this->client->id,
+            'status' => OrderStatus::READY_FOR_PRODUCTION,
+        ]);
+
+        $rateCard = RateCard::create([
+            'client_id' => $this->client->id,
+            'article_id' => $article->id,
+            'component_id' => $comp->id,
+            'rate_type' => RateType::SEWING,
+            'rate' => 3200,
+            'status' => RateCardStatus::PENDING,
+            'effective_from' => now()->toDateString(),
+        ]);
+
+        $this->actingAs($this->owner);
+
+        // Uji aksi approve_rates di tabel
+        Livewire::test(ListApprovedSamples::class)
+            ->assertTableActionVisible('approve_rates', $sample)
+            ->callTableAction('approve_rates', $sample)
+            ->assertHasNoTableActionErrors();
+
+        $rateCard->refresh();
+        $this->assertEquals(RateCardStatus::APPROVED, $rateCard->status);
+        $this->assertEquals($this->owner->id, $rateCard->approved_by);
+
+        // Reset ke PENDING untuk uji approveAllRates di header halaman detail
+        $rateCard->update(['status' => RateCardStatus::PENDING, 'approved_by' => null]);
+
+        Livewire::test(ViewApprovedSample::class, ['record' => $sample->getRouteKey()])
+            ->assertActionVisible('approveAllRates')
+            ->callAction('approveAllRates')
+            ->assertHasNoFormErrors();
+
+        $rateCard->refresh();
+        $this->assertEquals(RateCardStatus::APPROVED, $rateCard->status);
+
+        // Reset ke PENDING untuk menguji opsi penolakan (Tolak Tarif) dari modal tabel
+        $rateCard->update(['status' => RateCardStatus::PENDING, 'approved_by' => null]);
+
+        Livewire::test(ListApprovedSamples::class)
+            ->callTableAction('approve_rates', $sample, data: [
+                'rejection_reason' => 'Plafon tarif jahit badan maksimal Rp 2.500',
+            ], arguments: ['reject' => true])
+            ->assertHasNoTableActionErrors();
+
+        $rateCard->refresh();
+        $this->assertEquals(RateCardStatus::REJECTED, $rateCard->status);
+        $this->assertStringContainsString('Plafon tarif jahit badan maksimal Rp 2.500', (string) $rateCard->notes);
     }
 }

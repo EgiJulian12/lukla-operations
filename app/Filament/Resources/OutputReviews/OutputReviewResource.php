@@ -67,6 +67,11 @@ class OutputReviewResource extends Resource
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageProduction());
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     /**
      * Order yang sedang dikerjakan atau menunggu QC dan sudah punya catatan output.
      *

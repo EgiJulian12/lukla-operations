@@ -178,4 +178,14 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     {
         return $this->primaryRole()?->getLabel() ?? 'Tanpa Peran';
     }
+
+    public function primaryRoleShortLabel(): string
+    {
+        return $this->primaryRole()?->getShortLabel() ?? $this->primaryRoleLabel();
+    }
+
+    public function primaryRoleColor(): string
+    {
+        return (string) ($this->primaryRole()?->getColor() ?? 'gray');
+    }
 }

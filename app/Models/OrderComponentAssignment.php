@@ -18,7 +18,6 @@ class OrderComponentAssignment extends Model
 {
     use HasFactory;
 
-    /** @var OutputEntry|null */
     private ?OutputEntry $cachedLatestOutput = null;
 
     private bool $hasResolvedLatestOutput = false;

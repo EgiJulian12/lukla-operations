@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\ApprovedSamples\Pages;
 
-use App\Enums\SampleStatus;
 use App\Enums\WorkScheme;
 use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Models\Sample;
@@ -24,18 +23,20 @@ class ListApprovedSamples extends ListRecords
 
     public function getTabs(): array
     {
+        $baseQuery = static::getResource()::getEloquentQuery();
+
         return [
             'all' => Tab::make('Semua')
-                ->badge(Sample::query()->where('status', SampleStatus::APPROVED->value)->count()),
+                ->badge((clone $baseQuery)->count()),
             'cmt' => Tab::make('CMT')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::CMT->value)))
-                ->badge(Sample::query()->where('status', SampleStatus::APPROVED->value)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::CMT->value))->count()),
+                ->badge((clone $baseQuery)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::CMT->value))->count()),
             'semi_cmt' => Tab::make('Semi-CMT')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::SEMI_CMT->value)))
-                ->badge(Sample::query()->where('status', SampleStatus::APPROVED->value)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::SEMI_CMT->value))->count()),
+                ->badge((clone $baseQuery)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::SEMI_CMT->value))->count()),
             'full_package' => Tab::make('CMT + Bahan')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::FULL_PACKAGE->value)))
-                ->badge(Sample::query()->where('status', SampleStatus::APPROVED->value)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::FULL_PACKAGE->value))->count()),
+                ->badge((clone $baseQuery)->whereHas('orders', fn (Builder $q) => $q->where('work_scheme', WorkScheme::FULL_PACKAGE->value))->count()),
         ];
     }
 }

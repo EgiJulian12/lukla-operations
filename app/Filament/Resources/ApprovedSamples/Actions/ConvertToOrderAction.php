@@ -7,6 +7,7 @@ use App\Enums\WorkScheme;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use App\Models\Sample;
+use App\Services\Inventory\OrderMaterialFlowService;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -33,7 +34,7 @@ class ConvertToOrderAction
     public static function make(): Action
     {
         return Action::make('convert')
-            ->label('Jadikan Order Produksi')
+            ->label('Jadikan Order Massal')
             ->icon(Heroicon::OutlinedTruck)
             ->color('success')
             ->visible(fn (Sample $record): bool => (bool) auth()->user()?->can('convertToOrder', $record))
@@ -87,7 +88,10 @@ class ConvertToOrderAction
                 ];
             })
             ->action(function (Sample $record, array $data): void {
-                $scheme = WorkScheme::tryFrom($data['work_scheme']) ?? WorkScheme::CMT;
+                $rawScheme = $data['work_scheme'] ?? null;
+                $scheme = $rawScheme instanceof WorkScheme
+                    ? $rawScheme
+                    : (is_string($rawScheme) || is_int($rawScheme) ? WorkScheme::tryFrom($rawScheme) : null) ?? WorkScheme::CMT;
                 $quantity = (int) $data['quantity'];
                 $existingOrder = $record->article?->order;
 
@@ -101,6 +105,8 @@ class ConvertToOrderAction
                         'notes' => $data['notes'] ?? $existingOrder->notes,
                         'status' => OrderStatus::READY_FOR_PRODUCTION,
                     ]);
+
+                    app(OrderMaterialFlowService::class)->syncRequirementsForOrder($existingOrder);
                 } else {
                     $order = app(SampleService::class)->convertToOrder(
                         sample: $record,

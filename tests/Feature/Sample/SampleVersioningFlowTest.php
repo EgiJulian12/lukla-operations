@@ -363,6 +363,84 @@ class SampleVersioningFlowTest extends TestCase
         $this->assertSame($v1->getKey(), $order->sample_revision_id);
     }
 
+    public function test_sample_team_cannot_approve_or_reject_sample_revision(): void
+    {
+        $article = Article::factory()->create();
+        $sample = $this->sampleService->createSample($article, 'SMP-TEST-RBAC', 'Kaos Polo');
+        $v1 = $this->sampleService->addRevision($sample);
+        $this->sampleService->submitForReview($v1);
+
+        $sampleTeam = User::factory()->create(['name' => 'Tim Sample User']);
+        $sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
+
+        $this->assertFalse($sampleTeam->can('approve', $sample));
+        $this->assertFalse($sampleTeam->can('reject', $sample));
+        $this->assertFalse($sampleTeam->can('approve', $v1));
+        $this->assertFalse($sampleTeam->can('reject', $v1));
+    }
+
+    public function test_owner_cannot_approve_sample_revision_but_can_convert_to_mass_order(): void
+    {
+        $article = Article::factory()->create();
+        $sample = $this->sampleService->createSample($article, 'SMP-TEST-OWNER', 'Kaos Polo');
+        $v1 = $this->sampleService->addRevision($sample);
+        $this->sampleService->submitForReview($v1);
+
+        $owner = $this->createOwner();
+
+        // Persetujuan (ACC) adalah wewenang Klien, bukan Owner
+        $this->assertFalse($owner->can('approve', $sample));
+        $this->assertFalse($owner->can('reject', $sample));
+        $this->assertFalse($owner->can('approve', $v1));
+        $this->assertFalse($owner->can('reject', $v1));
+
+        // Setelah disahkan, HANYA Owner yang berhak mengonversi ke order massal
+        $v1->update(['status' => SampleStatus::APPROVED]);
+        $sample->update(['status' => SampleStatus::APPROVED, 'approved_revision_id' => $v1->getKey()]);
+
+        $this->assertTrue($owner->can('convertToOrder', $sample));
+
+        $sampleTeam = User::factory()->create(['name' => 'Tim Sample']);
+        $sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
+        $this->assertFalse($sampleTeam->can('convertToOrder', $sample));
+    }
+
+    public function test_client_can_approve_own_sample_revision(): void
+    {
+        $client = Client::factory()->create();
+        $clientUser = User::factory()->create(['client_id' => $client->getKey(), 'name' => 'Klien User']);
+        $clientUser->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $article = Article::factory()->create(['client_id' => $client->getKey()]);
+        $sample = $this->sampleService->createSample($article, 'SMP-TEST-CLIENT', 'Kemeja Katun');
+        $v1 = $this->sampleService->addRevision($sample);
+        $this->sampleService->submitForReview($v1);
+
+        $this->assertTrue($clientUser->can('approve', $sample));
+        $this->assertTrue($clientUser->can('reject', $sample));
+        $this->assertTrue($clientUser->can('approve', $v1));
+        $this->assertTrue($clientUser->can('reject', $v1));
+    }
+
+    public function test_different_client_cannot_approve_other_client_sample(): void
+    {
+        $clientA = Client::factory()->create();
+        $clientB = Client::factory()->create();
+
+        $clientUserB = User::factory()->create(['client_id' => $clientB->getKey(), 'name' => 'Klien B User']);
+        $clientUserB->assignRole(UserRole::CLIENT_MAKLON->value);
+
+        $articleA = Article::factory()->create(['client_id' => $clientA->getKey()]);
+        $sampleA = $this->sampleService->createSample($articleA, 'SMP-TEST-A', 'Kemeja A');
+        $v1 = $this->sampleService->addRevision($sampleA);
+        $this->sampleService->submitForReview($v1);
+
+        $this->assertFalse($clientUserB->can('approve', $sampleA));
+        $this->assertFalse($clientUserB->can('reject', $sampleA));
+        $this->assertFalse($clientUserB->can('approve', $v1));
+        $this->assertFalse($clientUserB->can('reject', $v1));
+    }
+
     private function createOwner(): User
     {
         $user = User::factory()->create(['name' => 'Owner Eksekutif']);

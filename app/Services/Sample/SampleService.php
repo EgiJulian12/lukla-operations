@@ -14,6 +14,7 @@ use App\Models\SampleRevision;
 use App\Models\TimeStudy;
 use App\Models\User;
 use App\Services\Telegram\TelegramNotifier;
+use App\Services\Inventory\OrderMaterialFlowService;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -386,7 +387,7 @@ class SampleService
         return DB::transaction(function () use ($sample, $scheme, $quantity, $parsedDueDate, $notes): Order {
             $revision = $sample->approvedRevision;
 
-            return Order::create([
+            $order = Order::create([
                 'client_id' => $sample->client_id,
                 'article_id' => $sample->article_id,
                 'sample_id' => $sample->getKey(),
@@ -399,6 +400,10 @@ class SampleService
                 'notes' => $notes,
                 'created_by' => auth()->id(),
             ]);
+
+            app(OrderMaterialFlowService::class)->initializeRequirements($order);
+
+            return $order;
         });
     }
 

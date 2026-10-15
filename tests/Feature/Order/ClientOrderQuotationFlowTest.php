@@ -18,7 +18,10 @@ use App\Models\Sample;
 use App\Models\User;
 use App\Services\Order\OrderQuotationService;
 use Database\Seeders\RoleSeeder;
+use Filament\Actions\Testing\TestAction;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -329,8 +332,10 @@ class ClientOrderQuotationFlowTest extends TestCase
         $order = $this->requestedOrder($client, ['orders/designs/kaos.png']);
 
         $disk = $this->getTestDisk();
-        Storage::disk($disk)->put('orders/designs/kaos.png', 'dummy');
-        Storage::disk($disk)->buildTemporaryUrlsUsing(
+        /** @var FilesystemAdapter $storageDisk */
+        $storageDisk = Storage::disk($disk);
+        $storageDisk->put('orders/designs/kaos.png', 'dummy');
+        $storageDisk->buildTemporaryUrlsUsing(
             fn (string $path): string => 'https://signed.example/'.$path,
         );
 
@@ -355,15 +360,17 @@ class ClientOrderQuotationFlowTest extends TestCase
         );
 
         $disk = $this->getTestDisk();
-        Storage::disk($disk)->put('orders/designs/kaos.png', 'dummy');
-        Storage::disk($disk)->buildTemporaryUrlsUsing(
+        /** @var FilesystemAdapter $storageDisk */
+        $storageDisk = Storage::disk($disk);
+        $storageDisk->put('orders/designs/kaos.png', 'dummy');
+        $storageDisk->buildTemporaryUrlsUsing(
             fn (string $path): string => 'https://signed.example/'.$path,
         );
 
         $this->actingAs($this->staffUser(UserRole::OWNER_EXECUTIVE));
 
         Livewire::test(ListOrders::class)
-            ->mountTableAction('provideQuote', $order)
+            ->mountAction(TestAction::make('provideQuote')->table($order))
             ->assertMountedActionModalSee('Kaos raglan lengan panjang, bahan katun combed 30s.')
             ->assertMountedActionModalSee('https://signed.example/orders/designs/kaos.png', escape: false);
     }
@@ -380,11 +387,11 @@ class ClientOrderQuotationFlowTest extends TestCase
         $this->actingAs($this->staffUser(UserRole::OWNER_EXECUTIVE));
 
         Livewire::test(ListOrders::class)
-            ->callTableAction('provideQuote', $order, data: [
+            ->callAction(TestAction::make('provideQuote')->table($order), data: [
                 'estimated_cost' => 12500000,
                 'quote_notes' => 'Termasuk bahan dan finishing.',
             ])
-            ->assertHasNoTableActionErrors();
+            ->assertHasNoFormErrors();
 
         $order->refresh();
 
@@ -439,7 +446,7 @@ class ClientOrderQuotationFlowTest extends TestCase
         );
 
         $this->assertSame(WorkScheme::SEMI_CMT, $order->work_scheme);
-        $this->assertSame('2026-11-20', $order->due_date->format('Y-m-d'));
+        $this->assertSame('2026-11-20', Carbon::parse($order->due_date)->format('Y-m-d'));
     }
 
     public function test_quote_approval_can_update_work_scheme_due_date_and_notes(): void
@@ -458,7 +465,7 @@ class ClientOrderQuotationFlowTest extends TestCase
 
         $order->refresh();
         $this->assertSame(OrderStatus::QUOTE_APPROVED, $order->status);
-        $this->assertSame('2026-12-01', $order->due_date->format('Y-m-d'));
+        $this->assertSame('2026-12-01', Carbon::parse($order->due_date)->format('Y-m-d'));
         $this->assertSame(WorkScheme::FULL_PACKAGE, $order->work_scheme);
         $this->assertSame('Harap aksesoris menggunakan resleting YKK metal.', $order->notes);
     }

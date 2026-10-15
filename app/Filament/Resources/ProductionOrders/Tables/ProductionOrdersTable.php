@@ -99,6 +99,7 @@ class ProductionOrdersTable
             ])
             ->recordActions([
                 self::startProductionAction(),
+                self::updateAssignmentsAction(),
             ])
             ->emptyStateHeading('Tidak ada order di lantai produksi')
             ->emptyStateDescription('Order muncul di sini sejak berstatus Siap Produksi hingga selesai diperiksa QC.')
@@ -159,6 +160,49 @@ class ProductionOrdersTable
     }
 
     /**
+     * Memperbarui penugasan penjahit per komponen selama proses produksi berjalan.
+     */
+    private static function updateAssignmentsAction(): Action
+    {
+        return Action::make('updateAssignments')
+            ->label('Ubah Penugasan')
+            ->icon(Heroicon::OutlinedUserGroup)
+            ->color('warning')
+            ->modalHeading(fn (Order $record): string => "Ubah Penugasan Penjahit - {$record->order_number}")
+            ->modalDescription('Sesuaikan penjahit untuk setiap komponen selama proses produksi masih berjalan.')
+            ->modalSubmitActionLabel('Simpan Penugasan')
+            ->visible(fn (Order $record): bool => auth()->user()?->can('updateComponentAssignments', $record) ?? false)
+            ->form(fn (Order $record): array => self::componentPlanForm($record))
+            ->action(function (Order $record, array $data): void {
+                $assignments = collect($data['assignments'] ?? [])
+                    ->map(fn (int|string $tailorId, int|string $componentId): array => [
+                        'component_id' => (int) $componentId,
+                        'user_id' => (int) $tailorId,
+                    ])
+                    ->values()
+                    ->all();
+
+                try {
+                    app(ProductionService::class)->updateComponentAssignments($record, $assignments);
+                } catch (IncompleteComponentAssignment|InvalidArgumentException $exception) {
+                    Notification::make()
+                        ->title('Rencana penjahit belum lengkap')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Penugasan penjahit berhasil diperbarui')
+                    ->body("Pemetaan komponen untuk {$record->order_number} telah disesuaikan.")
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
      * Satu pilihan penjahit per komponen artikel order.
      *
      * @return array<int, mixed>
@@ -184,6 +228,7 @@ class ProductionOrdersTable
                         ->label(sprintf('%d. %s', $component->sequence, $component->name))
                         ->options(self::tailorOptions())
                         ->searchable()
+                        ->default(fn (Order $record): ?int => $record->componentAssignments->firstWhere('component_id', $component->getKey())?->user_id)
                         ->required())
                     ->all()),
         ];
