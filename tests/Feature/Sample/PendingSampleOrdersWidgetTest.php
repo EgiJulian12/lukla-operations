@@ -153,4 +153,65 @@ class PendingSampleOrdersWidgetTest extends TestCase
         Livewire::test(PendingSampleOrdersWidget::class)
             ->assertCanNotSeeTableRecords([$order]);
     }
+
+    public function test_sample_team_can_start_sample_with_existing_article_when_previous_sample_already_exists(): void
+    {
+        $sampleTeam = User::factory()->create();
+        $sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
+        $this->actingAs($sampleTeam);
+
+        $client = Client::factory()->create();
+
+        // Order 1 dan Sample 1 perdana sudah ada
+        $order1 = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'REQ-202610-0001',
+            'status' => OrderStatus::QUOTE_APPROVED->value,
+        ]);
+
+        $article = Article::factory()->create([
+            'client_id' => $client->getKey(),
+            'name' => 'Baju Kaos Test',
+            'code' => 'REQ-202610-0001',
+        ]);
+
+        $sample1 = Sample::factory()->create([
+            'client_id' => $client->getKey(),
+            'article_id' => $article->getKey(),
+            'code' => 'REQ-202610-0001',
+            'title' => 'Baju Kaos Test',
+        ]);
+        $order1->update(['article_id' => $article->getKey(), 'sample_id' => $sample1->getKey()]);
+
+        // Order 2 datang untuk klien yang sama dan memilih artikel yang sudah ada
+        $order2 = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'order_number' => 'REQ-202610-0002',
+            'description' => 'Order repeat baju kaos test',
+            'status' => OrderStatus::QUOTE_APPROVED->value,
+            'quote_approved_at' => now(),
+            'sample_requested_at' => now(),
+            'sample_id' => null,
+            'work_scheme' => WorkScheme::FULL_PACKAGE,
+        ]);
+
+        Livewire::test(PendingSampleOrdersWidget::class)
+            ->mountAction(TestAction::make('createSample')->table($order2))
+            ->fillForm([
+                'article_mode' => 'existing',
+                'article_id' => $article->getKey(),
+            ])
+            ->callMountedAction()
+            ->assertHasNoFormErrors();
+
+        $order2->refresh();
+        $this->assertSame($article->getKey(), $order2->article_id);
+        $this->assertNotNull($order2->sample_id);
+
+        $sample2 = Sample::find($order2->sample_id);
+        $this->assertSame($article->getKey(), $sample2->article_id);
+        // Kode sample kedua harus unik dan mengikuti nomor order baru, tidak menduplikasi REQ-202610-0001
+        $this->assertSame('REQ-202610-0002', $sample2->code);
+        $this->assertNotEquals($sample1->getKey(), $sample2->getKey());
+    }
 }
