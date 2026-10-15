@@ -117,11 +117,18 @@ class SampleService
                 'sample_requested_at' => $order->sample_requested_at ?? now(),
             ]);
 
+            $preferredCode = $articleData['sample_code']
+                ?? $order->order_number
+                ?? $article->code
+                ?? ('SMP-'.$order->getKey());
+
+            $sampleCode = $this->generateUniqueSampleCode($order->client_id, (string) $preferredCode);
+
             $sample = $this->createSample(
                 article: $article,
-                code: $article->code,
+                code: $sampleCode,
                 title: $article->name,
-                notes: $article->description,
+                notes: $articleData['description'] ?? $order->description ?? $article->description,
             );
 
             $this->addRevision(
@@ -141,6 +148,23 @@ class SampleService
 
             return $sample->refresh();
         });
+    }
+
+    /**
+     * Menghasilkan kode sample yang unik untuk satu klien (mempertimbangkan record aktif dan soft-deleted).
+     */
+    public function generateUniqueSampleCode(int $clientId, string $preferredCode): string
+    {
+        $preferredCode = trim($preferredCode);
+        $code = $preferredCode;
+        $counter = 1;
+
+        while (Sample::withTrashed()->where('client_id', $clientId)->where('code', $code)->exists()) {
+            $counter++;
+            $code = "{$preferredCode}-{$counter}";
+        }
+
+        return $code;
     }
 
     /**
