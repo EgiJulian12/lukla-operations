@@ -99,6 +99,7 @@ class OrderPolicy
     {
         return $this->canManage($user)
             && $order->status->isQuoteApproved()
+            && $order->sample_requested_at === null
             && $order->sample_id === null;
     }
 

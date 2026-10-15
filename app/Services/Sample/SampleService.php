@@ -92,29 +92,36 @@ class SampleService
     /**
      * Inisialisasi Artikel dan Sample v1 (DRAFT) dari sebuah Order yang sudah di-ACC.
      *
-     * @param  array{name: string, code: string, description?: ?string}  $articleData
+     * @param  array{article_mode?: string, article_id?: ?int, name?: string, code?: string, description?: ?string}  $articleData
      */
     public function initializeSampleFromOrder(Order $order, array $articleData): Sample
     {
         return DB::transaction(function () use ($order, $articleData): Sample {
-            $article = Article::create([
-                'client_id' => $order->client_id,
-                'order_id' => $order->getKey(),
-                'name' => $articleData['name'],
-                'code' => $articleData['code'],
-                'description' => $articleData['description'] ?? null,
-            ]);
+            $isExisting = ($articleData['article_mode'] ?? null) === 'existing'
+                || (! empty($articleData['article_id']) && empty($articleData['name']));
+
+            if ($isExisting && ! empty($articleData['article_id'])) {
+                $article = Article::where('client_id', $order->client_id)->findOrFail($articleData['article_id']);
+            } else {
+                $article = Article::create([
+                    'client_id' => $order->client_id,
+                    'order_id' => $order->getKey(),
+                    'name' => $articleData['name'] ?? ('Artikel '.$order->order_number),
+                    'code' => $articleData['code'] ?? $order->order_number,
+                    'description' => $articleData['description'] ?? $order->description,
+                ]);
+            }
 
             $order->update([
                 'article_id' => $article->getKey(),
-                'sample_requested_at' => now(),
+                'sample_requested_at' => $order->sample_requested_at ?? now(),
             ]);
 
             $sample = $this->createSample(
                 article: $article,
-                code: $articleData['code'],
-                title: $articleData['name'],
-                notes: $articleData['description'] ?? null,
+                code: $article->code,
+                title: $article->name,
+                notes: $article->description,
             );
 
             $this->addRevision(

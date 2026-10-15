@@ -334,6 +334,20 @@ class Order extends Model
     }
 
     /**
+     * Apakah target order sudah tercapai: unit yang lolos QC sudah sebanyak
+     * unit yang dipesan.
+     *
+     * Inilah yang menentukan kapan pekerjaan sebuah komponen dianggap selesai
+     * bagi penjahit. Patokannya diletakkan di tingkat order, bukan di tingkat
+     * laporan, karena yang menutup pekerjaan adalah unit yang benar-benar lolos
+     * QC — bukan sekadar laporan yang sudah masuk.
+     */
+    public function hasReachedQcTarget(): bool
+    {
+        return $this->qcPassedQuantity() >= $this->quantity;
+    }
+
+    /**
      * Apakah terdapat unit yang sedang siap dicek QC.
      */
     public function hasReadyQc(): bool

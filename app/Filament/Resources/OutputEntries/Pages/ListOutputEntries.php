@@ -16,9 +16,11 @@ use App\Services\Production\ProductionService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Section;
@@ -32,10 +34,12 @@ use Illuminate\Support\Carbon;
  * Halaman daftar output 30 menit.
  *
  * Untuk penjahit: menampilkan daftar komponen yang ditugaskan ke mereka
- * dengan tombol "Laporkan" di tiap baris untuk mencatat output 30 menit.
- * Daftar ini sekaligus penanda tugas mana yang masih terbuka: komponen yang
- * sudah dilaporkan kehilangan tombolnya, dan mendapatkannya kembali begitu
- * laporannya ditolak mandor.
+ * dengan tombol "Kerjakan" di tiap baris untuk mencatat output 30 menit.
+ * Daftar ini sekaligus penanda tugas mana yang masih terbuka: satu komponen
+ * tetap bisa dikerjakan — dan tetap boleh dilaporkan berulang per interval —
+ * selama order-nya belum mencapai target QC, yaitu saat jumlah unit yang lolos
+ * QC sudah mencukupi jumlah yang dipesan. Lihat
+ * OrderComponentAssignment::hasReachedQcTarget().
  *
  * Untuk mandor / kepala produksi: menampilkan tabel output seperti biasa
  * dengan aksi verifikasi dan penolakan.
@@ -43,6 +47,20 @@ use Illuminate\Support\Carbon;
 class ListOutputEntries extends ListRecords
 {
     protected static string $resource = OutputEntryResource::class;
+
+    /**
+     * Ekspresi JavaScript yang memunculkan field hanya saat stopwatch
+     * dihentikan.
+     *
+     * Ditulis sebagai JavaScript, bukan PHP: `$get()` di sini adalah utilitas
+     * sisi peramban yang membaca state Livewire secara reaktif, jadi perubahan
+     * penanda dari stopwatch langsung terlihat tanpa permintaan ke server.
+     * Jalurnya relatif terhadap container field — sama-sama "Data Output" —
+     * sehingga tidak bergantung pada indeks modal yang sedang terbuka.
+     */
+    private const VISIBLE_WHEN_STOPWATCH_STOPPED_JS = <<<'JS'
+        $get('work_timer_stopped')
+        JS;
 
     protected function getHeaderActions(): array
     {
@@ -68,9 +86,14 @@ class ListOutputEntries extends ListRecords
                 OrderComponentAssignment::query()
                     ->where('user_id', $user->getKey())
                     ->with(['order.client', 'component'])
+                    // Order yang sudah di QC tetap ditampilkan: justru di sana
+                    // jumlah unit yang lolos QC bertambah, dan itulah patokan
+                    // tugas ini ditutup. Order yang sudah Selesai/Ditutup tidak
+                    // ikut, karena target QC-nya pasti sudah tercapai.
                     ->whereHas('order', fn (Builder $q) => $q->whereIn('status', [
                         OrderStatus::READY_FOR_PRODUCTION->value,
                         OrderStatus::IN_PRODUCTION->value,
+                        OrderStatus::IN_QC->value,
                     ]))
             ));
         }
@@ -118,27 +141,82 @@ class ListOutputEntries extends ListRecords
             ])
             ->recordActions([
                 Action::make('report')
-                    ->label('Laporkan')
-                    ->icon(Heroicon::OutlinedPencilSquare)
+                    ->label('Kerjakan')
+                    ->icon(Heroicon::OutlinedPlayCircle)
                     ->color('primary')
-                    // Tugas tertutup begitu dilaporkan, dan terbuka lagi kalau
-                    // laporannya ditolak — lihat isReported().
-                    ->visible(fn (OrderComponentAssignment $record): bool => ! $record->isReported())
+                    // Tugas tertutup saat target QC order-nya tercapai, bukan
+                    // saat komponennya dilaporkan: penjahit boleh melaporkan
+                    // interval berikutnya selama unit yang lolos QC belum
+                    // mencukupi jumlah yang dipesan — lihat
+                    // hasReachedQcTarget().
+                    ->visible(fn (OrderComponentAssignment $record): bool => ! $record->hasReachedQcTarget())
                     ->modalHeading(fn (OrderComponentAssignment $record): string => sprintf(
-                        'Laporan Output — %s · %s',
+                        'Kerjakan Output — %s · %s',
                         $record->component?->name ?? '-',
                         $record->order?->order_number ?? '-',
                     ))
                     ->modalDescription(fn (OrderComponentAssignment $record): string => $record->latestOutput()?->status === OutputStatus::REJECTED
                         ? sprintf(
-                            'Laporan sebelumnya ditolak: %s. Laporkan ulang hasil kerja Anda.',
+                            'Laporan sebelumnya ditolak: %s. Kerjakan ulang hasil perbaikan Anda.',
                             $record->latestOutput()?->notes ?? 'tanpa alasan tertulis',
                         )
-                        : 'Isi jumlah komponen yang selesai Anda kerjakan pada interval berjalan.')
+                        : 'Jalankan stopwatch saat pengerjaan dimulai, lalu isi jumlah komponen yang selesai.')
                     ->modalWidth('md')
-                    ->form(function (OrderComponentAssignment $record): array {
-                        $now = Carbon::now();
+                    // Modal ini tidak boleh tertutup sendiri. Di lantai
+                    // produksi backdrop dan tombol Esc gampang tersenggol,
+                    // dan laporan yang tertutup tanpa dikirim membuang waktu
+                    // pengerjaan yang sudah jalan. Karena itu ketiga jalan
+                    // keluar diam-diam ditutup: klik di luar, Esc, dan tombol
+                    // silang. Pintu keluarnya tinggal "Kirim laporan" dan
+                    // "Batal" — dan yang terakhir pun bertanya dulu.
+                    ->closeModalByClickingAway(false)
+                    ->closeModalByEscaping(false)
+                    ->modalCloseButton(false)
+                    ->modalCancelAction(function (Action $action): Action {
+                        // Membatalkan pengerjaan membuang waktu yang sudah
+                        // dicatat, jadi Batal pun minta konfirmasi. Tombol
+                        // konfirmasinya adalah modal anak dari modal ini, dan
+                        // anak hanya menutup modalnya sendiri — lihat
+                        // InteractsWithActions::unmountAction(). Tanpa
+                        // cancelParentActions(), modal pengerjaan cuma tertutup
+                        // sementara lalu terbuka lagi begitu konfirmasi
+                        // dijawab, jadi keduanya diikat untuk tutup bersama.
+                        return $action
+                            ->label('Batal')
+                            ->requiresConfirmation()
+                            ->overlayParentActions()
+                            ->cancelParentActions()
+                            ->modalHeading('Batalkan pengerjaan ini?')
+                            ->modalDescription('Waktu pengerjaan yang sudah berjalan akan dibuang dan laporan tidak jadi dikirim.')
+                            ->modalSubmitActionLabel('Ya, batalkan')
+                            ->modalCancelActionLabel('Lanjut mengerjakan');
+                    })
+                    ->modalSubmitActionLabel('Kirim laporan')
+                    ->modalSubmitAction(function (Action $action, array $mountedActions): Action {
+                        // Tombol kirim baru terbuka setelah tombol "Stop"
+                        // ditekan: hanya saat itulah penanda work_timer_stopped
+                        // terisi, dan hanya saat itu pula field Jumlah Selesai
+                        // dan Catatan muncul. Batasnya dipasang di peramban,
+                        // bukan di server, supaya tombolnya langsung terbuka
+                        // tanpa perlu bolak-balik ke server — dan state itulah
+                        // yang dinilai saat laporan dikirim.
+                        //
+                        // Path state dikirim lewat atribut data, bukan ditulis
+                        // sebagai literal di dalam x-effect: kutip di dalam
+                        // atribut HTML berisiko di-escape menjadi entitas, dan
+                        // ekspresi Alpine yang tidak berkutip sama sekali tidak
+                        // bergantung pada hasil escape itu.
+                        $stoppedPath = sprintf(
+                            'mountedActions.%s.data.work_timer_stopped',
+                            array_key_last($mountedActions) ?? 0,
+                        );
 
+                        return $action->extraAttributes([
+                            'data-work-timer-stopped-path' => $stoppedPath,
+                            'x-effect' => '$el.disabled = ! $wire.get($el.dataset.workTimerStoppedPath)',
+                        ]);
+                    })
+                    ->form(function (OrderComponentAssignment $record): array {
                         return [
                             Section::make('Detail Tugas')
                                 ->columns(2)
@@ -161,22 +239,46 @@ class ListOutputEntries extends ListRecords
 
                             Section::make('Data Output')
                                 ->schema([
+                                    ViewField::make('work_timer')
+                                        ->view('filament.forms.components.output-work-timer')
+                                        ->columnSpanFull(),
+                                    // Penanda keadaan stopwatch: terisi hanya
+                                    // selama pengerjaan dihentikan. Ditulis
+                                    // stopwatch di peramban, dan dibaca field
+                                    // Jumlah Selesai, Catatan, serta tombol
+                                    // kirim modal. Tidak ikut dikirim ke
+                                    // layanan produksi — hanya mengatur
+                                    // tampilan.
+                                    Hidden::make('work_timer_stopped')
+                                        ->dehydrated(false),
+                                    // Waktu Mulai hanya terisi stopwatch, bukan
+                                    // diketik: distempel saat "Mulai" ditekan dan
+                                    // mengikuti pencacah sampai "Stop" atau
+                                    // laporan dikirim.
+                                    DateTimePicker::make('interval_start')
+                                        ->label('Waktu Mulai')
+                                        ->seconds(true)
+                                        ->readOnly()
+                                        ->dehydrated()
+                                        ->helperText('Terisi otomatis saat stopwatch dimulai.'),
+                                    // Hasil pengerjaan baru bisa dilaporkan setelah
+                                    // pengerjaannya dihentikan, jadi jumlahnya pun
+                                    // hanya ditanyakan saat itu.
                                     TextInput::make('quantity')
                                         ->label('Jumlah Selesai (pcs)')
                                         ->numeric()
                                         ->minValue(1)
                                         ->maxValue(100)
-                                        ->required(),
-                                    DateTimePicker::make('interval_at')
-                                        ->label('Waktu Interval')
-                                        ->seconds(false)
-                                        ->default($now)
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->helperText('Waktu dibulatkan otomatis ke interval 30 menit.'),
+                                        ->required()
+                                        ->visibleJs(self::VISIBLE_WHEN_STOPWATCH_STOPPED_JS),
                                     Textarea::make('notes')
                                         ->label('Catatan')
-                                        ->columnSpanFull(),
+                                        ->columnSpanFull()
+                                        ->visibleJs(self::VISIBLE_WHEN_STOPWATCH_STOPPED_JS),
+                                    // Waktu Selesai tidak ditampilkan: penjahit
+                                    // mengikuti pencacah stopwatch, bukan jam.
+                                    // Nilainya tetap ikut terkirim.
+                                    Hidden::make('interval_end'),
                                 ]),
                         ];
                     })
@@ -198,22 +300,44 @@ class ListOutputEntries extends ListRecords
 
                         $order = Order::findOrFail($record->order_id);
                         $component = Component::findOrFail($record->component_id);
-                        $intervalAt = Carbon::parse($data['interval_at']);
+                        $intervalStart = filled($data['interval_start'] ?? null)
+                            ? Carbon::parse($data['interval_start'])
+                            : null;
+
+                        // Stopwatch yang belum dihentikan bukan alasan untuk
+                        // menolak laporan: waktu kirim dipakai sebagai akhir
+                        // pengerjaan, sama seperti menekan "Stop" saat itu.
+                        // Tanpa waktu mulai sama sekali — mis. peramban tanpa
+                        // JavaScript, sehingga tombol kirim tidak terkunci —
+                        // laporan jatuh ke jalur lama dan dibulatkan ke interval
+                        // 30 menit, bukan berakhir sebelum dimulai.
+                        $intervalEnd = $intervalStart === null
+                            ? null
+                            : (filled($data['interval_end'] ?? null)
+                                ? Carbon::parse($data['interval_end'])
+                                : Carbon::now());
 
                         try {
-                            app(ProductionService::class)->submitOutput(
+                            $entry = app(ProductionService::class)->submitOutput(
                                 order: $order,
                                 line: $activeAssignment?->productionLine,
                                 operator: $tailor,
                                 component: $component,
                                 quantity: (int) $data['quantity'],
-                                intervalAt: $intervalAt,
+                                intervalAt: $intervalStart ?? Carbon::now(),
+                                intervalEnd: $intervalEnd,
                                 notes: $data['notes'] ?? null,
                             );
 
                             Notification::make()
-                                ->title('Output berhasil dilaporkan')
-                                ->body(sprintf('%d pcs komponen %s telah dicatat.', $data['quantity'], $component->name))
+                                ->title('Pengerjaan berhasil dicatat')
+                                ->body(sprintf(
+                                    '%d pcs komponen %s tercatat untuk pengerjaan %s — %s.',
+                                    $entry->quantity,
+                                    $component->name,
+                                    $entry->interval_start->format('H:i'),
+                                    $entry->interval_end->format('H:i'),
+                                ))
                                 ->success()
                                 ->send();
                         } catch (DuplicateOutputInterval $e) {

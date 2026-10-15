@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Filament\Resources\ApprovedSamples\ApprovedSampleResource;
 use App\Filament\Resources\Articles\ArticleResource;
+use App\Filament\Resources\Assemblies\AssemblyResource;
+use App\Filament\Resources\Components\ComponentResource;
 use App\Filament\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\MyPurchaseOrders\MyPurchaseOrderResource;
@@ -23,6 +25,8 @@ use App\Filament\Resources\Samples\SampleResource;
 use App\Filament\Resources\TailorWages\TailorWageResource;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
+use Filament\Facades\Filament;
+use Filament\Navigation\NavigationGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -77,13 +81,15 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($warehouse);
 
         $this->assertTrue(InventoryItemResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
         $this->assertTrue(MyPurchaseOrderResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertFalse(InvoiceResource::shouldRegisterNavigation());
     }
 
-    public function test_sample_team_sees_samples_and_articles_but_not_inventory_or_payroll(): void
+    public function test_sample_team_only_sees_sample_resource_in_sidebar(): void
     {
         $sampleTeam = User::factory()->create();
         $sampleTeam->assignRole(UserRole::SAMPLE_TEAM->value);
@@ -91,10 +97,14 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($sampleTeam);
 
         $this->assertTrue(SampleResource::shouldRegisterNavigation());
-        $this->assertTrue(ArticleResource::shouldRegisterNavigation());
+        $this->assertFalse(ArticleResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderResource::shouldRegisterNavigation());
+        $this->assertFalse(ComponentResource::shouldRegisterNavigation());
         $this->assertFalse(InventoryItemResource::shouldRegisterNavigation());
         $this->assertFalse(PayrollPeriodResource::shouldRegisterNavigation());
         $this->assertFalse(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertFalse(OrderMaterialFlowResource::canAccess());
     }
 
     public function test_finance_sees_payroll_and_invoices_but_not_physical_inventory(): void
@@ -120,6 +130,8 @@ class RoleMenuAccessTest extends TestCase
 
         $this->actingAs($owner);
         $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
 
         $productionLead = User::factory()->create();
         $productionLead->assignRole(UserRole::PRODUCTION_LEAD->value);
@@ -127,7 +139,8 @@ class RoleMenuAccessTest extends TestCase
         $this->actingAs($productionLead);
 
         $this->assertTrue(ApprovedSampleResource::shouldRegisterNavigation());
-        $this->assertTrue(ProductionLineResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::shouldRegisterNavigation());
+        $this->assertTrue(OrderMaterialFlowResource::canAccess());
         $this->assertFalse(SampleResource::shouldRegisterNavigation());
 
         // Output 30 Menit milik Kepala Produksi berbariskan order dan tinggal di

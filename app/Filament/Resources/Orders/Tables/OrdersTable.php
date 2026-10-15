@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Orders\Tables;
 use App\Enums\OrderStatus;
 use App\Enums\WorkScheme;
 use App\Filament\Resources\Samples\SampleResource;
+use App\Models\Article;
 use App\Models\Order;
 use App\Services\Order\OrderQuotationService;
 use App\Services\Sample\SampleService;
@@ -12,12 +13,15 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -69,6 +73,14 @@ class OrdersTable
                     ->badge()
                     ->state(function (Order $record): string {
                         if (! $record->sample) {
+                            if ($record->status === OrderStatus::QUOTE_APPROVED) {
+                                if ($record->sample_requested_at === null) {
+                                    return 'Menunggu Permintaan Sample';
+                                }
+
+                                return 'Permintaan Sample Terkirim';
+                            }
+
                             return $record->article_id ? 'Artikel Dibuat' : 'Belum Ada Artikel';
                         }
                         $rev = $record->sample->currentRevision;
@@ -80,6 +92,10 @@ class OrdersTable
                     })
                     ->color(function (Order $record): string {
                         if (! $record->sample) {
+                            if ($record->status === OrderStatus::QUOTE_APPROVED) {
+                                return $record->sample_requested_at === null ? 'gray' : 'warning';
+                            }
+
                             return 'gray';
                         }
                         $rev = $record->sample->currentRevision;
@@ -119,31 +135,69 @@ class OrdersTable
                     ->options(OrderStatus::class),
             ])
             ->recordActions([
-                Action::make('createArticleAndSample')
-                    ->label('Buat Artikel & Mulai Sample')
+                Action::make('sendSampleRequest')
+                    ->label('Kirim Permintaan Sample')
                     ->icon(Heroicon::OutlinedSparkles)
                     ->color('primary')
-                    ->modalHeading('Buat Artikel & Inisialisasi Sample v1')
-                    ->modalDescription('Sistem akan membuat master Artikel dan otomatis menyiapkan draft Sample v1 untuk pesanan ini.')
+                    ->requiresConfirmation()
+                    ->modalHeading('Kirim Permintaan Pembuatan Sample?')
+                    ->modalDescription('Pesanan yang telah di-ACC penawarannya ini akan diteruskan ke antrean Tim Sample untuk dipersiapkan dan ditentukan artikelnya.')
+                    ->visible(fn (Order $record): bool => auth()->user()?->can('requestSample', $record) ?? false)
+                    ->action(function (Order $record): void {
+                        app(OrderQuotationService::class)->requestSample($record, auth()->user());
+
+                        Notification::make()
+                            ->title('Permintaan sample berhasil dikirim ke Tim Sample')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('createArticleAndSample')
+                    ->label('Tentukan Artikel & Mulai Sample')
+                    ->icon(Heroicon::OutlinedSparkles)
+                    ->color('primary')
+                    ->modalHeading('Tentukan Artikel & Inisialisasi Sample v1')
+                    ->modalDescription('Pilih apakah pesanan ini menggunakan master artikel yang sudah ada milik klien, atau buat master artikel baru.')
                     ->visible(fn (Order $record): bool => auth()->user()?->can('createArticleAndSample', $record) ?? false)
-                    ->form([
-                        TextInput::make('name')
-                            ->label('Nama Artikel')
-                            ->default(fn (Order $record): string => Str::limit(trim((string) $record->description), 80, '') ?: 'Artikel '.$record->order_number)
+                    ->schema([
+                        Radio::make('article_mode')
+                            ->label('Pilihan Artikel')
+                            ->options([
+                                'existing' => 'Pilih Artikel yang Sudah Ada',
+                                'new' => 'Buat Artikel Baru',
+                            ])
+                            ->default(fn (Order $record): string => Article::where('client_id', $record->client_id)->exists() ? 'existing' : 'new')
+                            ->live()
                             ->required(),
+                        Select::make('article_id')
+                            ->label('Pilih Artikel Klien')
+                            ->placeholder('Pilih artikel...')
+                            ->options(fn (Order $record): array => Article::where('client_id', $record->client_id)->pluck('name', 'id')->all())
+                            ->searchable()
+                            ->preload()
+                            ->visible(fn (Get $get): bool => $get('article_mode') === 'existing')
+                            ->required(fn (Get $get): bool => $get('article_mode') === 'existing')
+                            ->helperText('Gunakan master artikel yang sudah terdaftar untuk klien ini.'),
+                        TextInput::make('name')
+                            ->label('Nama Artikel Baru')
+                            ->default(fn (Order $record): string => Str::limit(trim((string) $record->description), 80, '') ?: 'Artikel '.$record->order_number)
+                            ->visible(fn (Get $get): bool => $get('article_mode') === 'new')
+                            ->required(fn (Get $get): bool => $get('article_mode') === 'new'),
                         TextInput::make('code')
                             ->label('Kode / SKU Artikel')
                             ->default(fn (Order $record): string => $record->order_number)
-                            ->required(),
+                            ->visible(fn (Get $get): bool => $get('article_mode') === 'new')
+                            ->required(fn (Get $get): bool => $get('article_mode') === 'new'),
                         Textarea::make('description')
                             ->label('Deskripsi / Catatan Artikel')
-                            ->default(fn (Order $record): ?string => $record->description),
+                            ->default(fn (Order $record): ?string => $record->description)
+                            ->visible(fn (Get $get): bool => $get('article_mode') === 'new')
+                            ->rows(3),
                     ])
                     ->action(function (Order $record, array $data) {
                         $sample = app(SampleService::class)->initializeSampleFromOrder($record, $data);
 
                         Notification::make()
-                            ->title('Artikel dan Sample v1 berhasil dibuat')
+                            ->title('Sample v1 dan Artikel berhasil dibuat')
                             ->success()
                             ->send();
 
@@ -265,22 +319,7 @@ class OrdersTable
                             ->danger()
                             ->send();
                     }),
-                Action::make('sendSampleRequest')
-                    ->label('Kirim Permintaan Sample')
-                    ->icon(Heroicon::OutlinedPaperAirplane)
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Kirim permintaan sample?')
-                    ->modalDescription('Sample akan dibuat dari gambar design dan deskripsi klien, lalu diteruskan ke Tim Sample.')
-                    ->visible(fn (Order $record): bool => $record->article_id === null && (auth()->user()?->can('requestSample', $record) ?? false))
-                    ->action(function (Order $record): void {
-                        app(OrderQuotationService::class)->requestSample($record, auth()->user());
 
-                        Notification::make()
-                            ->title('Permintaan sample dibuat')
-                            ->success()
-                            ->send();
-                    }),
                 Action::make('downloadDesigns')
                     ->label('Unduh Desain')
                     ->icon(Heroicon::OutlinedArrowDownTray)
