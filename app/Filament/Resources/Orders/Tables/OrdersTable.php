@@ -8,6 +8,7 @@ use App\Filament\Resources\Samples\SampleResource;
 use App\Models\Article;
 use App\Models\Order;
 use App\Services\Order\OrderQuotationService;
+use App\Services\Order\QuoteDocumentRenderer;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -26,6 +27,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 /**
@@ -203,6 +205,16 @@ class OrdersTable
 
                         return redirect(SampleResource::getUrl('edit', ['record' => $sample->getKey()]));
                     }),
+                Action::make('viewQuote')
+                    ->label('Dokumen Penawaran')
+                    ->icon(Heroicon::OutlinedDocumentText)
+                    ->color('info')
+                    ->visible(fn (Order $record): bool => (bool) $record->quoted_at && (float) $record->estimated_cost > 0)
+                    ->modalHeading(fn (Order $record): string => "Dokumen Penawaran — {$record->order_number}")
+                    ->modalContent(fn (Order $record): HtmlString => new HtmlString(QuoteDocumentRenderer::renderHtml($record)))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('4xl'),
                 Action::make('provideQuote')
                     ->label('Berikan Penawaran')
                     ->icon(Heroicon::OutlinedBanknotes)
