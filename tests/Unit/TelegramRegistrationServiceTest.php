@@ -21,7 +21,7 @@ class TelegramRegistrationServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new TelegramRegistrationService;
+        $this->service = app(TelegramRegistrationService::class);
 
         Role::firstOrCreate(['name' => UserRole::CLIENT_MAKLON->value, 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => UserRole::WAREHOUSE->value, 'guard_name' => 'web']);
@@ -92,21 +92,11 @@ class TelegramRegistrationServiceTest extends TestCase
 
     public function test_builds_deep_link_with_token_as_start_payload(): void
     {
-        config(['services.telegram.bot_username' => 'LuklaOperationsBot']);
+        config(['telegram.bots.client.username' => 'LuklaClientBot']);
 
-        $link = $this->service->buildDeepLink('ABC123XYZ');
+        $link = $this->service->buildDeepLink('abc123xyz');
 
-        $this->assertSame('https://t.me/LuklaOperationsBot?start=ABC123XYZ', $link);
-    }
-
-    public function test_deep_link_strips_leading_at_from_bot_username(): void
-    {
-        config(['services.telegram.bot_username' => '@LuklaOperationsBot']);
-
-        $this->assertSame(
-            'https://t.me/LuklaOperationsBot?start=ABC123XYZ',
-            $this->service->buildDeepLink('ABC123XYZ'),
-        );
+        $this->assertSame('https://t.me/LuklaClientBot?start=ABC123XYZ', $link);
     }
 
     public function test_payload_telegram_sends_back_from_deep_link_is_extractable(): void

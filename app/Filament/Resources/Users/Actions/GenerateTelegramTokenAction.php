@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users\Actions;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\Ai\TelegramRegistrationService;
+use App\Services\Telegram\TelegramBotConfig;
 use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\HtmlString;
@@ -48,7 +49,7 @@ class GenerateTelegramTokenAction
 
                 $token = $result['token'];
                 $expiresAt = $result['expires_at']->format('d M Y, H:i');
-                $botUsername = config('services.telegram.bot_username', 'LuklaOperationsBot');
+                $botUsername = app(TelegramBotConfig::class)->username('client');
                 $deepLink = $service->buildDeepLink($token);
 
                 return new HtmlString(
