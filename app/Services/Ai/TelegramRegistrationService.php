@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Enums\UserRole;
 use App\Models\TelegramRegistrationToken;
 use App\Models\User;
+use App\Services\Telegram\TelegramBotConfig;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,10 @@ use Illuminate\Support\Str;
 class TelegramRegistrationService
 {
     private const TOKEN_TTL_HOURS = 24;
+
+    public function __construct(
+        private readonly TelegramBotConfig $botConfig,
+    ) {}
 
     /**
      * Generate a fresh registration token for the given user.
@@ -73,9 +78,7 @@ class TelegramRegistrationService
      */
     public function buildDeepLink(string $token): string
     {
-        $botUsername = ltrim((string) config('services.telegram.bot_username'), '@');
-
-        return 'https://t.me/'.$botUsername.'?start='.strtoupper(trim($token));
+        return $this->botConfig->startUrl('client', strtoupper(trim($token)));
     }
 
     /**

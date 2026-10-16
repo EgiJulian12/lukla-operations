@@ -91,33 +91,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Telegram Bot Configuration
+    | Client Telegram Bedrock Assistant
     |--------------------------------------------------------------------------
     |
-    | Used by the Telegram webhook endpoint to validate incoming requests and
-    | to send reply messages back to clients via the Bot API.
+    | Inference settings for the agentic AI assistant on the client bot.
+    | AWS credentials and region are shared with the `bedrock` block above;
+    | rows are always scoped to the client in ClientDataService.
     |
     */
-
-    'telegram' => [
-        // Secret token set when registering the webhook with Telegram (setWebhook).
-        // Telegram includes this in the X-Telegram-Bot-Api-Secret-Token header.
-        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
-
-        // Bot token issued by @BotFather.
-        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
-
-        // Bot @username shown in the registration instructions modal.
-        'bot_username' => env('TELEGRAM_BOT_USERNAME', 'LuklaOperationsBot'),
-
-        // Telegram Bot API base URL (override for local proxies if needed).
-        'api_url' => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
-
-        // TLS certificate verification for outbound Bot API calls. Dev machines
-        // behind a TLS-inspecting proxy or antivirus (self-signed cert in the
-        // chain) must set TELEGRAM_VERIFY_SSL=false, otherwise every reply
-        // silently fails. Leave enabled in production.
-        'verify_ssl' => env('TELEGRAM_VERIFY_SSL', true),
+    'client_bot' => [
+        'model_id' => env('BEDROCK_CLIENT_MODEL_ID', env('BEDROCK_MODEL_ID', 'amazon.nova-lite-v1:0')),
+        'max_tokens' => (int) env('BEDROCK_CLIENT_MAX_TOKENS', 1500),
+        'temperature' => (float) env('BEDROCK_CLIENT_TEMPERATURE', 0.2),
     ],
 
 ];

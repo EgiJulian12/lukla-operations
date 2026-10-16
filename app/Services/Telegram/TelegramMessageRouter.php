@@ -8,10 +8,14 @@ use App\Exceptions\InvalidSampleState;
 use App\Models\Order;
 use App\Models\SampleRevision;
 use App\Models\User;
+use App\Services\Ai\TelegramRegistrationService;
+use App\Services\ClientBot\BedrockClientBotService;
 use App\Services\Order\OrderQuotationService;
+use App\Services\OwnerBot\BedrockOwnerBotService;
 use App\Services\Sample\SampleService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Telegram\Bot\Laravel\Facades\Telegram;
 use Telegram\Bot\Objects\Update;
 use Throwable;
@@ -31,6 +35,9 @@ class TelegramMessageRouter
         private readonly TelegramBotConfig $config,
         private readonly OrderQuotationService $quotations,
         private readonly SampleService $samples,
+        private readonly BedrockClientBotService $assistant,
+        private readonly TelegramRegistrationService $registrations,
+        private readonly BedrockOwnerBotService $ownerAssistant,
     ) {}
 
     public function route(string $bot, Update $update): void
@@ -67,7 +74,7 @@ class TelegramMessageRouter
         $chatId = (int) $chat->get('id');
         $telegramUserId = (int) collect($message->get('from', collect()))->get('id', 0);
 
-        [$command, $payload] = $this->parseCommand((string) $message->get('text', ''));
+        [$command, $payload] = $this->parseCommand($text = (string) $message->get('text', ''));
 
         $user = $this->binding->findUserByChatId($chatId);
 
@@ -76,7 +83,7 @@ class TelegramMessageRouter
             'help' => $this->reply($bot, $chatId, $this->helpText($user)),
             'orders' => $this->handleOrders($bot, $chatId, $user),
             'status' => $this->handleStatus($bot, $chatId, $user, $payload),
-            default => null,
+            default => $this->handleAssistantMessage($bot, $chatId, $text, $user),
         };
     }
 
@@ -114,6 +121,17 @@ class TelegramMessageRouter
             }
 
             if ($linked === null) {
+                // Token dari Filament "Token Telegram" (tabel
+                // telegram_registration_tokens) bukan token binding. Coba
+                // alur registrasi lama agar deep link admin tetap berjalan.
+                $registered = $this->registrations->register($payload, $chatId);
+
+                if ($registered['success']) {
+                    $this->reply($bot, $chatId, $registered['message']."\n\n".$this->helpText($registered['user']));
+
+                    return;
+                }
+
                 $this->reply($bot, $chatId, 'Tautan tidak valid atau sudah kedaluwarsa. Buat tautan baru dari panel aplikasi.');
 
                 return;
@@ -135,11 +153,21 @@ class TelegramMessageRouter
 
     private function helpText(?User $user): string
     {
-        if ($user === null || ! $user->isClientUser()) {
+        if ($user === null) {
             return "Perintah:\n/status <nomor> — detail order\nTombol persetujuan akan muncul pada pesan pengajuan.";
         }
 
-        return "Perintah:\n/orders — ringkasan order Anda\n/status <nomor> — detail satu order";
+        if ($user->hasRoleSatisfying(fn (UserRole $role): bool => $role === UserRole::OWNER_EXECUTIVE)) {
+            return "Perintah:\n/status <nomor> — detail satu order\n\n"
+                .'Anda juga bisa bertanya bebas: "ID barang 5 sedang ngapain", "tagihan klien PT Maju", "status order ORD-...", atau "ringkasan pabrik" — Asisten AI Owner menjawab dari data pabrik langsung.';
+        }
+
+        if (! $user->isClientUser()) {
+            return "Perintah:\n/status <nomor> — detail order\nTombol persetujuan akan muncul pada pesan pengajuan.";
+        }
+
+        return "Perintah:\n/orders — ringkasan order Anda\n/status <nomor> — detail satu order\n\n"
+            .'Anda juga bisa langsung bertanya dengan bahasa sendiri, misalnya: "status order saya", "stok kain saya", "apa itu CMT" — Asisten AI akan menjawab dari data operasional Anda.';
     }
 
     private function handleOrders(string $bot, int $chatId, ?User $user): void
@@ -209,6 +237,78 @@ class TelegramMessageRouter
                 ? 'Penawaran menunggu persetujuan Anda — minta notifikasi ulang lewat tombol penawaran atau hubungi owner.'
                 : 'Kirim /status '.$order->order_number.' kembali nanti untuk melihat perkembangannya.',
         ));
+    }
+
+    private function handleAssistantMessage(string $bot, int $chatId, string $text, ?User $user): void
+    {
+        if (trim($text) === '') {
+            return;
+        }
+
+        if ($bot === 'owner') {
+            $this->handleOwnerAssistantMessage($bot, $chatId, $text, $user);
+
+            return;
+        }
+
+        if ($user === null || ! $user->isClientUser() || $user->client_id === null) {
+            $this->reply($bot, $chatId, $this->unboundText());
+
+            return;
+        }
+
+        if (RateLimiter::tooManyAttempts("ai-telegram:{$chatId}", 20)) {
+            $this->reply($bot, $chatId, 'Anda mengirim pertanyaan terlalu cepat. Coba lagi beberapa saat.');
+
+            return;
+        }
+
+        RateLimiter::hit("ai-telegram:{$chatId}", 60);
+
+        $this->showTyping($bot, $chatId);
+
+        $this->reply($bot, $chatId, $this->assistant->handleMessage($user, $text));
+    }
+
+    private function handleOwnerAssistantMessage(string $bot, int $chatId, string $text, ?User $user): void
+    {
+        if ($user === null) {
+            $this->reply($bot, $chatId, $this->unboundText());
+
+            return;
+        }
+
+        // Owner AI memaparkan data lintas klien (tagihan, piutang, semua
+        // order), jadi aksesnya dibatasi role OWNER_EXECUTIVE — konsisten
+        // dengan EnsureOwnerBotAccess di API.
+        if (! $user->hasRoleSatisfying(fn (UserRole $role): bool => $role === UserRole::OWNER_EXECUTIVE)) {
+            $this->reply($bot, $chatId, 'Asisten AI Owner hanya untuk akun Owner / Eksekutif Internal.');
+
+            return;
+        }
+
+        if (RateLimiter::tooManyAttempts("ai-telegram-owner:{$chatId}", 20)) {
+            $this->reply($bot, $chatId, 'Anda mengirim pertanyaan terlalu cepat. Coba lagi beberapa saat.');
+
+            return;
+        }
+
+        RateLimiter::hit("ai-telegram-owner:{$chatId}", 60);
+
+        $this->showTyping($bot, $chatId);
+
+        $response = $this->ownerAssistant->handleMessage($text, (string) $chatId);
+
+        $this->reply($bot, $chatId, $response['reply'], 'Markdown');
+    }
+
+    private function showTyping(string $bot, int $chatId): void
+    {
+        try {
+            Telegram::bot($bot)->sendChatAction(['chat_id' => $chatId, 'action' => 'typing']);
+        } catch (Throwable) {
+            // Best-effort: kegagalan di sini tidak boleh menggagalkan jawaban AI.
+        }
     }
 
     private function handleCallbackQuery(string $bot, $callbackQuery): void
@@ -291,9 +391,15 @@ class TelegramMessageRouter
         ));
     }
 
-    private function reply(string $bot, int $chatId, string $text): void
+    private function reply(string $bot, int $chatId, string $text, ?string $parseMode = null): void
     {
-        Telegram::bot($bot)->sendMessage(['chat_id' => $chatId, 'text' => $text]);
+        $params = ['chat_id' => $chatId, 'text' => $text];
+
+        if ($parseMode !== null) {
+            $params['parse_mode'] = $parseMode;
+        }
+
+        Telegram::bot($bot)->sendMessage($params);
     }
 
     private function unboundText(): string

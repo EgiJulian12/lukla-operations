@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\OwnerBotController;
-use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,7 +37,3 @@ Route::middleware(['owner.bot'])->prefix('owner')->group(function (): void {
 | bootstrap/app.php and are automatically prefixed with /api.
 |
 */
-
-Route::post('/client/telegram/webhook', [TelegramWebhookController::class, 'handle'])
-    ->middleware('telegram.webhook')
-    ->name('telegram.webhook');

@@ -136,6 +136,19 @@ PROMPT;
             $stopReason = $response['stopReason'] ?? 'end_turn';
             $messageOutput = $response['output']['message'] ?? [];
 
+            // Input tool dari SDK tiba sebagai array PHP; array kosong
+            // diserialisasi ulang menjadi JSON list, bukan object, dan
+            // Converse menolak feedback toolUse-nya. Ubah ke stdClass agar
+            // tetap menjadi JSON object.
+            $content = [];
+            foreach ($messageOutput['content'] ?? [] as $block) {
+                if (isset($block['toolUse']) && ($block['toolUse']['input'] ?? []) === []) {
+                    $block['toolUse']['input'] = new \stdClass;
+                }
+                $content[] = $block;
+            }
+            $messageOutput['content'] = $content;
+
             // Add assistant response to messages history
             $messages[] = $messageOutput;
 
@@ -146,7 +159,7 @@ PROMPT;
                     if (isset($contentBlock['toolUse'])) {
                         $toolUse = $contentBlock['toolUse'];
                         $toolName = $toolUse['name'];
-                        $toolInput = $toolUse['input'] ?? [];
+                        $toolInput = (array) ($toolUse['input'] ?? []);
                         $toolUseId = $toolUse['toolUseId'];
 
                         $toolsUsed[] = $toolName;

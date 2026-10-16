@@ -200,7 +200,7 @@ PROMPT;
     /**
      * Public proxy for retrieving scored S3 chunks for a given query.
      *
-     * Exposed so that external services (e.g. TelegramRagService) can retrieve
+     * Exposed so external services (chat widgets, bot agents) can retrieve
      * relevant documentation chunks without duplicating the scoring logic.
      *
      * @return list<array{content: string, source: string, chunk_index: int, score: float}>
