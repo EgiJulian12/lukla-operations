@@ -49,18 +49,19 @@ class InvoiceService
 
         $order = $invoice->order;
         if ($order) {
-            // Tandai order menjadi COMPLETED (Selesai Produksi) di semua role
-            if ($order->status !== OrderStatus::COMPLETED && $order->status !== OrderStatus::CLOSED) {
+            // Tandai seluruh inventory items pesanan ini menjadi FINISHED (Barang Jadi)
+            $order->inventoryItems()
+                ->where('state', '!=', InventoryState::FINISHED->value)
+                ->update(['state' => InventoryState::FINISHED]);
+
+            if ($order->isEligibleForClosure()) {
+                $order->close();
+            } elseif ($order->status !== OrderStatus::COMPLETED && $order->status !== OrderStatus::CLOSED) {
                 $order->update([
                     'status' => OrderStatus::COMPLETED,
                     'completed_at' => now(),
                 ]);
             }
-
-            // Tandai seluruh inventory items pesanan ini menjadi FINISHED (Barang Jadi)
-            $order->inventoryItems()
-                ->where('state', '!=', InventoryState::FINISHED->value)
-                ->update(['state' => InventoryState::FINISHED]);
         }
 
         return $invoice->refresh();
@@ -135,18 +136,20 @@ class InvoiceService
             }
         }
 
-        // ── 3. PPN ───────────────────────────────────────────────────────────
-        $subtotalBeforeTax = round($sewingAmount + $overheadAmount, 2);
+        // ── 3. PPN (Dihitung dari ongkos jahit yang ditagihkan ke klien) ────
+        $subtotalBeforeTax = round($sewingAmount, 2);
         $taxAmount = $taxPercent > 0
             ? round($subtotalBeforeTax * $taxPercent / 100, 2)
             : 0.0;
 
-        // ── 4. Grand Total ───────────────────────────────────────────────────
+        // ── 4. Grand Total Tagihan Klien (Overhead hanya catatan internal) ───
         $grandTotal = round($subtotalBeforeTax + $taxAmount, 2);
+        $internalTotal = round($sewingAmount + $overheadAmount + $taxAmount, 2);
 
         return [
             'sewing_amount' => $sewingAmount,
             'overhead_amount' => $overheadAmount,
+            'internal_amount' => $internalTotal,
             'tax_amount' => $taxAmount,
             'amount' => $grandTotal,
             'unrated_entries' => $sewingResult['unrated_entries'],
@@ -160,18 +163,19 @@ class InvoiceService
     }
 
     /**
-     * Hitung biaya overhead saja untuk order tertentu.
+     * Hitung biaya dengan pajak untuk order tertentu.
      * Dipakai form saat hanya tax_percent yang berubah agar overhead tidak dihitung ulang.
      */
     public function recalculateWithTax(float $sewingAmount, float $overheadAmount, float $taxPercent): array
     {
-        $subtotal = round($sewingAmount + $overheadAmount, 2);
+        $subtotal = round($sewingAmount, 2);
         $taxAmount = $taxPercent > 0 ? round($subtotal * $taxPercent / 100, 2) : 0.0;
         $total = round($subtotal + $taxAmount, 2);
 
         return [
             'tax_amount' => $taxAmount,
             'amount' => $total,
+            'internal_amount' => round($subtotal + $overheadAmount + $taxAmount, 2),
         ];
     }
 

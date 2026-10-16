@@ -7,6 +7,7 @@ use App\Enums\OutputStatus;
 use App\Enums\QcResult;
 use App\Models\Order;
 use App\Services\Order\OrderQuotationService;
+use App\Services\Order\QuoteDocumentRenderer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
@@ -17,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 /**
  * Daftar pesanan klien dengan progres produksi dan hasil QC-nya.
@@ -70,6 +72,16 @@ class PortalOrdersTable
                     ->options(OrderStatus::class),
             ])
             ->recordActions([
+                Action::make('viewQuote')
+                    ->label('Dokumen Penawaran')
+                    ->icon(Heroicon::OutlinedDocumentText)
+                    ->color('info')
+                    ->visible(fn (Order $record): bool => (bool) $record->quoted_at && (float) $record->estimated_cost > 0)
+                    ->modalHeading(fn (Order $record): string => "Dokumen Penawaran — {$record->order_number}")
+                    ->modalContent(fn (Order $record): HtmlString => new HtmlString(QuoteDocumentRenderer::renderHtml($record)))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('4xl'),
                 Action::make('approveQuote')
                     ->label('Setujui Penawaran')
                     ->icon(Heroicon::OutlinedCheckCircle)

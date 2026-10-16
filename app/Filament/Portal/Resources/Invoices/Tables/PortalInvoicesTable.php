@@ -76,7 +76,7 @@ class PortalInvoicesTable
                         $method = $reflection->getMethod('buildDetailHtml');
                         $method->setAccessible(true);
 
-                        return new HtmlString($method->invoke(null, $record));
+                        return new HtmlString($method->invoke(null, $record, true));
                     })
                     ->modalWidth('4xl'),
 

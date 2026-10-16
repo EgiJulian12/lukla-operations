@@ -169,7 +169,7 @@ class InvoiceForm
                     ->readOnly()
                     ->columnSpan(1)
                     ->helperText(fn (callable $get): string => $get('order_id')
-                        ? 'Dihitung otomatis: ongkos jahit + overhead + PPN.'
+                        ? 'Dihitung otomatis: ongkos jahit + PPN (overhead hanya dicatat internal, tidak ditagihkan ke klien).'
                         : 'Pilih order di atas untuk kalkulasi otomatis.'),
 
                 // ── Kolom tersembunyi (state antara) ─────────────────────
@@ -249,46 +249,44 @@ class InvoiceForm
             number_format($result['sewing_amount'], 0, ',', '.'),
         );
 
-        // Overhead (jika applicable)
-        if ($result['is_overhead_applicable'] && $result['overhead_amount'] > 0) {
+        // PPN
+        if ($result['tax_amount'] > 0) {
             $summary .= sprintf(
                 '<tr>
-                    <td colspan="3" class="py-1 pr-3 text-sm text-indigo-700">
-                        Overhead %s — %s pcs × Rp %s/unit
-                    </td>
-                    <td class="py-1 text-sm text-right font-semibold text-indigo-700">Rp %s</td>
+                    <td colspan="3" class="py-1 pr-3 text-sm text-orange-700">PPN</td>
+                    <td class="py-1 text-sm text-right font-semibold text-orange-700">Rp %s</td>
                 </tr>',
+                number_format($result['tax_amount'], 0, ',', '.'),
+            );
+        }
+
+        // Grand total tagihan klien
+        $summary .= sprintf(
+            '<tr class="border-t-2 border-primary-200">
+                <td colspan="3" class="pt-2 pr-3 text-sm font-bold text-primary-700">Total Tagihan Klien</td>
+                <td class="pt-2 text-sm text-right font-bold text-primary-700">Rp %s</td>
+            </tr>',
+            number_format($result['amount'], 0, ',', '.'),
+        );
+
+        // Overhead (catatan internal pabrik saja)
+        $overheadNote = '';
+        if ($result['is_overhead_applicable'] && $result['overhead_amount'] > 0) {
+            $overheadNote = sprintf(
+                '<div class="mt-3 p-2.5 bg-blue-50/60 rounded border border-dashed border-blue-200 text-xs text-blue-900">
+                    <span class="font-bold">📋 Catatan Internal Pabrik (Overhead):</span>
+                    %s — %s pcs × Rp %s/unit = <strong>Rp %s</strong> (tidak ditagihkan ke klien).
+                </div>',
                 htmlspecialchars($result['overhead_period'] ?? ''),
                 number_format($result['overhead_qty']),
                 number_format($result['overhead_per_unit'], 0, ',', '.'),
                 number_format($result['overhead_amount'], 0, ',', '.'),
             );
         } elseif ($result['is_overhead_applicable'] && $result['overhead_amount'] === 0.0) {
-            $summary .= '<tr><td colspan="4" class="py-1 text-xs text-amber-600 italic">
+            $overheadNote = '<div class="mt-2 text-xs text-amber-600 italic">
                 ⚠ Overhead berlaku untuk skema ini tapi belum ada alokasi overhead bulan ini.
-            </td></tr>';
+            </div>';
         }
-
-        // PPN
-        if ($result['tax_amount'] > 0) {
-            $summary .= sprintf(
-                '<tr>
-                    <td colspan="3" class="py-1 pr-3 text-sm text-orange-700">PPN %s%%</td>
-                    <td class="py-1 text-sm text-right font-semibold text-orange-700">Rp %s</td>
-                </tr>',
-                number_format((float) ($result['tax_amount'] > 0 ? 0 : 0), 1),
-                number_format($result['tax_amount'], 0, ',', '.'),
-            );
-        }
-
-        // Grand total
-        $summary .= sprintf(
-            '<tr class="border-t-2 border-primary-200">
-                <td colspan="3" class="pt-2 pr-3 text-sm font-bold text-primary-700">Total Tagihan</td>
-                <td class="pt-2 text-sm text-right font-bold text-primary-700">Rp %s</td>
-            </tr>',
-            number_format($result['amount'], 0, ',', '.'),
-        );
 
         $warning = $result['unrated_entries'] > 0
             ? sprintf(
@@ -300,7 +298,7 @@ class InvoiceForm
         return sprintf(
             '<div class="rounded-lg border border-gray-200 p-3 bg-gray-50">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Kalkulasi Otomatis — Skema: %s
+                    Kalkulasi Tagihan Klien — Skema: %s
                 </p>
                 <table class="w-full">
                     <thead>
@@ -312,11 +310,12 @@ class InvoiceForm
                         </tr>
                     </thead>
                     <tbody>%s%s</tbody>
-                </table>%s
+                </table>%s%s
             </div>',
             htmlspecialchars($result['work_scheme']),
             $rows,
             $summary,
+            $overheadNote,
             $warning,
         );
     }

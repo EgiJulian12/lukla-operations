@@ -24,6 +24,8 @@ class PayrollPeriodForm
             ->components([
                 DatePicker::make('period_start')
                     ->label('Awal Periode')
+                    ->default(fn () => now()->startOfWeek())
+                    ->helperText('Tanggal awal rentang kerja penjahit yang akan dihitung upahnya (default: Senin).')
                     ->required()
                     ->rules([
                         fn (Get $get, ?PayrollPeriod $record): Unique => Rule::unique('payroll_periods', 'period_start')
@@ -35,6 +37,8 @@ class PayrollPeriodForm
                     ]),
                 DatePicker::make('period_end')
                     ->label('Akhir Periode')
+                    ->default(fn () => now()->endOfWeek())
+                    ->helperText('Tanggal akhir rentang kerja penjahit (default: Minggu).')
                     ->required()
                     ->afterOrEqual('period_start'),
                 TextInput::make('meal_allowance_percent')
@@ -43,7 +47,8 @@ class PayrollPeriodForm
                     ->suffix('%')
                     ->minValue(0)
                     ->maxValue(100)
-                    ->helperText('Persentase dari total dana ongkos jahit periode ini.'),
+                    ->default(10)
+                    ->helperText('Persentase dari total dana ongkos jahit periode ini untuk dialokasikan ke uang makan.'),
                 TextInput::make('qc_bonus_rate_per_unit')
                     ->label('Tarif Bonus QC')
                     ->numeric()

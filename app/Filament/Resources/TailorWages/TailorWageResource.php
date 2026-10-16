@@ -104,10 +104,30 @@ class TailorWageResource extends Resource
                     ->badge()
                     ->color('info')
                     ->placeholder('-'),
+                TextColumn::make('articles')
+                    ->label('Artikel')
+                    ->state(function (PayrollEntry $record): array {
+                        $breakdown = $record->getGroupedWorkBreakdown();
+
+                        if (empty($breakdown)) {
+                            return [];
+                        }
+
+                        return collect($breakdown)
+                            ->pluck('article_name')
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all();
+                    })
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('-'),
                 TextColumn::make('total_pieces')
                     ->label('Total Pcs')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->tooltip('Total pcs komponen terverifikasi lintas semua order dalam periode ini.'),
                 TextColumn::make('sewing_amount')
                     ->label('Ongkos Jahit')
                     ->money('IDR')
@@ -151,8 +171,10 @@ class TailorWageResource extends Resource
 
         $rowsHtml = '';
         if (empty($breakdown)) {
-            $rowsHtml = '<tr><td colspan="5" style="padding:16px;text-align:center;color:#6b7280;font-style:italic">Tidak ada catatan output terverifikasi pada periode ini.</td></tr>';
+            $rowsHtml = '<tr><td colspan="4" style="padding:16px;text-align:center;color:#6b7280;font-style:italic">Tidak ada catatan output terverifikasi pada periode ini.</td></tr>';
         } else {
+            $prevArticle = null;
+
             foreach ($breakdown as $row) {
                 $client = htmlspecialchars($row['client_name']);
                 $order = htmlspecialchars($row['order_number']);
@@ -160,12 +182,22 @@ class TailorWageResource extends Resource
                 $comp = htmlspecialchars($row['component_name']);
                 $pcs = number_format($row['total_pieces']);
 
-                $rowsHtml .= "<tr style=\"border-bottom:1px solid #e5e7eb\">
-                    <td style=\"padding:10px 14px;color:#111827;font-weight:600\">{$client}</td>
-                    <td style=\"padding:10px 14px;color:#4b5563\">{$order}</td>
-                    <td style=\"padding:10px 14px;color:#4b5563\">{$article}</td>
-                    <td style=\"padding:10px 14px\"><span style=\"display:inline-block;padding:2px 8px;border-radius:9999px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:500\">{$comp}</span></td>
-                    <td style=\"padding:10px 14px;text-align:right;font-weight:600;color:#111827\">{$pcs} pcs</td>
+                // Artikel header row — pemisah visual per artikel
+                if ($article !== $prevArticle) {
+                    $rowsHtml .= sprintf(
+                        '<tr style="background:#f0f9ff;border-bottom:1px solid #bae6fd">'.
+                        '<td colspan="4" style="padding:8px 14px;font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.05em">'.
+                        '&#128230; %s</td></tr>',
+                        $article,
+                    );
+                    $prevArticle = $article;
+                }
+
+                $rowsHtml .= "<tr style=\"border-bottom:1px solid #f3f4f6\">
+                    <td style=\"padding:9px 14px;color:#111827;font-weight:600;font-size:13px\">{$client}</td>
+                    <td style=\"padding:9px 14px;color:#4b5563;font-size:13px\">{$order}</td>
+                    <td style=\"padding:9px 14px\"><span style=\"display:inline-block;padding:2px 8px;border-radius:9999px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:500\">{$comp}</span></td>
+                    <td style=\"padding:9px 14px;text-align:right;font-weight:600;color:#111827;font-size:13px\">{$pcs} pcs</td>
                 </tr>";
             }
         }
@@ -184,8 +216,16 @@ class TailorWageResource extends Resource
                     <span style=\"font-size:11px;color:#1e40af;text-transform:uppercase;font-weight:600\">Output Anda</span>
                     <div style=\"font-size:14px;font-weight:700;color:#1d4ed8;margin-top:2px\">{$totalPieces} pcs</div>
                 </div>
+                <div style=\"background:#f9fafb;padding:12px;border-radius:8px;border:1px solid #e5e7eb\">
+                    <span style=\"font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600\">Ongkos Jahit</span>
+                    <div style=\"font-size:14px;font-weight:700;color:#111827;margin-top:2px\">{$sewingAmount}</div>
+                </div>
+                <div style=\"background:#f9fafb;padding:12px;border-radius:8px;border:1px solid #e5e7eb\">
+                    <span style=\"font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600\">Uang Makan</span>
+                    <div style=\"font-size:14px;font-weight:700;color:#111827;margin-top:2px\">{$mealAmount}</div>
+                </div>
                 <div style=\"background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #bbf7d0\">
-                    <span style=\"font-size:11px;color:#166534;text-transform:uppercase;font-weight:600\">Total Upah (Jahit + Makan)</span>
+                    <span style=\"font-size:11px;color:#166534;text-transform:uppercase;font-weight:600\">Total Diterima</span>
                     <div style=\"font-size:14px;font-weight:700;color:#15803d;margin-top:2px\">{$totalAmount}</div>
                 </div>
             </div>

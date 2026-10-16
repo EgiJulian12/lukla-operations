@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Invoices\Tables;
 
 use App\Enums\InvoiceStatus;
 use App\Enums\OutputStatus;
+use App\Enums\UserRole;
 use App\Models\Invoice;
 use App\Models\OutputEntry;
 use App\Models\RateCard;
@@ -108,8 +109,13 @@ class InvoicesTable
     // Modal Detail HTML
     // -------------------------------------------------------------------------
 
-    private static function buildDetailHtml(Invoice $record): string
+    private static function buildDetailHtml(Invoice $record, bool $isClientPortal = false): string
     {
+        // Deteksi peran klien jika belum dispesifikasikan
+        if (! $isClientPortal && auth()->user()?->hasRole(UserRole::CLIENT_MAKLON)) {
+            $isClientPortal = true;
+        }
+
         [$statusBg, $statusText, $statusDot] = match ($record->status) {
             InvoiceStatus::DRAFT => ['#f3f4f6', '#374151', '#9ca3af'],
             InvoiceStatus::ISSUED => ['#fffbeb', '#92400e', '#f59e0b'],
@@ -190,7 +196,7 @@ class InvoicesTable
             self::infoCell('Klien', $clientName),
             self::infoCell('Order', $orderNumber),
             self::infoCell('Skema', $record->order ? htmlspecialchars($record->order->work_scheme->getLabel()) : '-'),
-            self::infoCell('Total Tagihan', '<span style="font-size:16px;font-weight:700;color:#1d4ed8">'.$amountFmt.'</span>'),
+            self::infoCell('Total Tagihan Klien', '<span style="font-size:16px;font-weight:700;color:#1d4ed8">'.$amountFmt.'</span>'),
             self::infoCell('Diterbitkan oleh', $issuerName),
             self::infoCell('Tanggal Terbit', $issuedAt),
             self::infoCell('Jatuh Tempo', '<span style="'.($record->due_at && $record->due_at->isPast() && $record->status !== InvoiceStatus::PAID ? 'color:#dc2626;font-weight:600' : 'color:#111827').'">'.$dueAt.'</span>'),
@@ -201,7 +207,7 @@ class InvoicesTable
         );
 
         // ── Breakdown tabel ────────────────────────────────────────────────
-        $breakdownSection = self::buildBreakdownSection($record);
+        $breakdownSection = self::buildBreakdownSection($record, $isClientPortal);
 
         // ── Footer timestamps ──────────────────────────────────────────────
         $footer = sprintf(
@@ -229,7 +235,7 @@ class InvoicesTable
     // Breakdown tabel ongkos jahit
     // -------------------------------------------------------------------------
 
-    private static function buildBreakdownSection(Invoice $record): string
+    private static function buildBreakdownSection(Invoice $record, bool $isClientPortal = false): string
     {
         if (! $record->order_id) {
             return self::emptyState(
@@ -346,34 +352,6 @@ class InvoicesTable
             number_format($grandTotal, 0, ',', '.'),
         );
 
-        // ── Overhead (jika ada di record) ───────────────────────────────────
-        $overheadAmount = (float) ($record->overhead_amount ?? 0);
-
-        if ($overheadAmount > 0) {
-            $rows .= sprintf(
-                '<tr style="background:#eef2ff">
-                    <td colspan="3" style="padding:10px 12px;font-size:13px;color:#4338ca">
-                        🏭 Biaya Overhead
-                    </td>
-                    <td style="padding:10px 12px;font-size:13px;text-align:right;font-weight:600;color:#4338ca">Rp %s</td>
-                </tr>',
-                number_format($overheadAmount, 0, ',', '.'),
-            );
-        }
-
-        // ── Subtotal sebelum pajak ──────────────────────────────────────────
-        $subtotalBeforeTax = $grandTotal + $overheadAmount;
-
-        if ($overheadAmount > 0) {
-            $rows .= sprintf(
-                '<tr style="background:#f5f3ff">
-                    <td colspan="3" style="padding:9px 12px;font-size:13px;font-weight:600;color:#5b21b6">Subtotal (Jahit + Overhead)</td>
-                    <td style="padding:9px 12px;font-size:13px;text-align:right;font-weight:700;color:#5b21b6">Rp %s</td>
-                </tr>',
-                number_format($subtotalBeforeTax, 0, ',', '.'),
-            );
-        }
-
         // ── PPN ─────────────────────────────────────────────────────────────
         $taxAmount = (float) ($record->tax_amount ?? 0);
         $taxPercent = (float) ($record->tax_percent ?? 0);
@@ -392,7 +370,7 @@ class InvoicesTable
         }
 
         // ── Baris penyesuaian jika amount invoice ≠ kalkulasi ──────────────
-        $expectedTotal = round($subtotalBeforeTax + $taxAmount, 2);
+        $expectedTotal = round($grandTotal + $taxAmount, 2);
         $diff = round((float) $record->amount - $expectedTotal, 2);
 
         if (abs($diff) > 0.01) {
@@ -411,14 +389,42 @@ class InvoicesTable
             );
         }
 
-        // ── Baris total invoice (final) ─────────────────────────────────────
+        // ── Baris total invoice (final tagihan klien) ────────────────────────
         $rows .= sprintf(
             '<tr style="background:#1d4ed8">
-                <td colspan="3" style="padding:13px 12px;font-size:14px;font-weight:700;color:#ffffff">Total Invoice</td>
+                <td colspan="3" style="padding:13px 12px;font-size:14px;font-weight:700;color:#ffffff">Total Tagihan Klien</td>
                 <td style="padding:13px 12px;font-size:15px;font-weight:800;text-align:right;color:#ffffff">Rp %s</td>
             </tr>',
             number_format((float) $record->amount, 0, ',', '.'),
         );
+
+        // ── Catatan Internal Pabrik (Overhead) — Hanya jika bukan portal klien ─
+        $overheadAmount = (float) ($record->overhead_amount ?? 0);
+        $internalSection = '';
+
+        if (! $isClientPortal && $overheadAmount > 0) {
+            $totalInternal = round((float) $record->amount + $overheadAmount, 2);
+            $internalSection = sprintf(
+                '<div style="margin-top:16px;padding:12px 14px;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em">
+                            📋 Catatan Internal Pabrik (Tidak Ditagihkan ke Klien)
+                        </span>
+                        <span style="font-size:10px;padding:2px 6px;background:#e2e8f0;color:#334155;border-radius:4px;font-weight:600">Khusus Internal</span>
+                    </div>
+                    <div style="font-size:12px;color:#475569;display:flex;justify-content:space-between;padding:4px 0">
+                        <span>Alokasi Biaya Overhead</span>
+                        <strong style="color:#1e293b">Rp %s</strong>
+                    </div>
+                    <div style="font-size:12px;color:#475569;display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #e2e8f0;margin-top:4px;padding-top:6px">
+                        <span>Total Biaya Internal (Tagihan Klien + Overhead Pabrik)</span>
+                        <strong style="color:#0f172a">Rp %s</strong>
+                    </div>
+                </div>',
+                number_format($overheadAmount, 0, ',', '.'),
+                number_format($totalInternal, 0, ',', '.'),
+            );
+        }
 
         // ── Warning rate kosong ─────────────────────────────────────────────
         $warning = '';
@@ -451,9 +457,10 @@ class InvoicesTable
                         <tbody>%s</tbody>
                     </table>
                 </div>
-            </div>%s',
+            </div>%s%s',
             htmlspecialchars($record->order?->order_number ?? 'Manual'),
             $rows,
+            $internalSection,
             $warning,
         );
     }
