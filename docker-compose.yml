@@ -1,0 +1,81 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lukla_app
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3000:3000"
+    environment:
+      - APP_NAME=Lukla Operations
+      - APP_ENV=local
+      - APP_KEY=
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:3000
+      - APP_TIMEZONE=Asia/Jakarta
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=lukla_operations
+      - DB_USERNAME=lukla_app
+      - DB_PASSWORD=secret
+      - SESSION_DRIVER=database
+      - CACHE_STORE=database
+      - QUEUE_CONNECTION=database
+      - RUN_MIGRATIONS=true
+      - RUN_SEEDER=true
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - storage_data:/var/www/html/storage
+
+  db:
+    image: postgres:16-alpine
+    container_name: lukla_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=lukla_operations
+      - POSTGRES_USER=lukla_app
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lukla_app -d lukla_operations"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lukla_queue
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=90"]
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      - APP_NAME=Lukla Operations
+      - APP_ENV=local
+      - APP_KEY=
+      - APP_DEBUG=true
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=lukla_operations
+      - DB_USERNAME=lukla_app
+      - DB_PASSWORD=secret
+      - QUEUE_CONNECTION=database
+
+volumes:
+  postgres_data:
+    driver: local
+  storage_data:
+    driver: local

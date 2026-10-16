@@ -1,0 +1,2397 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guidebook & SOP — Lukla Operations Engine</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 9mm 11mm 10mm 11mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 8.5pt;
+            line-height: 1.36;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+
+        /* Page Breaks */
+        .page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+
+        .avoid-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Cover Page */
+        .cover-page {
+            min-height: 276mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 58%, #1d4ed8 100%);
+            color: #ffffff;
+            padding: 20mm 16mm 16mm 16mm;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cover-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            color: #93c5fd;
+            font-size: 8.2pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 5px 12px;
+            border-radius: 999px;
+            margin-bottom: 14px;
+        }
+
+        .cover-title {
+            font-size: 25pt;
+            font-weight: 800;
+            line-height: 1.15;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+        }
+
+        .cover-subtitle {
+            font-size: 12pt;
+            font-weight: 500;
+            color: #bfdbfe;
+            margin: 0 0 18px 0;
+            line-height: 1.45;
+        }
+
+        .cover-divider {
+            width: 80px;
+            height: 4px;
+            background: #f59e0b;
+            border-radius: 2px;
+            margin: 0 0 18px 0;
+        }
+
+        .cover-desc {
+            font-size: 9.5pt;
+            color: #e2e8f0;
+            line-height: 1.58;
+            margin-bottom: 18px;
+        }
+
+        .cover-pillars {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .cover-pillar-card {
+            background: rgba(15, 23, 42, 0.58);
+            border: 1px solid rgba(148, 163, 184, 0.32);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .cover-pillar-num {
+            font-size: 7.8pt;
+            font-weight: 800;
+            color: #fbbf24;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .cover-pillar-title {
+            font-size: 9.2pt;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 3px 0;
+        }
+
+        .cover-pillar-text {
+            font-size: 7.8pt;
+            color: #cbd5e1;
+            line-height: 1.35;
+        }
+
+        .cover-roles-box {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+        }
+
+        .cover-roles-title {
+            font-size: 7.8pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #93c5fd;
+            margin-bottom: 6px;
+        }
+
+        .cover-roles-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            font-size: 7.8pt;
+            color: #f8fafc;
+        }
+
+        .cover-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.65);
+            border-top: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 11px 14px;
+        }
+
+        .cover-meta-label {
+            font-size: 7.2pt;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #93c5fd;
+            margin-bottom: 2px;
+        }
+
+        .cover-meta-value {
+            font-size: 8.8pt;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        /* Chapter Headers */
+        .chapter-header {
+            background: linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%);
+            color: #ffffff;
+            padding: 7px 12px;
+            border-radius: 6px;
+            margin-bottom: 7px;
+            border-left: 5px solid #f59e0b;
+        }
+
+        .chapter-num {
+            font-size: 7pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #fbbf24;
+            margin-bottom: 1px;
+        }
+
+        .chapter-title {
+            font-size: 12pt;
+            font-weight: 800;
+            margin: 0;
+            color: #ffffff;
+        }
+
+        .chapter-subtitle {
+            font-size: 7.8pt;
+            color: #cbd5e1;
+            margin: 1px 0 0 0;
+        }
+
+        h2 {
+            font-size: 9.3pt;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 5.5px 0 3.5px 0;
+            padding-bottom: 2px;
+            border-bottom: 1.5px solid #cbd5e1;
+        }
+
+        h3 {
+            font-size: 8.4pt;
+            font-weight: 700;
+            color: #1e3a8a;
+            margin: 4px 0 2.5px 0;
+        }
+
+        p {
+            margin: 0 0 3.5px 0;
+        }
+
+        ul, ol {
+            margin: 0 0 3px 0;
+            padding-left: 14px;
+        }
+
+        li {
+            margin-bottom: 1px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+            font-size: 7.3pt;
+        }
+
+        th {
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 700;
+            text-align: left;
+            padding: 3px 5.5px;
+            border: 1px solid #0f172a;
+            font-size: 6.8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        td {
+            padding: 2.4px 5.5px;
+            border: 1px solid #cbd5e1;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 999px;
+            font-size: 6.8pt;
+            font-weight: 700;
+            line-height: 1.18;
+            white-space: nowrap;
+        }
+
+        .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .badge-sample { background: #e0f2fe; color: #075985; border: 1px solid #0284c7; }
+        .badge-warehouse { background: #ffedd5; color: #9a3412; border: 1px solid #ea580c; }
+        .badge-prod { background: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+        .badge-tailor { background: #f1f5f9; color: #334155; border: 1px solid #64748b; }
+        .badge-qc { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
+        .badge-finance { background: #d1fae5; color: #065f46; border: 1px solid #059669; }
+        .badge-client { background: #dbeafe; color: #1e40af; border: 1px solid #2563eb; }
+
+        .btn-ui {
+            display: inline-block;
+            padding: 0.5px 4.5px;
+            border-radius: 3px;
+            font-size: 6.8pt;
+            font-weight: 700;
+            font-family: 'Segoe UI', sans-serif;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .btn-primary { background: #2563eb; color: #ffffff; }
+        .btn-success { background: #16a34a; color: #ffffff; }
+        .btn-warning { background: #d97706; color: #ffffff; }
+        .btn-danger { background: #dc2626; color: #ffffff; }
+        .btn-info { background: #0284c7; color: #ffffff; }
+        .btn-gray { background: #e2e8f0; color: #1e293b; border-color: #94a3b8; }
+
+        /* Callout Boxes */
+        .callout {
+            border-radius: 6px;
+            padding: 4.5px 8px;
+            margin-bottom: 5px;
+            font-size: 7.3pt;
+            border-left: 4px solid;
+        }
+        .callout-title {
+            font-weight: 800;
+            margin-bottom: 1px;
+            display: block;
+            text-transform: uppercase;
+            font-size: 6.9pt;
+            letter-spacing: 0.04em;
+        }
+        .callout-info { background: #eff6ff; border-color: #2563eb; color: #1e3a8a; }
+        .callout-warn { background: #fffbeb; border-color: #d97706; color: #92400e; }
+        .callout-success { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
+        .callout-danger { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+
+        /* Process Card (IPO: Input - Process - Output) */
+        .process-card {
+            border: 1.5px solid #94a3b8;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .process-card-header {
+            background: #f1f5f9;
+            padding: 3.5px 8px;
+            border-bottom: 1.5px solid #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .process-card-title {
+            font-size: 8.3pt;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .process-meta-bar {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr 1fr;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 2.5px 8px;
+            font-size: 7pt;
+            line-height: 1.25;
+            gap: 8px;
+        }
+
+        .process-meta-item strong {
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 6.3pt;
+            display: block;
+        }
+
+        .ipo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr 0.95fr;
+        }
+
+        .ipo-col {
+            padding: 4.5px 7px;
+            font-size: 7.25pt;
+            line-height: 1.28;
+        }
+
+        .ipo-col:not(:last-child) {
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .ipo-col-input { background: #fffbeb; }
+        .ipo-col-process { background: #ffffff; }
+        .ipo-col-output { background: #f0fdf4; }
+
+        .ipo-header {
+            font-size: 6.8pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 2.5px;
+            padding-bottom: 1.5px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .ipo-col-input .ipo-header { color: #b45309; }
+        .ipo-col-process .ipo-header { color: #1d4ed8; }
+        .ipo-col-output .ipo-header { color: #15803d; }
+
+        /* Flow Diagram Blocks */
+        .flow-container {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            padding: 7px 9px;
+            margin-bottom: 7px;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: stretch;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .flow-step {
+            flex: 1;
+            background: #ffffff;
+            border: 1.5px solid #94a3b8;
+            border-radius: 5px;
+            padding: 4.5px 6.5px;
+            font-size: 7.2pt;
+            position: relative;
+        }
+
+        .flow-step-num {
+            display: inline-block;
+            background: #1e3a8a;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 6.6pt;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-bottom: 2px;
+        }
+
+        .flow-step-title {
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1.5px;
+            font-size: 7.6pt;
+        }
+
+        .flow-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #2563eb;
+            font-size: 10pt;
+            padding: 0 1px;
+        }
+
+        /* Role Grid */
+        .role-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5.5px;
+            margin-bottom: 6px;
+        }
+
+        .role-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 5px 8px;
+            background: #ffffff;
+            font-size: 7.3pt;
+            line-height: 1.3;
+        }
+
+        .role-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 2px;
+            margin-bottom: 3px;
+        }
+
+        .role-card-title {
+            font-weight: 800;
+            font-size: 8.1pt;
+            color: #0f172a;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 7.1pt;
+            background: #f1f5f9;
+            color: #0f172a;
+            padding: 0.5px 3px;
+            border-radius: 3px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 6px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .toc-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 9px;
+            border-bottom: 1px dashed #cbd5e1;
+            font-size: 7.6pt;
+        }
+
+        .toc-item:last-child {
+            border-bottom: none;
+        }
+
+        .toc-item-main {
+            font-weight: 700;
+            color: #0f172a;
+            background: #f1f5f9;
+        }
+
+        .toc-sub {
+            padding-left: 20px;
+            font-size: 7.4pt;
+            color: #334155;
+            background: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 1: SAMPUL (COVER PAGE)                                      -->
+    <!-- =================================================================== -->
+    <div class="cover-page">
+        <div>
+            <div class="cover-badge">Dokumen Resmi Operasional &bull; User Guidebook &amp; SOP</div>
+            <h1 class="cover-title">LUKLA OPERATIONS ENGINE</h1>
+            <div class="cover-subtitle">
+                Buku Panduan Pengguna Aplikasi &amp; Standar Operasional Prosedur (End-to-End)<br>
+                Sistem Manajemen Pabrik Konveksi, Multi-Client Maklon B2B, QC &amp; Dynamic Payroll
+            </div>
+            <div class="cover-divider"></div>
+            <p class="cover-desc">
+                Dokumen ini merupakan panduan komprehensif bagi seluruh pengguna di lingkungan <strong>Lukla Manufacturing</strong>, brand internal <strong>Sn&oslash;hund</strong>, serta mitra <strong>Klien Maklon B2B</strong>. Mencakup penjelasan fungsi 8 peran pengguna (RBAC), tanggung jawab pada setiap tahapan, spesifikasi <em>Input &ndash; Proses &ndash; Output</em>, hingga panduan langkah demi langkah penggunaan aplikasi mulai dari <strong>Pemesanan Awal &amp; Quotation, Pembuatan Sample &amp; Time Study, Pengelolaan Gudang &amp; Cutting, Produksi &amp; Output 30 Menit, Quality Control (QC) &amp; Repair, hingga Perhitungan Payroll dan Pelunasan Invoice</strong>.
+            </p>
+
+            <div class="cover-pillars">
+                <div class="cover-pillar-card">
+                    <div class="cover-pillar-num">Tahap 01 &ndash; 02</div>
+                    <div class="cover-pillar-title">Pemesanan, Quotation &amp; Sample</div>
+                    <div class="cover-pillar-text">Pengajuan order via Portal B2B, surat penawaran otomatis, revisi sample v1/v2, Time Study (SMV), &amp; persetujuan Rate Card borongan.</div>
+                </div>
+                <div class="cover-pillar-card">
+                    <div class="cover-pillar-num">Tahap 03 &ndash; 04</div>
+                    <div class="cover-pillar-title">Gudang, Cutting &amp; Produksi</div>
+                    <div class="cover-pillar-text">Isolasi stok multi-klien (Tag ID), pengajuan PO bahan, proses cutting (RAW ke WIP), stopwatch output 30 menit penjahit, &amp; perakitan.</div>
+                </div>
+                <div class="cover-pillar-card">
+                    <div class="cover-pillar-num">Tahap 05 &ndash; 06</div>
+                    <div class="cover-pillar-title">Quality Control, Payroll &amp; Invoice</div>
+                    <div class="cover-pillar-text">Inspeksi QC (Pass/Repair/Scrap), distribusi Pool Bonus QC 3 arah, payroll borongan mingguan, konfirmasi bayar klien, &amp; pelunasan invoice.</div>
+                </div>
+            </div>
+
+            <div class="cover-roles-box">
+                <div class="cover-roles-title">Delapan Peran Pengguna (RBAC) yang Dicakup di Dalam Buku Panduan Ini:</div>
+                <div class="cover-roles-grid">
+                    <div>1. Owner / Eksekutif Internal</div>
+                    <div>2. Tim Sample / Adis Sample</div>
+                    <div>3. Gudang / Warehouse Stok</div>
+                    <div>4. Kepala Produksi / Mandor</div>
+                    <div>5. Penjahit / Tailor Operator</div>
+                    <div>6. QC Inspector / Quality</div>
+                    <div>7. Finance &amp; Payroll</div>
+                    <div>8. Klien Maklon / B2B Portal</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cover-meta-grid">
+            <div>
+                <div class="cover-meta-label">Versi Dokumen</div>
+                <div class="cover-meta-value">v1.0 &mdash; Oktober 2026</div>
+            </div>
+            <div>
+                <div class="cover-meta-label">Disusun Oleh</div>
+                <div class="cover-meta-value">Senior Business Analyst</div>
+            </div>
+            <div>
+                <div class="cover-meta-label">Cakupan Proses</div>
+                <div class="cover-meta-value">Order s/d Invoice Lunas</div>
+            </div>
+            <div>
+                <div class="cover-meta-label">Platform Sistem</div>
+                <div class="cover-meta-value">Web Panel &amp; Telegram AI</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 2: DAFTAR ISI & BAB 1 (GAMBARAN UMUM APLIKASI)              -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Navigasi &amp; Bab 01 &bull; System Overview</div>
+        <h1 class="chapter-title">DAFTAR ISI &amp; GAMBARAN UMUM LUKLA OPERATIONS ENGINE</h1>
+        <div class="chapter-subtitle">Struktur dokumen, tujuan sistem, tiga skema kerjasama maklon, dan kanal akses aplikasi</div>
+    </div>
+
+    <ul class="toc-list">
+        <li class="toc-item toc-item-main"><span>BAB 1: PENDAHULUAN &amp; GAMBARAN UMUM APLIKASI (Tujuan Sistem, Skema CMT/Semi-CMT/Full Package, Arsitektur Panel &amp; Bot)</span><span>Bagian 01</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 2: PERAN PENGGUNA (RBAC), TANGGUNG JAWAB, MATRIKS MENU SIDEBAR &amp; AKUN DEMO SIMULASI</span><span>Bagian 02</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 3: PETA ALUR BISNIS END-TO-END (21 LANGKAH), KAMUS STATUS DOKUMEN &amp; MATRIKS RACI</span><span>Bagian 03</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 4: TAHAP 1 &mdash; PEMESANAN (ORDER REQUEST) &amp; PENAWARAN HARGA (QUOTATION)</span><span>Bagian 04</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 5: TAHAP 2 &mdash; PEMBUATAN SAMPLE, TIME STUDY, TARIF BORONGAN (RATE CARD) &amp; KONVERSI ORDER</span><span>Bagian 05</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 6: TAHAP 3 &mdash; PENGELOLAAN GUDANG, PO BAHAN, ISOLASI STOK, CUTTING &amp; DISTRIBUSI PRODUKSI</span><span>Bagian 06</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 7: TAHAP 4 &mdash; PROSES PRODUKSI, PENUGASAN KOMPONEN, OUTPUT 30 MENIT (STOPWATCH) &amp; PERAKITAN</span><span>Bagian 07</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 8: TAHAP 5 &mdash; QUALITY CONTROL (QC), PENANGANAN PERBAIKAN (REPAIR) &amp; BARANG AFKIR (SCRAP)</span><span>Bagian 08</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 9: TAHAP 6 &mdash; KEUANGAN (FINANCE): OVERHEAD, PAYROLL MINGGUAN, BONUS QC &amp; PELUNASAN INVOICE</span><span>Bagian 09</span></li>
+        <li class="toc-item toc-item-main"><span>BAB 10: PANDUAN INTEGRASI BOT TELEGRAM (@ClientBot &amp; @OwnerBot) &amp; TROUBLESHOOTING (FAQ)</span><span>Bagian 10</span></li>
+    </ul>
+
+    <h2>1.1 Tujuan Bisnis Lukla Operations Engine</h2>
+    <p>
+        <strong>Lukla Operations Engine</strong> adalah sistem manajemen operasional pabrik garmen terpadu yang mendukung produksi brand internal (<strong>Sn&oslash;hund</strong>) dan mitra bisnis (<strong>Klien Maklon B2B</strong>) secara paralel dengan 3 pilar pengendalian utama:
+    </p>
+    <ul>
+        <li><strong>Proteksi Kepemilikan Bahan (Zero Cross-Contamination):</strong> Setiap stok bahan mentah (<code>RAW</code>), potongan setengah jadi (<code>WIP</code>), dan barang jadi (<code>FINISHED</code>) mengikat pasangan <code>client_id</code> + <code>order_id</code> dan label fisik <code>TAG-...</code>. Sistem otomatis memblokir pengeluaran bahan jika pesanan tujuan berbeda dengan pemilik bahan.</li>
+        <li><strong>Ketertelusuran Penuh (End-to-End Traceability):</strong> Menghubungkan permintaan pesanan klien, surat penawaran (<em>quotation</em>), revisi sample (<code>v1</code>, <code>v2</code>), waktu jahit (<em>Time Study</em> / SMV), tarif borongan (<em>Rate Card</em>), alur gudang &amp; <em>cutting</em>, laporan output penjahit per 30 menit, perakitan (<em>assembly</em>), hingga inspeksi QC dan penagihan <em>invoice</em>.</li>
+        <li><strong>Otomatisasi Keuangan &amp; Dynamic Piece-Rate Payroll:</strong> Menghitung upah borongan mingguan secara presisi hanya dari output yang telah <strong>diverifikasi mandor</strong>, membagi uang makan secara proporsional, mendistribusikan <em>Pool Bonus QC</em> dibagi 3 (2 Mandor + 1 Kepala Operasional), menghitung alokasi <em>overhead per unit</em> bulanan, serta mengalkulasi tagihan <em>invoice</em> klien secara otomatis.</li>
+    </ul>
+
+    <h2>1.2 Tiga Skema Kerjasama Produksi (Work Scheme)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 22%;">Skema Kerjasama</th>
+                <th style="width: 11%;">Kode Sistem</th>
+                <th style="width: 19%;">Bahan Utama (Kain)</th>
+                <th style="width: 19%;">Aksesoris &amp; Trim</th>
+                <th style="width: 13%;">Cutting, Jahit, QC</th>
+                <th style="width: 16%;">Beban Overhead di Invoice</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1. CMT (Cut, Make, Trim)</strong></td>
+                <td><code>cmt</code></td>
+                <td><span class="badge badge-client">Ditanggung Klien</span></td>
+                <td><span class="badge badge-client">Ditanggung Klien</span></td>
+                <td><strong>Lukla</strong></td>
+                <td>Tidak dikenakan alokasi overhead</td>
+            </tr>
+            <tr>
+                <td><strong>2. Semi-CMT</strong></td>
+                <td><code>semi_cmt</code></td>
+                <td><span class="badge badge-client">Ditanggung Klien</span></td>
+                <td><span class="badge badge-warehouse">Lukla (PO Gudang)</span><br><small>Tetap di-tag ke ID Klien</small></td>
+                <td><strong>Lukla</strong></td>
+                <td>Dicatat sebagai Overhead Internal Pabrik</td>
+            </tr>
+            <tr>
+                <td><strong>3. CMT + Bahan (Full Package)</strong></td>
+                <td><code>full_package</code></td>
+                <td><span class="badge badge-warehouse">Lukla (PO Gudang)</span></td>
+                <td><span class="badge badge-warehouse">Lukla (PO Gudang)</span></td>
+                <td><strong>Lukla</strong></td>
+                <td>Dicatat sebagai Overhead Internal Pabrik</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>1.3 Arsitektur 2 Panel Web &amp; 2 Asisten Bot Telegram</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 22%;">Kanal Akses</th>
+                <th style="width: 20%;">URL / Identitas</th>
+                <th style="width: 24%;">Peran Pengguna</th>
+                <th style="width: 34%;">Fungsi Utama Kanal</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1. Panel Internal Pabrik</strong></td>
+                <td><code>/admin</code></td>
+                <td>7 Peran Internal Pabrik (Owner, Sample, Gudang, Kepala Produksi, Penjahit, QC, Finance)</td>
+                <td>Pusat kendali operasional harian pabrik. Menu di bilah kiri (<em>sidebar</em>) otomatis menyaring hanya menu yang menjadi wewenang aktif peran tersebut.</td>
+            </tr>
+            <tr>
+                <td><strong>2. Portal B2B Klien Maklon</strong></td>
+                <td><code>/portal/{kode-klien}</code><br><small>Contoh: <code>/portal/MAK-DEMO</code></small></td>
+                <td>Khusus <span class="badge badge-client">Klien Maklon</span> (<code>klien_maklon</code>)</td>
+                <td>Portal mandiri pelanggan B2B dengan isolasi data penuh (<em>multi-tenant</em>). Digunakan untuk membuat pesanan, ACC penawaran, ACC sample, memantau progres QC/stok, dan konfirmasi bayar invoice.</td>
+            </tr>
+            <tr>
+                <td><strong>3. Bot Telegram Klien</strong></td>
+                <td><code>@ClientBot</code></td>
+                <td><span class="badge badge-client">Klien Maklon</span></td>
+                <td>Notifikasi penawaran &amp; sample instan, tombol inline <em>Setujui / Tolak</em> langsung dari chat, cek <code>/orders</code> &amp; <code>/status</code>, serta tanya-jawab AI seputar pesanan klien.</td>
+            </tr>
+            <tr>
+                <td><strong>4. Bot Telegram Eksekutif</strong></td>
+                <td><code>@OwnerBot</code></td>
+                <td><span class="badge badge-owner">Owner / Eksekutif</span></td>
+                <td>Notifikasi keputusan klien atas penawaran, cek <code>/status &lt;nomor_order&gt;</code>, serta asisten AI Eksekutif untuk menanyakan ringkasan pabrik &amp; tagihan lintas klien.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 3: BAB 2 — PROFIL 8 PERAN PENGGUNA (RBAC)                   -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 02 &bull; Role-Based Access Control (RBAC)</div>
+        <h1 class="chapter-title">PERAN PENGGUNA, TANGGUNG JAWAB, &amp; MATRIKS AKSES</h1>
+        <div class="chapter-subtitle">Penjelasan fungsi 8 peran pengguna, batas wewenang (Separation of Duties), dan daftar akun demo</div>
+    </div>
+
+    <h2>2.1 Profil Lengkap 8 Peran Pengguna di Aplikasi</h2>
+
+    <div class="role-grid">
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">1. Owner / Eksekutif Internal</span>
+                <span class="badge badge-owner">owner_eksekutif</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> &amp; <code>@OwnerBot</code></p>
+            <ul>
+                <li>Mengelola akun <code>Pengguna</code> &amp; membuat <code>Token Telegram</code>.</li>
+                <li>Menghitung biaya &amp; mengirim surat penawaran (<code>Kirim Penawaran</code>) ke klien.</li>
+                <li>Mengajukan instruksi pembuatan sample ke Tim Sample (<code>Ajukan Pembuatan Sample</code>).</li>
+                <li>Menyetujui/menolak usulan tarif borongan (<code>Rate Card</code>) dan <code>Persetujuan PO Bahan</code>.</li>
+                <li>Memantau laporan produksi, QC, <em>payroll</em>, <em>overhead</em>, &amp; <em>invoice</em>, serta menerima 1/3 <em>Pool Bonus QC</em> sebagai Kepala Operasional.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Tidak dapat mengubah transaksi yang sudah terkunci (<code>COMPLETED</code> / <code>CLOSED</code>).</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">2. Tim Sample / Adis Sample</span>
+                <span class="badge badge-sample">tim_sample</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Menu: <code>Sample</code>, <code>Artikel</code>, <code>Komponen</code>)</p>
+            <ul>
+                <li>Menerima permintaan sample dari Owner (widget <em>Permintaan Sample dari Owner</em>) atau membuat sample mandiri.</li>
+                <li>Mendefinisikan master <code>Artikel</code> dan urutan <code>Komponen</code> operasi jahit.</li>
+                <li>Mencatat ukuran (<em>specs</em>), kebutuhan bahan &amp; penanggungnya (Klien/Perusahaan/Sebagian), serta durasi <em>Time Study</em> (SMV) per komponen.</li>
+                <li>Mengunggah foto hasil fisik sample (<code>Upload Hasil Sample</code>) &amp; membuat revisi berurutan (<code>v1</code>, <code>v2</code>).</li>
+                <li>Mengonversi sample disetujui menjadi order produksi massal (<code>Jadikan Daftar Pesanan</code>).</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Dilarang menyetujui (ACC) sample buatannya sendiri.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">3. Gudang / Warehouse Stok</span>
+                <span class="badge badge-warehouse">gudang</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Grup: <code>Gudang &amp; Cutting</code>, <code>Bahan &amp; Aksesoris</code>)</p>
+            <ul>
+                <li>Mengelola master katalog <code>Bahan &amp; Aksesoris</code> (SKU, satuan UOM).</li>
+                <li>Mengajukan pembelian bahan perusahaan (<code>Ajukan PO</code>) &amp; mencatat <code>Konfirmasi Klien</code> di menu <code>Alur Bahan Pesanan</code>.</li>
+                <li>Menerima kedatangan fisik bahan (<code>ACC Kedatangan Gudang</code>) &amp; mencetak label <code>TAG-{KLIEN}-{ORDER}-{ID}</code>.</li>
+                <li>Menjalankan <code>Mulai Cutting</code> (mengubah kain <code>RAW</code> menjadi <code>WIP</code>) dan mencatat limbah di <code>Sisa Potongan</code>.</li>
+                <li>Mengirimkan bahan siap jahit ke lantai produksi (<code>Kirim ke Produksi</code>).</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Ditolak sistem jika mengeluarkan bahan ke klien/order yang berbeda.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">4. Kepala Produksi / Mandor Line</span>
+                <span class="badge badge-prod">kepala_produksi</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Grup: <code>Produksi</code> &amp; <code>Alur Bahan Pesanan</code>)</p>
+            <ul>
+                <li>Memverifikasi &amp; menerima kiriman bahan dari Gudang (<code>ACC Penerimaan</code>).</li>
+                <li>Mengusulkan tarif jahit per komponen (<code>Atur Tarif</code>) di menu <code>Sample Disetujui</code>.</li>
+                <li>Mengatur <code>Line Produksi</code>, klik <code>Mulai Produksi</code> di <code>Antrean Produksi</code>, &amp; menugaskan penjahit per komponen artikel.</li>
+                <li>Memeriksa laporan output 30 menit penjahit (<code>Verifikasi</code>, <code>Verifikasi Semua</code>, atau <code>Tolak</code>) serta melakukan <code>Input Perakitan</code>.</li>
+                <li>Menugaskan petugas perbaikan (<code>Tugaskan</code>) &amp; klik <code>Selesai Perbaikan</code> di menu <code>Perbaikan / Repair</code>.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Tidak dapat memverifikasi output sendiri atau menyetujui Rate Card sendiri.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">5. Penjahit / Tailor Operator</span>
+                <span class="badge badge-tailor">penjahit</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Menu: <code>Output 30 Menit</code> &amp; <code>Upah Jahit Saya</code>)</p>
+            <ul>
+                <li>Melihat daftar komponen artikel yang ditugaskan kepadanya di menu <code>Output 30 Menit</code>.</li>
+                <li>Mengklik tombol <code>Kerjakan</code>, menyalakan <strong>Stopwatch Interaktif</strong> (<code>Mulai</code> &rarr; <code>Stop</code>), dan mengirim laporan jumlah selesai (<code>1&ndash;100 pcs</code>).</li>
+                <li>Memperbaiki dan mengirim ulang laporan yang ditolak mandor (<code>Ajukan Ulang</code>).</li>
+                <li>Memantau rincian pendapatan mingguan (upah jahit + uang makan) per proyek di menu <code>Upah Jahit Saya</code>.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Tidak dapat mengubah output yang sudah diverifikasi mandor.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">6. QC Inspector / Quality</span>
+                <span class="badge badge-qc">qc_inspector</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Grup: <code>Quality Control</code>)</p>
+            <ul>
+                <li>Mengelola master <code>Kategori Cacat</code> (Ringan, Sedang, Kritis).</li>
+                <li>Memeriksa unit hasil perakitan di menu <code>Antrean Pesanan QC</code> (<code>Periksa QC</code>) dan menetapkan status: <code>Lolos (PASS)</code>, <code>Perlu Perbaikan (REPAIR)</code>, atau <code>Afkir (SCRAP)</code>.</li>
+                <li>Melakukan pemeriksaan kembali (<code>Inspeksi Ulang</code>) di menu <code>Perbaikan / Repair</code> atas barang yang telah selesai diperbaiki.</li>
+                <li>Memantau akumulasi unit lolos dan bonus mingguan di menu <code>Bonus QC Saya</code>.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Wajib mengisi kategori cacat untuk Repair/Scrap; tidak dapat mengubah harga/payroll.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">7. Finance &amp; Payroll</span>
+                <span class="badge badge-finance">finance_payroll</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/admin</code> (Grup: <code>Payroll &amp; Biaya</code>, <code>Order</code>, <code>Klien</code>)</p>
+            <ul>
+                <li>Menyetujui pengajuan PO bahan gudang (<code>Persetujuan PO Bahan</code>) dan menyetujui usulan <code>Rate Card</code> komponen.</li>
+                <li>Mencatat <code>Biaya Overhead</code> bulanan &amp; menjalankan alokasi <code>Overhead per Unit</code>.</li>
+                <li>Membuat <code>Periode Payroll</code> mingguan, mengatur <code>% Uang Makan</code> &amp; <code>Tarif Bonus QC</code>, lalu menjalankan <code>Hitung</code> &rarr; <code>Setujui</code> &rarr; <code>Tandai Dibayar</code>.</li>
+                <li>Membuat draf <code>Invoice</code> (kalkulasi otomatis), klik <code>Terbitkan</code>, memeriksa bukti transfer klien, dan klik <code>Tandai Lunas</code>.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Dilarang mengubah jumlah stok fisik di gudang.</p>
+        </div>
+
+        <div class="role-card avoid-break">
+            <div class="role-card-header">
+                <span class="role-card-title">8. Klien Maklon / B2B Portal</span>
+                <span class="badge badge-client">klien_maklon</span>
+            </div>
+            <p><strong>Panel:</strong> <code>/portal/{kode-klien}</code> &amp; <code>@ClientBot</code></p>
+            <ul>
+                <li>Mengajukan pesanan baru (<code>Pesanan Saya</code> &rarr; <code>Buat</code>) beserta gambar desain.</li>
+                <li>Meninjau surat penawaran harga dari Owner dan klik <code>Setujui Penawaran</code> atau <code>Minta Penyesuaian</code>.</li>
+                <li>Meninjau foto fisik &amp; spesifikasi sample di <code>Sample Saya</code> lalu klik <code>Setujui Sample</code> atau <code>Minta Revisi / Tolak</code>.</li>
+                <li>Melihat rincian biaya tagihan di <code>Tagihan &amp; Invoice</code> dan mengunggah bukti bayar lewat tombol <code>Konfirmasi Pembayaran</code>.</li>
+            </ul>
+            <p style="margin:0;color:#991b1b;font-size:7.3pt;"><strong>Batasan:</strong> Hanya dapat mengakses data milik <code>client_id</code> perusahaannya sendiri.</p>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 4: MATRIKS MENU SIDEBAR, SOD & AKUN DEMO                    -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <h2>2.2 Matriks Akses Menu Sidebar per Peran (RoleMenuAccess Matrix)</h2>
+    <p>Aplikasi menyembunyikan menu yang tidak relevan dari bilah samping (<em>sidebar</em>) agar setiap peran fokus pada tugasnya:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Grup Navigasi</th>
+                <th>Nama Menu di Aplikasi</th>
+                <th>URL Path</th>
+                <th>Owner</th>
+                <th>Sample</th>
+                <th>Gudang</th>
+                <th>Ka. Prod</th>
+                <th>Penjahit</th>
+                <th>QC</th>
+                <th>Finance</th>
+                <th>Klien</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Operasional</strong></td>
+                <td>Daftar Pesanan</td>
+                <td><code>/admin/orders</code></td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Operasional</strong></td>
+                <td>Sample</td>
+                <td><code>/admin/samples</code></td>
+                <td>✅</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Gudang &amp; Cutting</strong></td>
+                <td>Alur Bahan Pesanan</td>
+                <td><code>/admin/order-material-flows</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Gudang &amp; Cutting</strong></td>
+                <td>Pengajuan PO Gudang</td>
+                <td><code>/admin/my-purchase-orders</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Gudang &amp; Cutting</strong></td>
+                <td>Stok Gudang &amp; Pergerakan Stok</td>
+                <td><code>/admin/inventory-items</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Produksi</strong></td>
+                <td>Sample Disetujui</td>
+                <td><code>/admin/approved-samples</code></td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Produksi</strong></td>
+                <td>Antrean Produksi</td>
+                <td><code>/admin/production-orders</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Produksi</strong></td>
+                <td>Output 30 Menit (Review &amp; Rakit)</td>
+                <td><code>/admin/output-reviews</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Produksi / Saya</strong></td>
+                <td>Output 30 Menit &amp; Upah Jahit Saya</td>
+                <td><code>/admin/output-entries</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Quality Control</strong></td>
+                <td>Antrean QC, Inspeksi, Repair, Bonus QC</td>
+                <td><code>/admin/qc-orders</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><em>(URL)</em></td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Payroll &amp; Biaya</strong></td>
+                <td>Rate Card, Payroll, PO, Overhead, Invoice</td>
+                <td><code>/admin/invoices</code></td>
+                <td>✅</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Master Data</strong></td>
+                <td>Klien / Pengguna / Bahan &amp; Aksesoris</td>
+                <td><code>/admin/clients</code></td>
+                <td>✅</td>
+                <td>—</td>
+                <td>✅ <em>(Bahan)</em></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅ <em>(Klien)</em></td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><strong>Portal Klien</strong></td>
+                <td>Pesanan Saya, Sample Saya, Tagihan &amp; Invoice</td>
+                <td><code>/portal/{kode}</code></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>✅</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>2.3 Lima Prinsip Pemisahan Tugas (Separation of Duties / SoD)</h2>
+    <div class="callout callout-info avoid-break">
+        <span class="callout-title">⚖️ Pengendalian Internal yang Ditegakkan Otomatis oleh Sistem</span>
+        <ol style="margin-bottom:0;">
+            <li><strong>Pembuatan vs Persetujuan Sample:</strong> <code>Tim Sample</code> menyusun spesifikasi &amp; revisi sample, tetapi hanya <code>Klien Maklon</code> (atau <code>Owner</code>) yang dapat mengklik <em>Setujui Sample</em>.</li>
+            <li><strong>Pengusulan vs Persetujuan Tarif Borongan (Rate Card):</strong> <code>Kepala Produksi</code> mengusulkan tarif komponen (status <code>PENDING</code>), tetapi hanya <code>Owner</code> atau <code>Finance</code> yang berhak mengklik <em>Setujui Rate Card</em> (<code>APPROVED</code>).</li>
+            <li><strong>Pengajuan vs Persetujuan PO Bahan:</strong> <code>Gudang</code> mengajukan PO bahan perusahaan, tetapi hanya <code>Finance</code> atau <code>Owner</code> yang dapat menyetujui PO tersebut.</li>
+            <li><strong>Pengiriman Gudang vs Penerimaan Produksi:</strong> <code>Gudang</code> mengklik <em>Kirim ke Produksi</em>, tetapi perpindahan tanggung jawab stok baru sah saat <code>Kepala Produksi</code> mengklik <em>ACC Penerimaan</em> dan memverifikasi fisik barang.</li>
+            <li><strong>Pelaporan vs Verifikasi Output 30 Menit:</strong> <code>Penjahit</code> melaporkan output dengan stopwatch, tetapi hanya <code>Kepala Produksi / Mandor</code> yang dapat memverifikasinya (sistem memblokir <em>self-verification</em>).</li>
+        </ol>
+    </div>
+
+    <h2>2.4 Daftar Akun Demo Standar untuk Simulasi &amp; Pelatihan</h2>
+    <p>Seluruh akun demo bawaan sistem menggunakan password standar: <code>password</code>.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Peran Pengguna</th>
+                <th>Email Login</th>
+                <th>Password</th>
+                <th>URL Panel Login</th>
+                <th>Keterangan Penggunaan Utama</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="badge badge-owner">Owner / Eksekutif</span></td>
+                <td><code>owner_eksekutif@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>Kirim Penawaran, Ajukan Sample, ACC Rate Card &amp; PO</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-sample">Tim Sample</span></td>
+                <td><code>tim_sample@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>Buat Sample, Time Study, Upload Hasil, Konversi Order</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-warehouse">Gudang</span></td>
+                <td><code>gudang@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>Alur Bahan, Ajukan PO, ACC Kedatangan, Mulai Cutting, Kirim</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-prod">Kepala Produksi</span></td>
+                <td><code>kepala_produksi@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>ACC Bahan, Atur Tarif, Mulai Produksi, Verifikasi, Perakitan</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-tailor">Penjahit (Utama &amp; 1-3)</span></td>
+                <td><code>penjahit@lukla.test</code>, <code>penjahit1@lukla.test</code> s/d <code>penjahit3@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>Terminal Kerja Output 30 Menit (Stopwatch) &amp; Upah Jahit Saya</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-qc">QC Inspector</span></td>
+                <td><code>qc_inspector@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>Periksa QC (Pass/Repair/Scrap), Inspeksi Ulang, Bonus QC Saya</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-finance">Finance &amp; Payroll</span></td>
+                <td><code>finance_payroll@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/admin/login</code></td>
+                <td>ACC PO, Overhead, Hitung/Bayar Payroll, Terbitkan &amp; Lunas Invoice</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-client">Klien Maklon Demo</span></td>
+                <td><code>klien@lukla.test</code></td>
+                <td><code>password</code></td>
+                <td><code>/portal/login</code></td>
+                <td>Portal PT Maklon Demo (<code>/portal/MAK-DEMO</code>)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 5: BAB 3 — DIAGRAM ALUR END-TO-END (21 LANGKAH)             -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 03 &bull; End-to-End Business Process Flow</div>
+        <h1 class="chapter-title">PETA ALUR KERJA DARI AWAL SAMPAI PEMBAYARAN INVOICE</h1>
+        <div class="chapter-subtitle">Visualisasi 21 langkah kerja lintas peran dari pengajuan order hingga pelunasan invoice dan penutupan pesanan</div>
+    </div>
+
+    <h2>3.1 Diagram Alur Utama Aplikasi (Master End-to-End Workflow)</h2>
+
+    <div class="flow-container avoid-break">
+        <div style="font-size:7.6pt;font-weight:800;color:#1e3a8a;text-transform:uppercase;margin-bottom:5px;">FASE 1 &amp; 2: PEMESANAN, PENAWARAN HARGA (QUOTATION), PEMBUATAN SAMPLE &amp; PERSIAPAN PRODUKSI MASSAL</div>
+        <div class="flow-row">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 1</span> <span class="badge badge-client">Klien</span>
+                <div class="flow-step-title">Buat Pesanan di Portal</div>
+                Pilih skema (CMT/Semi/Full), isi qty, deskripsi, &amp; upload gambar desain.<br>
+                <strong>Output:</strong> Order <code>REQUESTED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 2</span> <span class="badge badge-owner">Owner</span>
+                <div class="flow-step-title">Kirim Penawaran Harga</div>
+                Isi Perkiraan Biaya &amp; klik <em>Gunakan template surat</em>.<br>
+                <strong>Output:</strong> Order <code>QUOTED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 3</span> <span class="badge badge-client">Klien</span>
+                <div class="flow-step-title">Setujui Penawaran</div>
+                Klik <em>Setujui Penawaran</em> di Portal / Bot Telegram.<br>
+                <strong>Output:</strong> Order <code>QUOTE_APPROVED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 4</span> <span class="badge badge-owner">Owner</span>
+                <div class="flow-step-title">Ajukan Pembuatan Sample</div>
+                Klik <em>Ajukan Pembuatan Sample</em> pada detail order.<br>
+                <strong>Output:</strong> Masuk Widget Sample
+            </div>
+        </div>
+        <div class="flow-row" style="margin-bottom:0;">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 5</span> <span class="badge badge-sample">Tim Sample</span>
+                <div class="flow-step-title">Buat Sample &amp; Time Study</div>
+                Input Artikel, Komponen, Time Study (SMV), Bahan, &amp; Upload Foto Hasil.<br>
+                <strong>Output:</strong> Sample <code>IN_REVIEW</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 6</span> <span class="badge badge-client">Klien</span>
+                <div class="flow-step-title">Setujui Sample (ACC)</div>
+                Review fisik/foto di Portal lalu klik <em>Setujui Sample</em>.<br>
+                <strong>Output:</strong> Sample <code>APPROVED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 7</span> <span class="badge badge-prod">Mandor</span> <span class="badge badge-finance">Finance</span>
+                <div class="flow-step-title">Atur &amp; ACC Rate Card</div>
+                Mandor klik <em>Atur Tarif</em>; Owner/Finance klik <em>Setujui Rate Card</em>.<br>
+                <strong>Output:</strong> RateCard <code>APPROVED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 8</span> <span class="badge badge-sample">Sample/Mandor</span>
+                <div class="flow-step-title">Jadikan Daftar Pesanan</div>
+                Konversi sample ke produksi massal.<br>
+                <strong>Output:</strong> Order <code>READY_FOR_PRODUCTION</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-container avoid-break">
+        <div style="font-size:7.6pt;font-weight:800;color:#9a3412;text-transform:uppercase;margin-bottom:5px;">FASE 3 &amp; 4: PENGELOLAAN GUDANG, CUTTING, PENUGASAN PRODUKSI, OUTPUT 30 MENIT &amp; PERAKITAN</div>
+        <div class="flow-row">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 9</span> <span class="badge badge-warehouse">Gudang</span> <span class="badge badge-finance">Finance</span>
+                <div class="flow-step-title">PO Bahan &amp; Konfirmasi Klien</div>
+                Gudang klik <em>Ajukan PO</em> (ACC Finance) &amp;/atau <em>Konfirmasi Klien</em>.<br>
+                <strong>Output:</strong> PO <code>APPROVED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 10</span> <span class="badge badge-warehouse">Gudang</span>
+                <div class="flow-step-title">ACC Kedatangan Gudang</div>
+                Terima fisik bahan &amp; cetak label <code>TAG-...</code> sampai lengkap.<br>
+                <strong>Output:</strong> Bahan <code>STANDBY</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 11</span> <span class="badge badge-warehouse">Gudang</span>
+                <div class="flow-step-title">Mulai Cutting &amp; Kirim</div>
+                Klik <em>Mulai Cutting</em> (RAW&rarr;WIP) lalu klik <em>Kirim ke Produksi</em>.<br>
+                <strong>Output:</strong> Status <code>DISPATCHED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 12</span> <span class="badge badge-prod">Kepala Prod.</span>
+                <div class="flow-step-title">ACC Penerimaan Bahan</div>
+                Verifikasi fisik kiriman gudang di lantai produksi.<br>
+                <strong>Output:</strong> <code>RECEIVED_BY_PRODUCTION</code>
+            </div>
+        </div>
+        <div class="flow-row" style="margin-bottom:0;">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 13</span> <span class="badge badge-prod">Kepala Prod.</span>
+                <div class="flow-step-title">Mulai Produksi</div>
+                Pilih 1 Penjahit untuk setiap komponen artikel di <em>Antrean Produksi</em>.<br>
+                <strong>Output:</strong> Order <code>IN_PRODUCTION</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 14</span> <span class="badge badge-tailor">Penjahit</span>
+                <div class="flow-step-title">Output 30 Menit (Stopwatch)</div>
+                Klik <em>Kerjakan</em>: Mulai &rarr; Stop &rarr; Isi Qty Selesai &rarr; Kirim.<br>
+                <strong>Output:</strong> Output <code>SUBMITTED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 15</span> <span class="badge badge-prod">Kepala Prod.</span>
+                <div class="flow-step-title">Verifikasi Output</div>
+                Klik <em>Verifikasi</em> / <em>Verifikasi Semua</em> (atau <em>Tolak</em>).<br>
+                <strong>Output:</strong> Output <code>VERIFIED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 16</span> <span class="badge badge-prod">Kepala Prod.</span>
+                <div class="flow-step-title">Input Perakitan (Assembly)</div>
+                Gabungkan komponen terverifikasi menjadi unit utuh.<br>
+                <strong>Output:</strong> Order <code>IN_QC</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-container avoid-break">
+        <div style="font-size:7.6pt;font-weight:800;color:#065f46;text-transform:uppercase;margin-bottom:5px;">FASE 5 &amp; 6: QUALITY CONTROL (QC), PAYROLL MINGGUAN, PENERBITAN INVOICE &amp; PELUNASAN PEMBAYARAN</div>
+        <div class="flow-row">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 17</span> <span class="badge badge-qc">QC Inspector</span>
+                <div class="flow-step-title">Periksa QC &amp; Repair</div>
+                Keputusan <code>PASS</code> (+Bonus Pool), <code>REPAIR</code> (Tiket Repair &rarr; Inspeksi Ulang), atau <code>SCRAP</code>.<br>
+                <strong>Output:</strong> Saat 100% Pass &rarr; Order <code>COMPLETED</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 18</span> <span class="badge badge-finance">Finance</span>
+                <div class="flow-step-title">Payroll &amp; Bonus QC Mingguan</div>
+                Klik <em>Hitung</em> (Upah Borongan + Uang Makan + Pool Bonus QC &divide; 3) &rarr; <em>Setujui</em> &rarr; <em>Tandai Dibayar</em>.<br>
+                <strong>Output:</strong> Payroll <code>PAID</code>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 19</span> <span class="badge badge-finance">Finance</span>
+                <div class="flow-step-title">Buat &amp; Terbitkan Invoice</div>
+                Pilih Order (Auto-hitung Ongkos Jahit + PPN) lalu klik <em>Terbitkan</em>.<br>
+                <strong>Output:</strong> Invoice <code>ISSUED</code>
+            </div>
+        </div>
+        <div class="flow-row" style="margin-bottom:0;">
+            <div class="flow-step">
+                <span class="flow-step-num">Langkah 20</span> <span class="badge badge-client">Klien Maklon</span>
+                <div class="flow-step-title">Konfirmasi Pembayaran di Portal</div>
+                Buka menu <em>Tagihan &amp; Invoice</em> &rarr; Klik <em>Rincian Biaya</em> &rarr; Klik <em>Konfirmasi Pembayaran</em> (Pilih Bank, Isi No. Ref, &amp; Upload Bukti Transfer).<br>
+                <strong>Output:</strong> Invoice <code>PAYMENT_CONFIRMED</code> (Menunggu Konfirmasi Finance)
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step" style="border-color:#16a34a;background:#f0fdf4;">
+                <span class="flow-step-num" style="background:#15803d;">Langkah 21 (FINAL)</span> <span class="badge badge-finance">Finance</span>
+                <div class="flow-step-title" style="color:#14532d;">Verifikasi Bukti Bayar &amp; Klik "Tandai Lunas"</div>
+                Finance membuka <em>Detail</em> Invoice &rarr; Klik <em>Lihat Bukti Transfer</em> &rarr; Klik tombol hijau <strong>Tandai Lunas</strong>.<br>
+                <strong>Output Akhir:</strong> Invoice <code>PAID (Lunas)</code> &bull; Stok Menjadi <code>FINISHED</code> &bull; Order Otomatis <code>CLOSED (Ditutup)</code>!
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 6: KAMUS STATUS DOKUMEN & MATRIKS RACI                      -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <h2>3.2 Kamus Siklus Status Pesanan (OrderStatus) &amp; Alur Bahan Gudang (OrderMaterialStatus)</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+            <h3>A. Siklus Status Pesanan (<code>OrderStatus</code>)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status di Layar</th>
+                        <th>Kondisi Pemicu Perubahan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Permintaan Klien</strong> (<code>requested</code>)</td><td>Klien baru membuat pesanan di Portal (atau meminta revisi penawaran).</td></tr>
+                    <tr><td><strong>Menunggu Persetujuan Klien</strong> (<code>quoted</code>)</td><td>Owner mengirim penawaran harga (<code>Kirim Penawaran</code>).</td></tr>
+                    <tr><td><strong>Penawaran Disetujui</strong> (<code>quote_approved</code>)</td><td>Klien mengklik <code>Setujui Penawaran</code> di Portal / Bot.</td></tr>
+                    <tr><td><strong>Siap Produksi</strong> (<code>ready_for_production</code>)</td><td>Sample yang sudah <code>APPROVED</code> dikonversi ke order massal.</td></tr>
+                    <tr><td><strong>Dalam Produksi</strong> (<code>in_production</code>)</td><td>Kepala Produksi klik <code>Mulai Produksi</code> &amp; menugaskan penjahit per komponen.</td></tr>
+                    <tr><td><strong>Dalam QC</strong> (<code>in_qc</code>)</td><td>Target perakitan (<code>Input Perakitan</code>) tercapai atau inspeksi QC dimulai.</td></tr>
+                    <tr><td><strong>Selesai</strong> (<code>completed</code>)</td><td>100% kuantitas order telah dinyatakan <code>Lolos (PASS)</code> oleh QC Inspector.</td></tr>
+                    <tr><td><strong>Ditutup</strong> (<code>closed</code>)</td><td>Invoice pesanan ditandai <code>Lunas (PAID)</code> oleh Finance (order terkunci permanen).</td></tr>
+                    <tr><td><strong>Dibatalkan</strong> (<code>cancelled</code>)</td><td>Order dibatalkan oleh Owner beserta alasan pembatalan.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h3>B. Siklus Alur Bahan Gudang (<code>OrderMaterialStatus</code>)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status Alur Bahan</th>
+                        <th>Kondisi Pemicu Perubahan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>1. Kosong (Belum Ada Bahan)</strong></td><td>Order baru masuk dari konversi sample.</td></tr>
+                    <tr><td><strong>2. Pengajuan Barang (PO)</strong></td><td>Gudang klik <code>Ajukan PO</code> untuk bahan tanggungan Lukla.</td></tr>
+                    <tr><td><strong>3. Konfirmasi Klien</strong></td><td>Gudang klik <code>Konfirmasi Klien</code> untuk bahan kiriman klien.</td></tr>
+                    <tr><td><strong>4. Dalam PO &amp; Konfirmasi Klien</strong></td><td>PO Lukla &amp; konfirmasi bahan klien berjalan paralel (Semi-CMT).</td></tr>
+                    <tr><td><strong>5. Pengiriman Barang</strong></td><td>Sebagian bahan diterima via <code>ACC Kedatangan Gudang</code> (parsial).</td></tr>
+                    <tr><td><strong>6. Standby (Bahan Lengkap)</strong></td><td>100% kebutuhan bahan &amp; aksesoris telah tiba lengkap di gudang.</td></tr>
+                    <tr><td><strong>7. Dalam Persiapan Pengiriman (Cutting)</strong></td><td>Gudang klik <code>Mulai Cutting</code> (kain <code>RAW</code> menjadi <code>WIP</code>).</td></tr>
+                    <tr><td><strong>8. Sedang Dikirim</strong></td><td>Gudang klik <code>Kirim ke Produksi</code> (dokumen <code>DSP-...</code> terbit).</td></tr>
+                    <tr><td><strong>9. Diterima Bagian Produksi</strong></td><td>Kepala Produksi klik <code>ACC Penerimaan</code> di lantai produksi.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <h2>3.3 Matriks Tanggung Jawab Lintas Peran (RACI Matrix)</h2>
+    <p><small>Keterangan: <strong>R (Responsible)</strong> = Pelaksana langsung di sistem; <strong>A (Accountable)</strong> = Penyetuju / Penanggung jawab akhir; <strong>C (Consulted)</strong> = Pemberi input/acuan; <strong>I (Informed)</strong> = Penerima informasi/output.</small></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Tahapan Proses di Aplikasi</th>
+                <th>Klien Maklon</th>
+                <th>Owner</th>
+                <th>Tim Sample</th>
+                <th>Gudang</th>
+                <th>Kepala Prod.</th>
+                <th>Penjahit</th>
+                <th>QC Inspector</th>
+                <th>Finance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1. Pengajuan Pesanan &amp; Upload Desain</td>
+                <td><strong>R / A</strong></td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>I</td>
+            </tr>
+            <tr>
+                <td>2. Pembuatan &amp; Persetujuan Quotation</td>
+                <td><strong>A</strong> (ACC)</td>
+                <td><strong>R</strong> (Kirim)</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>I</td>
+            </tr>
+            <tr>
+                <td>3. Pembuatan Sample, Time Study &amp; Revisi</td>
+                <td><strong>A</strong> (ACC)</td>
+                <td><strong>A</strong> / I</td>
+                <td><strong>R</strong></td>
+                <td>C (Katalog)</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+            </tr>
+            <tr>
+                <td>4. Penetapan &amp; Persetujuan Rate Card</td>
+                <td>&mdash;</td>
+                <td><strong>A</strong> (ACC)</td>
+                <td>C (SMV)</td>
+                <td>&mdash;</td>
+                <td><strong>R</strong> (Usul)</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td><strong>A</strong> (ACC)</td>
+            </tr>
+            <tr>
+                <td>5. Pengajuan &amp; Persetujuan PO Bahan</td>
+                <td>&mdash;</td>
+                <td><strong>A</strong></td>
+                <td>&mdash;</td>
+                <td><strong>R</strong> (Ajukan)</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td><strong>A</strong> (Setujui)</td>
+            </tr>
+            <tr>
+                <td>6. Penerimaan Bahan, Cutting &amp; Distribusi</td>
+                <td>C (Kirim Kain)</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td><strong>R</strong> (Cutting/Kirim)</td>
+                <td><strong>A</strong> (ACC Terima)</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+            </tr>
+            <tr>
+                <td>7. Penugasan Komponen, Output 30m &amp; Rakit</td>
+                <td>I</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td><strong>R / A</strong> (Verifikasi)</td>
+                <td><strong>R</strong> (Stopwatch)</td>
+                <td>I</td>
+                <td>I</td>
+            </tr>
+            <tr>
+                <td>8. Inspeksi QC, Penanganan Repair &amp; Scrap</td>
+                <td>I (Portal)</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td>I (Waste)</td>
+                <td><strong>R</strong> (Repair)</td>
+                <td>C (Perbaiki)</td>
+                <td><strong>R / A</strong> (QC)</td>
+                <td>I (Bonus Pool)</td>
+            </tr>
+            <tr>
+                <td>9. Perhitungan Payroll Mingguan &amp; Overhead</td>
+                <td>&mdash;</td>
+                <td><strong>A</strong> / I</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>I (Bonus QC)</td>
+                <td>I (Upah Saya)</td>
+                <td>I (Bonus QC)</td>
+                <td><strong>R / A</strong></td>
+            </tr>
+            <tr>
+                <td>10. Penerbitan, Konfirmasi &amp; Pelunasan Invoice</td>
+                <td><strong>R</strong> (Konfirmasi)</td>
+                <td>I</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td>&mdash;</td>
+                <td><strong>R / A</strong> (Lunas)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 7: BAB 4 — TAHAP 1: PEMESANAN & QUOTATION                   -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 04 &bull; Tahap 1 Operasional</div>
+        <h1 class="chapter-title">PEMESANAN (ORDER REQUEST) &amp; PENAWARAN HARGA (QUOTATION)</h1>
+        <div class="chapter-subtitle">Alur pengajuan pesanan dari Portal Klien, pembuatan surat penawaran oleh Owner, hingga persetujuan penawaran</div>
+    </div>
+
+    <!-- Proses 4.1 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 1.1 &mdash; Pengajuan Permintaan Pesanan Baru oleh Klien Maklon</span>
+            <span class="badge badge-client">Pelaksana: Klien Maklon</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Portal Klien (<code>/portal/{kode}</code>) &rarr; <strong>Pesanan Saya</strong> &rarr; Tombol <span class="btn-ui btn-primary">Buat</span></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Klien login menggunakan akun ber-role <code>klien_maklon</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Membuat Order baru: <code>Permintaan Klien (REQUESTED)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Skema Pengerjaan (Wajib):</strong> Pilih <code>CMT</code>, <code>Semi-CMT</code>, atau <code>CMT + Bahan (Full Package)</code>.</li>
+                    <li><strong>Perkiraan Jumlah (Wajib):</strong> Kuantitas pesanan dalam <code>pcs</code> (min. 1 pcs).</li>
+                    <li><strong>Harapan Selesai (Opsional):</strong> Target tanggal selesai yang diinginkan klien.</li>
+                    <li><strong>Deskripsi Permintaan (Wajib):</strong> Detail model pakaian, rincian ukuran (S/M/L/XL), warna, bahan, dan jahitan.</li>
+                    <li><strong>Gambar Design (Wajib):</strong> Upload 1&ndash;5 file gambar desain/tech-pack (JPG/PNG, maks 5 MB/file).</li>
+                    <li><strong>Catatan Tambahan (Opsional):</strong> Catatan pengemasan/pengiriman.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login ke Portal Klien (<code>/portal/login</code>), lalu klik menu <strong>Pesanan Saya</strong> di sidebar kiri.</li>
+                    <li>Klik tombol biru <span class="btn-ui btn-primary">Buat</span> di pojok kanan atas.</li>
+                    <li>Pilih <strong>Skema Pengerjaan</strong> dan masukkan <strong>Perkiraan Jumlah (pcs)</strong> serta <strong>Harapan Selesai</strong>.</li>
+                    <li>Ketik spesifikasi model pada kolom <strong>Deskripsi Permintaan</strong>.</li>
+                    <li>Unggah file gambar desain pakaian pada area <strong>Gambar Design</strong> sampai indikator upload selesai (hijau).</li>
+                    <li>Klik tombol <span class="btn-ui btn-primary">Buat</span> di bagian bawah formulir.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Terbentuk record <code>Order</code> baru dengan nomor otomatis <code>ORD-YYYYMMDD-XXXX</code>.</li>
+                    <li>Status Order: <strong>Permintaan Klien (<code>REQUESTED</code>)</strong>.</li>
+                    <li>File gambar desain tersimpan aman di S3.</li>
+                    <li>Pesanan otomatis muncul di daftar <strong>Daftar Pesanan</strong> (<code>/admin/orders</code>) milik <strong>Owner</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 4.2 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 1.2 &mdash; Penyusunan &amp; Pengiriman Surat Penawaran Harga (Quotation)</span>
+            <span class="badge badge-owner">Pelaksana: Owner / Eksekutif</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; <strong>Daftar Pesanan</strong> &rarr; Pilih Order &rarr; <span class="btn-ui btn-warning">Kirim Penawaran</span></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Status Order = <code>Permintaan Klien (REQUESTED)</code> atau <code>QUOTED</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong><code>REQUESTED</code> &rarr; <code>Menunggu Persetujuan Klien (QUOTED)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Perkiraan Biaya Total (Wajib):</strong> Nominal total penawaran dalam Rupiah (<code>Rp</code>), minimal Rp 1.</li>
+                    <li><strong>Rincian Penawaran (Opsional / Disarankan):</strong> Isi surat penawaran resmi. Tersedia fitur klik <strong><code>Gunakan template surat</code></strong> untuk mengisi otomatis draf surat resmi.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login sebagai <strong>Owner</strong> di <code>/admin</code>, buka menu <strong>Operasional &rarr; Daftar Pesanan</strong>, lalu klik baris pesanan berstatus <code>Permintaan Klien</code>.</li>
+                    <li>Klik <span class="btn-ui btn-gray">Unduh Gambar Desain</span> di header jika ingin memeriksa file desain dari klien.</li>
+                    <li>Klik tombol kuning <span class="btn-ui btn-warning">Kirim Penawaran</span> di pojok kanan atas.</li>
+                    <li>Ketikkan nominal <strong>Perkiraan Biaya Total (Rp)</strong>, lalu klik tautan biru <strong><code>Gunakan template surat</code></strong>. Sistem otomatis menghasilkan surat penawaran resmi berisi nomor surat, skema, kuantitas, harga per pcs, dan syarat pembayaran (DP 50%, Pelunasan 50%).</li>
+                    <li>Klik tombol <span class="btn-ui btn-warning">Kirim Penawaran</span> di dalam modal.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Status Order berubah menjadi <strong>Menunggu Persetujuan Klien (<code>QUOTED</code>)</strong>.</li>
+                    <li>Surat penawaran tampil di halaman detail pesanan pada Portal Klien &amp; Admin.</li>
+                    <li><strong>Notifikasi Telegram:</strong> <code>@ClientBot</code> otomatis mengirim pesan penawaran beserta tombol <em>Setujui / Tolak</em> ke Telegram Klien.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 4.3 & 4.4 -->
+    <div class="process-card avoid-break" style="margin-bottom:0;">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 1.3 &amp; 1.4 &mdash; Persetujuan Penawaran oleh Klien &amp; Pengajuan Pembuatan Sample oleh Owner</span>
+            <div>
+                <span class="badge badge-client">1.3: Klien Maklon</span>
+                <span class="badge badge-owner">1.4: Owner</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong><strong>1.3:</strong> Portal Klien &rarr; <strong>Pesanan Saya</strong> &rarr; Detail<br><strong>1.4:</strong> Admin &rarr; <strong>Daftar Pesanan</strong> &rarr; Detail</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong><strong>1.3:</strong> Status Order = <code>QUOTED</code><br><strong>1.4:</strong> Status Order = <code>QUOTE_APPROVED</code></div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong><code>QUOTED</code> &rarr; <code>Penawaran Disetujui (QUOTE_APPROVED)</code> &rarr; Antrean Sample</div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Pilihan Input Keputusan</div>
+                <ul>
+                    <li><strong>Opsi A &mdash; Klien Setuju:</strong> Klik konfirmasi pada modal <span class="btn-ui btn-success">Setujui Penawaran</span>.</li>
+                    <li><strong>Opsi B &mdash; Klien Minta Revisi:</strong> Klik <span class="btn-ui btn-danger">Minta Penyesuaian</span> lalu wajib isi <strong>Catatan untuk Lukla</strong>.</li>
+                    <li><strong>Input Owner (1.4):</strong> Klik konfirmasi pada modal <span class="btn-ui btn-info">Ajukan Pembuatan Sample</span>.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Klien Maklon)</strong> Buka menu <strong>Pesanan Saya</strong> di Portal Klien, klik pesanan berstatus <code>Menunggu Persetujuan Klien</code>, lalu baca <em>Surat Penawaran Harga</em>.</li>
+                    <li>Jika setuju, klik tombol hijau <span class="btn-ui btn-success">Setujui Penawaran</span> di kanan atas (atau klik <em>Setujui</em> dari pesan <code>@ClientBot</code>). <em>(Jika minta revisi: klik <span class="btn-ui btn-danger">Minta Penyesuaian</span> &amp; isi alasan agar Owner dapat klik <code>Perbarui Penawaran</code>).</em></li>
+                    <li><strong>(Owner)</strong> Setelah status pesanan menjadi <code>Penawaran Disetujui</code>, buka pesanan tersebut di <code>/admin/orders</code> lalu klik tombol biru <span class="btn-ui btn-info">Ajukan Pembuatan Sample</span>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Status Order berubah menjadi <strong>Penawaran Disetujui (<code>QUOTE_APPROVED</code>)</strong>.</li>
+                    <li><code>@OwnerBot</code> mengirim notifikasi Telegram ke Owner.</li>
+                    <li>Saat Owner klik <em>Ajukan Pembuatan Sample</em>, order langsung muncul di widget <strong>"Permintaan Sample dari Owner"</strong> pada layar kerja <strong>Tim Sample</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 8: BAB 5 — TAHAP 2: SAMPLE, TIME STUDY & KONVERSI ORDER     -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 05 &bull; Tahap 2 Operasional</div>
+        <h1 class="chapter-title">PEMBUATAN SAMPLE, TIME STUDY, TARIF BORONGAN &amp; KONVERSI ORDER</h1>
+        <div class="chapter-subtitle">Pengembangan prototipe sample, pengukuran waktu jahit (SMV), penetapan Rate Card, hingga konversi ke order produksi massal</div>
+    </div>
+
+    <!-- Proses 5.1 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 2.1 &mdash; Pembuatan Sample, Komponen, Kebutuhan Bahan &amp; Time Study (SMV)</span>
+            <span class="badge badge-sample">Pelaksana: Tim Sample</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; <strong>Sample</strong> &rarr; Widget <em>Permintaan Sample dari Owner</em> &rarr; <span class="btn-ui btn-primary">Buat Sample</span></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Owner telah mengajukan permintaan sample (atau sample mandiri).</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Membuat Sample &amp; Revisi <code>v1</code> berstatus <code>Menunggu Persetujuan (IN_REVIEW)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Artikel Baru:</strong> <code>Kode Artikel Baru</code>, <code>Nama Artikel Baru</code>, &amp; <code>Kategori</code>.</li>
+                    <li><strong>Komponen &amp; Time Study (Repeater Wajib):</strong> <code>Kode</code>, <code>Nama Komponen</code> (mis. <em>Pasang Kerah</em>), <code>Urutan</code> (1, 2...), &amp; <code>Time Study (menit)</code> hasil ukur stopwatch.</li>
+                    <li><strong>Spesifikasi &amp; Ukuran (KeyValue):</strong> Parameter ukuran pakaian (mis. <em>Lingkar Dada: 106 cm</em>).</li>
+                    <li><strong>Kebutuhan Bahan &amp; Aksesoris (Repeater Wajib):</strong> Pilih dari <code>Katalog Gudang</code>, isi <code>Jumlah per 1 pcs</code>, <code>Satuan</code>, &amp; pilih <code>Tanggungan</code> (<code>Klien</code> / <code>Perusahaan</code> / <code>Sebagian</code>).</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login sebagai <strong>Tim Sample</strong> di <code>/admin</code>, buka menu <strong>Sample</strong>.</li>
+                    <li>Pada tabel atas <strong>"Permintaan Sample dari Owner"</strong>, klik tombol <span class="btn-ui btn-primary">Buat Sample</span>. Data Klien, Kode Sample (<code>SMP-ORD-...</code>), Judul, Deskripsi, dan Gambar Desain otomatis terisi.</li>
+                    <li>Isi <strong>Kode Artikel Baru</strong>, <strong>Nama Artikel Baru</strong>, dan daftar <strong>Komponen &amp; Time Study (menit)</strong>.</li>
+                    <li>Pada seksi <strong>Revisi Awal (v1)</strong>, isi <em>Spesifikasi &amp; Ukuran</em> serta rincian <em>Kebutuhan Bahan Baku &amp; Aksesoris Fisik</em>.</li>
+                    <li>Pastikan toggle <strong>"Langsung ajukan untuk persetujuan klien"</strong> menyala, lalu klik <span class="btn-ui btn-primary">Buat</span>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Terbuat master <code>Article</code> dan daftar <code>Component</code> secara otomatis.</li>
+                    <li>Terbuat dokumen <code>Sample</code> dan <code>SampleRevision (v1)</code> berstatus <strong>Menunggu Persetujuan (<code>IN_REVIEW</code>)</strong>.</li>
+                    <li>Data durasi <code>TimeStudy</code> (detik) tersimpan per komponen untuk acuan tarif borongan.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 5.2 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 2.2 &mdash; Upload Foto Hasil Fisik Sample, Revisi Berurutan (v1, v2), &amp; Persetujuan Sample</span>
+            <div>
+                <span class="badge badge-sample">Tim Sample</span>
+                <span class="badge badge-client">Klien Maklon</span>
+                <span class="badge badge-owner">Owner</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong><strong>Admin:</strong> Menu <strong>Sample</strong> &rarr; Tabel <em>Revisi</em><br><strong>Portal:</strong> Menu <strong>Sample Saya</strong> &rarr; Detail</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Revisi sample berstatus <code>Menunggu Persetujuan (IN_REVIEW)</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Setuju: <code>Disetujui (APPROVED)</code><br>Tolak: <code>Ditolak (REJECTED)</code> &rarr; Buat <code>v2</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Tim Sample:</strong> File <code>Foto Hasil Pembuatan Sample</code> (JPG/PNG/WebP, maks 5 MB).</li>
+                    <li><strong>Klien / Owner:</strong> Klik <span class="btn-ui btn-success">Setujui Sample</span> atau klik <span class="btn-ui btn-danger">Minta Revisi / Tolak</span> (wajib isi <code>Catatan Revisi / Alasan Penolakan</code>).</li>
+                    <li><strong>Jika Revisi (v2):</strong> Klik <span class="btn-ui btn-primary">Buat Revisi Baru</span>, sesuaikan spek/bahan/Time Study, &amp; unggah foto perbaikan.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Tim Sample)</strong> Buka halaman detail Sample di <code>/admin/samples</code>, gulir ke tabel <strong>Revisi</strong>, klik <span class="btn-ui btn-info">Upload Hasil Sample</span> pada baris <code>v1</code>, dan unggah foto pakaian sample yang sudah dijahit.</li>
+                    <li><strong>(Klien Maklon)</strong> Login ke Portal Klien, buka menu <strong>Sample Saya</strong>, klik baris sample, lalu periksa foto hasil pembuatan sample &amp; spesifikasi ukuran.</li>
+                    <li>Klik tombol hijau <span class="btn-ui btn-success">Setujui Sample</span> di kanan atas untuk memberikan ACC (atau klik <span class="btn-ui btn-danger">Minta Revisi / Tolak</span> jika butuh perbaikan; Tim Sample kemudian klik <span class="btn-ui btn-primary">Buat Revisi Baru</span> untuk menerbitkan <code>v2</code>).</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Saat disetujui, status <code>Sample</code> dan <code>SampleRevision</code> menjadi <strong>Disetujui (<code>APPROVED</code>)</strong> dan terkunci.</li>
+                    <li>Sample otomatis tampil di menu <strong>Sample Disetujui</strong> (<code>/admin/approved-samples</code>) milik <strong>Kepala Produksi</strong> dan <strong>Owner</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 5.3, 5.4, 5.5 -->
+    <div class="process-card avoid-break" style="margin-bottom:0;">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 2.3, 2.4 &amp; 2.5 &mdash; Penetapan Tarif Borongan (Rate Card), Persetujuan Tarif, &amp; Konversi ke Order Massal</span>
+            <div>
+                <span class="badge badge-prod">2.3: Kepala Prod.</span>
+                <span class="badge badge-owner">2.4: Owner/Finance</span>
+                <span class="badge badge-sample">2.5: Sample/Mandor</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Produksi &rarr; Sample Disetujui</strong> (<code>/admin/approved-samples</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Status Sample telah <code>Disetujui (APPROVED)</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Rate Card: <code>PENDING</code> &rarr; <code>APPROVED</code><br>Order: <code>Siap Produksi (READY_FOR_PRODUCTION)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>2.3 Kepala Produksi (<span class="btn-ui btn-warning">Atur Tarif</span>):</strong> Isi <code>Tarif Borongan (Rp)</code> per pcs untuk tiap komponen (mengacu pada durasi Time Study) &amp; <code>Catatan</code>.</li>
+                    <li><strong>2.4 Owner / Finance (<span class="btn-ui btn-success">Setujui Rate Card</span>):</strong> Pilih <em>Setujui Tarif</em> atau <em>Tolak Tarif</em> (dengan alasan revisi).</li>
+                    <li><strong>2.5 Konversi Order (<span class="btn-ui btn-success">Jadikan Daftar Pesanan</span>):</strong> Konfirmasi <code>Skema</code>, <code>Jumlah Produksi Massal (pcs)</code>, <code>Tenggat Selesai</code>, &amp; <code>Catatan</code>.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Kepala Produksi)</strong> Buka menu <strong>Produksi &rarr; Sample Disetujui</strong>. Klik tombol kuning <span class="btn-ui btn-warning">Atur Tarif</span> pada baris sample, isi nominal ongkos jahit (Rp/pcs) tiap komponen, lalu simpan (status tarif menjadi <code>Menunggu Persetujuan</code>).</li>
+                    <li><strong>(Owner / Finance)</strong> Buka menu <strong>Sample Disetujui</strong> (atau menu <strong>Rate Card</strong>), klik tombol <span class="btn-ui btn-success">Setujui Rate Card</span>, tinjau rincian tarif, lalu klik <strong>Setujui Tarif</strong>.</li>
+                    <li><strong>(Tim Sample / Kepala Produksi / Owner)</strong> Klik tombol hijau <span class="btn-ui btn-success">Jadikan Daftar Pesanan</span>, periksa jumlah pcs produksi massal dan tenggat selesai, lalu simpan.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Seluruh <code>RateCard</code> komponen berstatus <strong>Disetujui (<code>APPROVED</code>)</strong>.</li>
+                    <li>Status <code>Order</code> naik menjadi <strong>Siap Produksi (<code>READY_FOR_PRODUCTION</code>)</strong>.</li>
+                    <li>Sistem otomatis menghitung total kebutuhan bahan order (<code>Kebutuhan/pcs &times; Qty Order</code>) dan memasukkannya ke menu <strong>Alur Bahan Pesanan</strong> di Gudang.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 9: BAB 6 — TAHAP 3: PENGELOLAAN GUDANG, PO & CUTTING        -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 06 &bull; Tahap 3 Operasional</div>
+        <h1 class="chapter-title">PENGELOLAAN GUDANG, PO BAHAN, CUTTING &amp; DISTRIBUSI PRODUKSI</h1>
+        <div class="chapter-subtitle">Isolasi stok multi-klien, 7 langkah berurutan pada menu Alur Bahan Pesanan, pencetakan label Tag ID, dan serah terima ke produksi</div>
+    </div>
+
+    <div class="callout callout-danger avoid-break">
+        <span class="callout-title">🛡️ Aturan Wajib: Isolasi Kepemilikan Stok Multi-Klien (Zero Cross-Contamination)</span>
+        Setiap barang yang masuk ke gudang wajib mengikat <strong>ID Klien (<code>client_id</code>)</strong> dan <strong>ID Pesanan (<code>order_id</code>)</strong> serta mendapatkan kode label fisik unik <code>TAG-{KODE_KLIEN}-{NOMOR_ORDER}-{ID_ITEM}</code>. Sistem secara otomatis <strong>MENOLAK (REJECT)</strong> segala bentuk pengeluaran ke cutting atau transfer apabila pesanan tujuan berbeda dengan pemilik bahan.
+    </div>
+
+    <!-- Langkah 1, 2, 3 Gudang -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 3.1 &mdash; Cek Kebutuhan Bahan, Pengajuan PO Perusahaan, Konfirmasi Klien, &amp; Persetujuan PO</span>
+            <div>
+                <span class="badge badge-warehouse">Gudang</span>
+                <span class="badge badge-finance">Finance / Owner (ACC PO)</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>1. <strong>Alur Bahan Pesanan</strong> (<code>/admin/order-material-flows</code>)<br>2. <strong>Persetujuan PO Bahan</strong> (<code>/admin/purchase-orders</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Order telah dikonversi dari sample (status alur bahan: <code>Kosong</code>).</div>
+            <div class="process-meta-item"><strong>Perubahan Status Alur Bahan</strong><code>Kosong</code> &rarr; <code>Pengajuan Barang (PO)</code> / <code>Konfirmasi Klien</code> / <code>Dalam PO &amp; Konfirmasi Klien</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Modal <span class="btn-ui btn-warning">Ajukan PO</span> (Bahan Tanggungan Lukla):</strong>
+                        <ul>
+                            <li><code>Nomor PO</code> (otomatis <code>PO-YYYY-...</code>)</li>
+                            <li><code>Pemasok / Supplier</code> (Wajib)</li>
+                            <li><code>Harga Satuan (Rp)</code> per item bahan</li>
+                            <li><code>Catatan PO</code> (Opsional)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Modal <span class="btn-ui btn-info">Konfirmasi Klien</span> (Bahan Klien):</strong> Isi <code>Hasil Konfirmasi Klien</code> (jadwal pengiriman kain dari klien).</li>
+                    <li><strong>Finance (<span class="btn-ui btn-success">Setujui</span> PO):</strong> Konfirmasi persetujuan nilai PO.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Gudang)</strong> Buka menu <strong>Alur Bahan Pesanan</strong>, lalu klik tombol <span class="btn-ui btn-gray">Daftar Barang &amp; Bahan</span> pada baris order untuk memeriksa daftar bahan, siapa penanggungnya (Klien/Perusahaan), dan jumlah kebutuhan.</li>
+                    <li>Jika ada bahan tanggungan Lukla (skema <em>Full Package</em> / <em>Semi-CMT</em>), klik tombol kuning <span class="btn-ui btn-warning">Ajukan PO</span>, isi nama Supplier dan Harga Satuan tiap bahan, lalu simpan.</li>
+                    <li>Jika ada bahan tanggungan Klien (skema <em>CMT</em> / <em>Semi-CMT</em>), klik tombol biru <span class="btn-ui btn-info">Konfirmasi Klien</span> dan catat jadwal kedatangan bahan dari klien.</li>
+                    <li><strong>(Finance / Owner)</strong> Buka menu <strong>Payroll &amp; Biaya &rarr; Persetujuan PO Bahan</strong> (atau <strong>Pengajuan PO Gudang</strong>), klik <span class="btn-ui btn-info">Rincian</span> untuk memeriksa harga item, lalu klik tombol hijau <span class="btn-ui btn-success">Setujui</span>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Terbentuk dokumen <code>PurchaseOrder</code> berstatus <code>Diajukan (SUBMITTED)</code> yang kemudian menjadi <strong>Disetujui (<code>APPROVED</code>)</strong> setelah di-ACC Finance.</li>
+                    <li>Status alur bahan pesanan naik ke tahap pengadaan/konfirmasi, membuka tombol <strong>ACC Kedatangan Gudang</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Langkah 4, 5, 6, 7 Gudang & Kepala Produksi -->
+    <div class="process-card avoid-break" style="margin-bottom:0;">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 3.2 &mdash; ACC Kedatangan Gudang, Cetak Label, Mulai Cutting, Kirim &amp; ACC Penerimaan Produksi</span>
+            <div>
+                <span class="badge badge-warehouse">Gudang (Kedatangan, Cutting, Kirim)</span>
+                <span class="badge badge-prod">Kepala Produksi (ACC Penerimaan)</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Menu <strong>Gudang &amp; Cutting &rarr; Alur Bahan Pesanan</strong> &amp; <strong>Stok Gudang</strong></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>PO telah diajukan dan/atau konfirmasi klien telah tercatat.</div>
+            <div class="process-meta-item"><strong>Perubahan Status Alur Bahan</strong><code>Standby</code> &rarr; <code>Cutting</code> &rarr; <code>Sedang Dikirim</code> &rarr; <code>Diterima Bagian Produksi</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Modal <span class="btn-ui btn-success">ACC Kedatangan Gudang</span>:</strong>
+                        <ul>
+                            <li><code>No. Surat Jalan / Batch</code> (Wajib)</li>
+                            <li><code>Sumber / Pengirim</code> (Wajib)</li>
+                            <li>Centang <code>Terima Item Ini</code> &amp; isi <code>Jumlah Diterima Sekarang</code> per bahan.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Modal <span class="btn-ui btn-warning">Mulai Cutting</span> &amp; <span class="btn-ui btn-primary">Kirim ke Produksi</span>:</strong> Konfirmasi eksekusi.</li>
+                    <li><strong>Modal <span class="btn-ui btn-success">ACC Penerimaan</span> (Kepala Produksi):</strong> Pilih <code>Sesuai Data Kiriman</code> atau <code>Tidak Sesuai / Ada Selisih</code> (wajib isi <code>Jumlah Aktual Diterima</code>) + <code>Catatan</code>.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Gudang &mdash; Terima Barang)</strong> Saat bahan tiba secara fisik, klik tombol hijau <span class="btn-ui btn-success">ACC Kedatangan Gudang</span>. Isi nomor surat jalan/batch dan jumlah yang datang. <em>(Buka menu <strong>Stok Gudang</strong> lalu klik <span class="btn-ui btn-gray">Cetak Label</span> untuk menempelkan label <code>TAG-...</code> pada gulungan kain/kemasan).</em></li>
+                    <li><strong>(Gudang &mdash; Mulai Cutting)</strong> Begitu seluruh item bahan order terpenuhi (100%), status order otomatis menjadi <code>Standby (Bahan Lengkap)</code>. Klik tombol oranye <span class="btn-ui btn-warning">Mulai Cutting</span> untuk memotong kain. <em>(Jika ada sisa potongan/perca, catat di menu <strong>Sisa Potongan</strong>).</em></li>
+                    <li><strong>(Gudang &mdash; Kirim ke Produksi)</strong> Setelah pemotongan selesai, klik tombol biru <span class="btn-ui btn-primary">Kirim ke Produksi</span>.</li>
+                    <li><strong>(Kepala Produksi &mdash; ACC Penerimaan)</strong> Login sebagai <strong>Kepala Produksi</strong>, buka menu <strong>Alur Bahan Pesanan</strong>, lalu klik tombol hijau <span class="btn-ui btn-success">ACC Penerimaan</span> pada order yang berstatus <code>Sedang Dikirim</code>. Verifikasi kesesuaian jumlah fisik tiap item lalu simpan.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li><strong>Saat ACC Kedatangan:</strong> Stok <code>RAW</code> bertambah &amp; tercatat mutasi <code>RECEIPT</code>. Saat lengkap 100%, status menjadi <code>STANDBY</code>.</li>
+                    <li><strong>Saat Mulai Cutting:</strong> Kain <code>RAW</code> otomatis bermutasi (<code>ISSUE_TO_CUTTING</code>) menjadi stok <code>WIP (Setengah Jadi)</code> di Meja Potong.</li>
+                    <li><strong>Saat Kirim &amp; ACC Penerimaan:</strong> Terbit dokumen <code>DSP-...</code> (<code>MaterialDispatch</code>), saldo gudang ditransfer ke Lantai Produksi, dan status akhir menjadi <strong>Diterima Bagian Produksi</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 10: BAB 7 — TAHAP 4: PRODUKSI, OUTPUT 30 MENIT & PERAKITAN  -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 07 &bull; Tahap 4 Operasional</div>
+        <h1 class="chapter-title">PROSES PRODUKSI, OUTPUT 30 MENIT &amp; PERAKITAN (ASSEMBLY)</h1>
+        <div class="chapter-subtitle">Penugasan penjahit per komponen, pelaporan output 30 menit dengan Stopwatch Interaktif, verifikasi mandor, dan perakitan pakaian</div>
+    </div>
+
+    <!-- Proses 7.1 & 7.2 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 4.1 &mdash; Memulai Produksi &amp; Penugasan Penjahit per Komponen Artikel</span>
+            <span class="badge badge-prod">Pelaksana: Kepala Produksi / Mandor Line</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Produksi &rarr; Antrean Produksi</strong> (<code>/admin/production-orders</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Status Order adalah <code>Siap Produksi (READY_FOR_PRODUCTION)</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong><code>READY_FOR_PRODUCTION</code> &rarr; <code>Dalam Produksi (IN_PRODUCTION)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Rencana Penjahit per Komponen (Wajib):</strong> Untuk setiap komponen yang dimiliki artikel pesanan tersebut (mis. <em>1. Badan Depan</em>, <em>2. Kerah</em>, <em>3. Lengan</em>), wajib memilih 1 akun <strong>Penjahit</strong> (<code>penjahit</code>) dari dropdown.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><em>(Opsional &mdash; Pengaturan Line)</em> Kepala Produksi dapat mengatur penempatan mesin/line penjahit melalui menu <strong>Line Produksi</strong> (<code>/admin/production-lines</code> &rarr; <code>Tugaskan Penjahit</code>).</li>
+                    <li>Buka menu <strong>Produksi &rarr; Antrean Produksi</strong>. Pada baris pesanan berstatus <code>Siap Produksi</code>, klik tombol hijau <span class="btn-ui btn-success">Mulai Produksi</span>.</li>
+                    <li>Pilih nama <strong>Penjahit</strong> penanggung jawab untuk masing-masing komponen artikel, lalu klik <span class="btn-ui btn-success">Mulai Produksi</span>. <em>(Gunakan tombol <span class="btn-ui btn-warning">Ubah Penugasan</span> jika ingin merotasi penjahit saat produksi berjalan).</em></li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Tersimpan data penugasan komponen di <code>OrderComponentAssignment</code>.</li>
+                    <li>Status Order berubah menjadi <strong>Dalam Produksi (<code>IN_PRODUCTION</code>)</strong>.</li>
+                    <li>Komponen tugas langsung tampil di halaman <strong>Output 30 Menit</strong> milik masing-masing penjahit.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 7.3 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 4.2 &mdash; Pencatatan Output 30 Menit oleh Penjahit (Stopwatch Interaktif)</span>
+            <span class="badge badge-tailor">Pelaksana: Penjahit / Tailor Operator</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Produksi &rarr; Output 30 Menit</strong> (<code>/admin/output-entries</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Penjahit telah ditugaskan pada komponen order &amp; target QC belum 100%.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Membuat laporan <code>OutputEntry</code> berstatus <code>Menunggu Verifikasi (SUBMITTED)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Stopwatch Kerja (Wajib):</strong> Klik tombol <strong>Mulai</strong> saat mulai menjahit dan klik <strong>Stop</strong> saat selesai sesi kerja.</li>
+                    <li><strong>Jumlah selesai (pcs) (Wajib):</strong> Angka jumlah potongan komponen yang selesai dijahit (<code>1</code> s/d <code>100</code> pcs).</li>
+                    <li><strong>Catatan (Opsional):</strong> Keterangan tambahan jika ada kendala.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login menggunakan akun <strong>Penjahit</strong>, buka menu <strong>Output 30 Menit</strong>, lalu klik tombol biru <span class="btn-ui btn-primary">Kerjakan</span> pada komponen yang sedang dikerjakan.</li>
+                    <li>Jendela kerja akan mengunci layar agar tidak tertutup tidak sengaja. Tekan tombol hijau <span class="btn-ui btn-success">Mulai</span> pada <strong>Stopwatch</strong> saat mulai menjahit.</li>
+                    <li>Setelah selesai satu interval pengerjaan, tekan tombol merah <span class="btn-ui btn-danger">Stop</span>.</li>
+                    <li>Kolom input akan terbuka otomatis: isi <strong>Jumlah selesai (pcs)</strong> dan <strong>Catatan</strong>, lalu klik <span class="btn-ui btn-primary">Kirim laporan</span>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Terbuat record <code>OutputEntry</code> dengan waktu mulai (<code>interval_start</code>) dan waktu selesai (<code>interval_end</code>) presisi detik.</li>
+                    <li>Status laporan: <strong>Menunggu Verifikasi (<code>SUBMITTED</code>)</strong> di antrean Kepala Produksi.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 7.4 & 7.5 -->
+    <div class="process-card avoid-break" style="margin-bottom:0;">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 4.3 &amp; 4.4 &mdash; Verifikasi Output Penjahit &amp; Perakitan Produk Utuh (Input Perakitan)</span>
+            <div>
+                <span class="badge badge-prod">Pelaksana: Kepala Produksi / Mandor</span>
+                <span class="badge badge-tailor">Penjahit (Jika Ajukan Ulang)</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Produksi &rarr; Output 30 Menit</strong> (<code>/admin/output-reviews</code>) &rarr; Pilih Order</div>
+            <div class="process-meta-item"><strong>Prasyarat Perakitan</strong>Tidak ada output <em>Menunggu Verifikasi</em> &amp; semua komponen artikel punya output <code>VERIFIED</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Output: <code>VERIFIED</code> (Masuk Payroll)<br>Order: <code>Dalam QC (IN_QC)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>4.3 Verifikasi / Tolak Output:</strong> Klik <span class="btn-ui btn-success">Verifikasi</span> per baris, <span class="btn-ui btn-success">Verifikasi Semua</span> di header, atau <span class="btn-ui btn-danger">Tolak</span> (isi <code>Alasan Penolakan</code>).</li>
+                    <li><strong>4.4 Modal <span class="btn-ui btn-primary">Input Perakitan</span>:</strong> Pilih <code>Output Terverifikasi</code>, isi <code>Jumlah Hasil Rakitan (pcs)</code> (Wajib, min 1 pcs), &amp; <code>Catatan</code>.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Kepala Produksi &mdash; Verifikasi)</strong> Buka menu <strong>Output 30 Menit</strong> (<code>/admin/output-reviews</code>), klik baris order, lalu klik <span class="btn-ui btn-success">Verifikasi</span> per baris atau <span class="btn-ui btn-success">Verifikasi Semua</span> di kanan atas. <em>(Jika ditolak via <span class="btn-ui btn-danger">Tolak</span>, Penjahit dapat mengklik <strong>Ajukan Ulang</strong>).</em></li>
+                    <li><strong>(Kepala Produksi &mdash; Perakitan)</strong> Setelah seluruh komponen artikel memiliki output terverifikasi dan tidak ada laporan pending, klik tombol biru <span class="btn-ui btn-primary">Input Perakitan</span> di kanan atas.</li>
+                    <li>Masukkan <strong>Jumlah Hasil Rakitan (pcs)</strong> pakaian utuh yang selesai dirakit, lalu klik <strong>Simpan Perakitan</strong>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Output berstatus <strong>Terverifikasi (<code>VERIFIED</code>)</strong> terkunci dan resmi masuk perhitungan <strong>Payroll Mingguan</strong> &amp; <strong>Invoice</strong>.</li>
+                    <li>Terbuat record <code>Assembly</code> (batch pakaian utuh siap QC) dan status Order naik ke <strong>Dalam QC (<code>IN_QC</code>)</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 11: BAB 8 — TAHAP 5: QUALITY CONTROL (QC), REPAIR & SCRAP   -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 08 &bull; Tahap 5 Operasional</div>
+        <h1 class="chapter-title">QUALITY CONTROL (QC), PERBAIKAN (REPAIR) &amp; BARANG AFKIR (SCRAP)</h1>
+        <div class="chapter-subtitle">Pemeriksaan mutu pakaian hasil rakitan, penanganan tiket perbaikan (Repair), dan pencatatan otomatis barang afkir</div>
+    </div>
+
+    <!-- Proses 8.1 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 5.1 &mdash; Pemeriksaan Kualitas Pakaian di Menu "Antrean Pesanan QC"</span>
+            <span class="badge badge-qc">Pelaksana: QC Inspector / Quality</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Quality Control &rarr; Antrean Pesanan QC</strong> (<code>/admin/qc-orders</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Order memiliki hasil rakitan (<code>Assembly</code>) dengan status <code>Siap QC (X unit)</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status</strong>Saat 100% unit pesanan lolos QC (<code>PASS</code>): Status Order otomatis menjadi <code>Selesai (COMPLETED)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input Modal "Periksa QC"</div>
+                <ul>
+                    <li><strong>Perakitan yang Siap Dicek (Wajib):</strong> Pilih batch perakitan (kolom jumlah unit otomatis terisi sisa unit siap cek).</li>
+                    <li><strong>Hasil QC (Wajib):</strong> Pilih salah satu:
+                        <ul>
+                            <li><code>Lolos (Pass)</code></li>
+                            <li><code>Perlu Perbaikan (Repair)</code></li>
+                            <li><code>Afkir / Reject (Scrap)</code></li>
+                        </ul>
+                    </li>
+                    <li><strong>Kategori Cacat (Wajib jika Repair/Scrap):</strong> Pilih jenis cacat dari master <code>Kategori Cacat</code> (mis. <em>Jahitan Loncat</em>, <em>Noda Oli</em>).</li>
+                    <li><strong>Jumlah yang Diperiksa (unit) (Wajib):</strong> Jumlah unit untuk hasil QC tersebut (min. 1 unit).</li>
+                    <li><strong>Catatan Pemeriksaan (Opsional):</strong> Detail posisi cacat.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login sebagai <strong>QC Inspector</strong> di <code>/admin</code>, lalu buka menu <strong>Quality Control &rarr; Antrean Pesanan QC</strong>.</li>
+                    <li>Pada baris order yang menampilkan badge kuning <code>Siap QC (X unit)</code>, klik tombol biru <span class="btn-ui btn-primary">Periksa QC</span>.</li>
+                    <li>Pilih batch pada dropdown <strong>Perakitan yang Siap Dicek</strong>.</li>
+                    <li>Pilih <strong>Hasil QC</strong>:
+                        <ul>
+                            <li>Jika seluruh unit baik, pilih <code>Lolos (Pass)</code> dan masukkan jumlah unitnya.</li>
+                            <li>Jika dalam 1 batch 100 pcs terdapat 95 pcs bagus dan 5 pcs cacat jahitan yang bisa diperbaiki: simpan dulu <code>95 unit &mdash; Lolos (Pass)</code>, lalu klik <span class="btn-ui btn-primary">Periksa QC</span> lagi untuk menyimpan <code>5 unit &mdash; Perlu Perbaikan (Repair)</code> beserta <strong>Kategori Cacat</strong>-nya.</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li><strong>Jika PASS:</strong> Unit masuk ke <em>Finished Goods</em>, menambah <code>+Qty</code> ke <strong>Pool Bonus QC</strong>, dan jika total unit lolos mencapai 100% target order, status Order otomatis berubah menjadi <strong>Selesai (<code>COMPLETED</code>)</strong>!</li>
+                    <li><strong>Jika REPAIR:</strong> Otomatis membuat tiket di menu <strong>Perbaikan / Repair</strong> (<code>PENDING</code>).</li>
+                    <li><strong>Jika SCRAP:</strong> Otomatis tercatat sebagai limbah di <code>WasteRecord</code> &amp; tab <em>Scrap</em>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proses 8.2 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 5.2 &mdash; Alur Penanganan Tiket Perbaikan (Repair) &amp; Inspeksi Ulang (Re-inspection)</span>
+            <div>
+                <span class="badge badge-prod">Langkah 1 &amp; 2: Kepala Produksi</span>
+                <span class="badge badge-qc">Langkah 3: QC Inspector</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Quality Control &rarr; Perbaikan / Repair</strong> (<code>/admin/repairs</code>)</div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Terdapat tiket perbaikan hasil keputusan QC <code>REPAIR</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status Tiket Repair</strong><code>Menunggu Perbaikan</code> &rarr; <code>Sedang Diperbaiki</code> &rarr; <code>Siap Dicek Ulang</code> &rarr; <code>Lolos QC Ulang</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input di Setiap Aksi</div>
+                <ul>
+                    <li><strong>1. Modal <span class="btn-ui btn-info">Tugaskan</span>:</strong> Pilih <code>Petugas Perbaikan</code> &amp; isi <code>Instruksi Perbaikan</code>.</li>
+                    <li><strong>2. Modal <span class="btn-ui btn-success">Selesai Perbaikan</span>:</strong> Isi <code>Catatan Hasil Perbaikan</code> &amp; konfirmasi.</li>
+                    <li><strong>3. Modal <span class="btn-ui btn-primary">Inspeksi Ulang</span> (Oleh QC):</strong> Pilih <code>Hasil QC Ulang</code> (<code>Lolos</code> / <code>Perlu Perbaikan Ulang</code> / <code>Afkir</code>), <code>Kategori Cacat Baru</code> (jika belum lolos), &amp; <code>Catatan QC Ulang</code>.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Kepala Produksi &mdash; Tugaskan)</strong> Buka menu <strong>Perbaikan / Repair</strong> (<code>/admin/repairs</code>). Pada tiket berstatus <code>Menunggu Perbaikan</code>, klik tombol biru <span class="btn-ui btn-info">Tugaskan</span>, pilih penjahit/petugas perbaikan, lalu simpan (status menjadi <code>Sedang Diperbaiki</code>).</li>
+                    <li><strong>(Kepala Produksi &mdash; Selesai Perbaikan)</strong> Setelah barang fisik selesai diperbaiki, klik tombol hijau <span class="btn-ui btn-success">Selesai Perbaikan</span> pada baris tiket tersebut. Status berubah menjadi <code>Siap Dicek Ulang</code>.</li>
+                    <li><strong>(QC Inspector &mdash; Inspeksi Ulang)</strong> QC Inspector melihat tombol biru <span class="btn-ui btn-primary">Inspeksi Ulang</span> yang kini muncul pada tiket berstatus <code>Siap Dicek Ulang</code>. Klik tombol tersebut, periksa fisik barang, dan pilih <code>Lolos (Pass)</code> jika cacat sudah teratasi.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li><strong>Saat Lolos QC Ulang:</strong> Sistem otomatis membuat catatan <code>QcRecord (PASS)</code> baru sejumlah unit tiket tersebut, menambah <em>Pool Bonus QC</em>, menutup tiket menjadi <code>Lolos QC Ulang (VERIFIED)</code>, dan menggenapkan progres kelulusan Order menuju <code>COMPLETED</code>.</li>
+                    <li>Jika masih <em>Repair</em>, tiket kembali ke <code>Menunggu Perbaikan</code>; jika <em>Scrap</em>, masuk ke <code>WasteRecord</code>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout callout-info avoid-break" style="margin-bottom:0;">
+        <span class="callout-title">💡 Catatan Penting QC: Pemantauan Cepat dari Tabel Antrean Pesanan QC</span>
+        Pada tabel <strong>Antrean Pesanan QC</strong> (<code>/admin/qc-orders</code>), apabila suatu order memiliki barang yang sedang diperbaiki atau diafkir, tombol pintasan kuning <span class="btn-ui btn-warning">Repair</span> dan tombol merah <span class="btn-ui btn-danger">Afkir</span> akan otomatis muncul di sebelah kanan baris order untuk membuka daftar tiket repair atau log barang afkir khusus order tersebut dalam satu klik.
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 12: BAB 9 — TAHAP 6: FINANCE, OVERHEAD, PAYROLL & INVOICE   -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 09 &bull; Tahap 6 Operasional (Finance &amp; Settlement)</div>
+        <h1 class="chapter-title">KEUANGAN (FINANCE), PAYROLL MINGGUAN, OVERHEAD &amp; INVOICE</h1>
+        <div class="chapter-subtitle">Alokasi biaya overhead bulanan, penggajian borongan mingguan &amp; distribusi Bonus QC, hingga siklus pembayaran Invoice sampai Order Ditutup</div>
+    </div>
+
+    <!-- Proses 9.1 & 9.2 -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 6.1 &amp; 6.2 &mdash; Biaya Overhead Bulanan &amp; Perhitungan Payroll Borongan Mingguan + Bonus QC</span>
+            <div>
+                <span class="badge badge-finance">Pelaksana: Finance &amp; Payroll</span>
+                <span class="badge badge-owner">Owner</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Grup <strong>Payroll &amp; Biaya</strong>: <strong>Biaya Overhead</strong>, <strong>Overhead per Unit</strong>, &amp; <strong>Periode Payroll</strong></div>
+            <div class="process-meta-item"><strong>Prasyarat Payroll</strong>Output penjahit telah <code>VERIFIED</code> &amp; komponen memiliki <code>Rate Card</code> aktif (<code>APPROVED</code>).</div>
+            <div class="process-meta-item"><strong>Siklus Status Payroll</strong><code>Terbuka (OPEN)</code> &rarr; <code>Sudah Dihitung (CALCULATED)</code> &rarr; <code>Disetujui (APPROVED)</code> &rarr; <code>Sudah Dibayar (PAID)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input yang Diisi</div>
+                <ul>
+                    <li><strong>Input Biaya Overhead:</strong> <code>Bulan</code>, <code>Kategori</code> (Listrik, Air, Internet, dll.), <code>Jumlah (Rp)</code>, &amp; <code>Catatan</code>.</li>
+                    <li><strong>Input Periode Payroll Baru:</strong>
+                        <ul>
+                            <li><code>Awal Periode</code> (Default: Senin) &amp; <code>Akhir Periode</code> (Default: Minggu)</li>
+                            <li><code>Uang Makan (%)</code> (Default: <code>10%</code>, lazim 10&ndash;15%)</li>
+                            <li><code>Tarif Bonus QC (Rp)</code> per unit lolos QC (mis. <code>Rp 500</code>).</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Overhead Bulanan)</strong> Buka menu <strong>Biaya Overhead</strong> &rarr; Klik <span class="btn-ui btn-primary">Buat</span> untuk mencatat pengeluaran bulanan. Di menu <strong>Overhead per Unit</strong>, sistem membagi total overhead bulan tersebut dengan total unit pakaian yang dirakit (<code>Assembly</code>) pada bulan yang sama.</li>
+                    <li><strong>(Buat &amp; Hitung Payroll)</strong> Buka menu <strong>Periode Payroll</strong> &rarr; Klik <span class="btn-ui btn-primary">Buat</span>, isi tanggal &amp; parameter, lalu simpan. Pada tabel, klik tombol kuning <span class="btn-ui btn-warning">Hitung</span> (klik <span class="btn-ui btn-gray">Bonus QC</span> untuk melihat rincian pembagian bonus).</li>
+                    <li><strong>(Setujui &amp; Bayar)</strong> Klik tombol hijau <span class="btn-ui btn-success">Setujui</span> (mengunci periode), lalu setelah gaji ditransfer klik tombol biru <span class="btn-ui btn-info">Tandai Dibayar</span>.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output &amp; Rumus Sistem</div>
+                <ul>
+                    <li><strong>Upah Jahit Penjahit:</strong> <code>&Sigma; (Qty Verified &times; Rate Komponen)</code>.</li>
+                    <li><strong>Uang Makan:</strong> <code>% &times; Total Ongkos Jahit</code> (dibagi proporsional ke tiap penjahit).</li>
+                    <li><strong>Pool Bonus QC:</strong> <code>&Sigma; Unit Lolos QC &times; Tarif Bonus</code>, dibagi rata <strong>3 arah (<code>Pool &divide; 3</code>)</strong> kepada <strong>2 Mandor Line + 1 Kepala Operasional</strong>.</li>
+                    <li>Tampil di menu <strong>Upah Jahit Saya</strong> &amp; <strong>Bonus QC Saya</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Langkah 1 & 2 Invoice: Buat & Terbitkan -->
+    <div class="process-card avoid-break">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 6.3A &mdash; Pembuatan Draf Invoice (Auto-Kalkulasi) &amp; Penerbitan Tagihan ke Portal Klien</span>
+            <span class="badge badge-finance">Pelaksana: Finance &amp; Payroll</span>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong>Panel Admin (<code>/admin</code>) &rarr; Grup <strong>Payroll &amp; Biaya &rarr; Invoice</strong> (<code>/admin/invoices</code>) &rarr; Tombol <span class="btn-ui btn-primary">Buat</span></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Order telah memiliki output komponen yang <code>VERIFIED</code> &amp; <code>Rate Card</code> yang <code>APPROVED</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status Invoice</strong>Buat: <code>Draf (DRAFT)</code> &rarr; Klik <em>Terbitkan</em>: <code>Terbit (ISSUED)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input Formulir Invoice</div>
+                <ul>
+                    <li><strong>Nomor Invoice (Wajib):</strong> Nomor unik tagihan (mis. <code>INV/2026/10/001</code>).</li>
+                    <li><strong>Klien &amp; Order (Wajib):</strong> Pilih Klien lalu pilih Order (memicu kalkulasi otomatis).</li>
+                    <li><strong>PPN (%) (Opsional):</strong> Persentase pajak (mis. <code>11%</code> atau <code>0%</code>).</li>
+                    <li><strong>Total Tagihan (Read-Only):</strong> Terhitung otomatis oleh sistem.</li>
+                    <li><strong>Tanggal Terbit, Jatuh Tempo &amp; Catatan:</strong> Tenggat bayar &amp; nomor rekening tujuan transfer.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li>Login sebagai <strong>Finance</strong> di <code>/admin</code>, buka menu <strong>Payroll &amp; Biaya &rarr; Invoice</strong>, lalu klik tombol <span class="btn-ui btn-primary">Buat</span>.</li>
+                    <li>Masukkan <strong>Nomor Invoice</strong>, pilih <strong>Klien</strong>, lalu pilih <strong>Order</strong>. Sistem otomatis menampilkan pratinjau <strong>Rincian Kalkulasi</strong>:
+                        <ul>
+                            <li><em>Subtotal Ongkos Jahit</em> = <code>&Sigma; (Qty Output Terverifikasi &times; Tarif Rate Card)</code>.</li>
+                            <li><em>Catatan Internal Pabrik (Overhead)</em> = <code>Overhead per Unit &times; Qty Order</code> (khusus <em>Semi-CMT</em> &amp; <em>Full Package</em>; disimpan untuk laporan internal dan <strong>tidak ditagihkan ke klien</strong>).</li>
+                        </ul>
+                    </li>
+                    <li>Isi <strong>PPN (%)</strong>, <strong>Jatuh Tempo</strong>, dan <strong>Catatan</strong>, lalu klik <span class="btn-ui btn-primary">Buat</span> (tersimpan sebagai <code>Draf</code>).</li>
+                    <li>Pada tabel daftar Invoice, klik tombol kuning <span class="btn-ui btn-warning">Terbitkan</span> pada baris invoice tersebut lalu konfirmasi.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output yang Dihasilkan</div>
+                <ul>
+                    <li>Status Invoice berubah menjadi <strong>Terbit (<code>ISSUED</code>)</strong> lengkap dengan pencatatan <code>issued_at</code> dan <code>issued_by</code>.</li>
+                    <li>Tagihan langsung muncul secara <em>real-time</em> di menu <strong>Tagihan &amp; Invoice</strong> pada Portal Klien Maklon (<code>/portal/{kode}/invoices</code>).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Langkah 3 & 4 Invoice: Konfirmasi Bayar Klien & Tandai Lunas Finance -->
+    <div class="process-card avoid-break" style="margin-bottom:0;">
+        <div class="process-card-header">
+            <span class="process-card-title">PROSES 6.3B &mdash; Konfirmasi Pembayaran oleh Klien di Portal &amp; Verifikasi Pelunasan ("Tandai Lunas") oleh Finance</span>
+            <div>
+                <span class="badge badge-client">Langkah 1: Klien Maklon (Portal)</span>
+                <span class="badge badge-finance">Langkah 2: Finance (Admin)</span>
+            </div>
+        </div>
+        <div class="process-meta-bar">
+            <div class="process-meta-item"><strong>Lokasi Menu Aplikasi</strong><strong>Klien:</strong> Portal &rarr; <strong>Tagihan &amp; Invoice</strong><br><strong>Finance:</strong> Admin &rarr; <strong>Invoice</strong></div>
+            <div class="process-meta-item"><strong>Prasyarat (Pre-condition)</strong>Status Invoice adalah <code>Terbit (ISSUED)</code>.</div>
+            <div class="process-meta-item"><strong>Perubahan Status Akhir</strong>Invoice: <code>PAYMENT_CONFIRMED</code> &rarr; <code>PAID (Lunas)</code><br>Order: Otomatis <code>CLOSED (Ditutup)</code></div>
+        </div>
+        <div class="ipo-grid">
+            <div class="ipo-col ipo-col-input">
+                <div class="ipo-header">📥 Data Input Konfirmasi &amp; Pelunasan</div>
+                <ul>
+                    <li><strong>Input Klien (<span class="btn-ui btn-success">Konfirmasi Pembayaran</span>):</strong>
+                        <ul>
+                            <li><code>Metode Pembayaran</code> (Wajib: BCA / Mandiri / BNI / BRI / Lainnya).</li>
+                            <li><code>Catatan Pengirim / No. Referensi Transfer</code> (Wajib).</li>
+                            <li><code>Unggah Bukti Transfer</code> (Foto/Screenshot JPG/PNG, maks 5 MB).</li>
+                        </ul>
+                    </li>
+                    <li><strong>Input Finance (<span class="btn-ui btn-success">Tandai Lunas</span>):</strong> Pemeriksaan bukti transfer di modal <span class="btn-ui btn-gray">Detail</span> &amp; konfirmasi pelunasan.</li>
+                </ul>
+            </div>
+            <div class="ipo-col ipo-col-process">
+                <div class="ipo-header">⚙️ Langkah Penggunaan di Aplikasi</div>
+                <ol>
+                    <li><strong>(Klien Maklon)</strong> Buka menu <strong>Tagihan &amp; Invoice</strong> di Portal Klien, klik <span class="btn-ui btn-gray">Rincian Biaya</span> untuk mengecek komponen jahit &amp; tagihan, lalu klik tombol hijau <span class="btn-ui btn-success">Konfirmasi Pembayaran</span>. Pilih bank, isi nomor referensi, unggah foto struk bukti transfer, lalu simpan (status menjadi <code>Menunggu Konfirmasi Finance</code>).</li>
+                    <li><strong>(Finance)</strong> Buka menu <strong>Invoice</strong> di <code>/admin/invoices</code>. Klik tombol <span class="btn-ui btn-gray">Detail</span> pada baris invoice berstatus biru <code>Menunggu Konfirmasi Finance</code>.</li>
+                    <li>Di dalam pop-up Detail, periksa kotak biru <strong>"📌 Konfirmasi Pembayaran dari Klien"</strong> dan klik tautan <strong><code>Lihat Bukti Transfer</code></strong> untuk memverifikasi foto struk transfer dengan mutasi rekening bank.</li>
+                    <li>Tutup modal detail, lalu klik tombol hijau <span class="btn-ui btn-success">Tandai Lunas</span> pada baris invoice tersebut dan klik Konfirmasi.</li>
+                </ol>
+            </div>
+            <div class="ipo-col ipo-col-output">
+                <div class="ipo-header">📤 Output Akhir Siklus Aplikasi</div>
+                <ul>
+                    <li><strong>1. Status Invoice:</strong> Berubah menjadi <strong>Lunas (<code>PAID</code>)</strong> di Admin &amp; Portal Klien.</li>
+                    <li><strong>2. Status Stok Gudang:</strong> Seluruh item inventaris pesanan otomatis berubah menjadi <strong>Barang Jadi (<code>FINISHED</code>)</strong>.</li>
+                    <li><strong>3. Penutupan Order:</strong> Status Order otomatis berubah menjadi <strong>Ditutup (<code>CLOSED</code>)</strong> dan terkunci permanen sebagai arsip audit.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 13: BAB 10 — INTEGRASI BOT TELEGRAM & TROUBLESHOOTING (FAQ) -->
+    <!-- =================================================================== -->
+    <div class="page-break"></div>
+
+    <div class="chapter-header">
+        <div class="chapter-num">Bab 10 &bull; AI Assistant &amp; Troubleshooting</div>
+        <h1 class="chapter-title">INTEGRASI BOT TELEGRAM &amp; PANDUAN PENYELESAIAN KENDALA (FAQ)</h1>
+        <div class="chapter-subtitle">Cara menautkan akun ke @ClientBot dan @OwnerBot serta daftar solusi cepat untuk kendala operasional harian</div>
+    </div>
+
+    <h2>10.1 Cara Menghubungkan &amp; Menggunakan Bot Telegram (<code>@ClientBot</code> &amp; <code>@OwnerBot</code>)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 24%;">Metode Penautan Akun</th>
+                <th style="width: 35%;">Langkah-Langkah Aktivasi</th>
+                <th style="width: 41%;">Perintah &amp; Fitur AI yang Tersedia</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>A. Mandiri dari Dashboard Portal Klien</strong><br><span class="badge badge-client">Khusus Klien Maklon</span></td>
+                <td>
+                    1. Login ke Portal Klien (<code>/portal/{kode}</code>).<br>
+                    2. Pada halaman <strong>Dashboard</strong>, temukan kartu <em>Koneksi Bot Telegram</em>.<br>
+                    3. Klik tombol <strong>Hubungkan Telegram</strong> &rarr; Aplikasi Telegram terbuka otomatis menuju <code>@ClientBot</code> &rarr; Klik <strong>Start</strong>.
+                </td>
+                <td>
+                    &bull; <code>/orders</code> &mdash; Menampilkan 10 pesanan terbaru milik klien.<br>
+                    &bull; <code>/status &lt;nomor_order&gt;</code> &mdash; Detail status &amp; jumlah unit pesanan.<br>
+                    &bull; <strong>Tombol Persetujuan Instan:</strong> Klik <em>Setujui / Tolak</em> penawaran atau sample langsung dari notifikasi chat.<br>
+                    &bull; <strong>Asisten AI Klien:</strong> Tanya bebas dengan bahasa sehari-hari (mis. <em>"Status order saya bagaimana?"</em>, <em>"Sisa stok kain saya berapa?"</em>).
+                </td>
+            </tr>
+            <tr>
+                <td><strong>B. Melalui Token dari Menu Pengguna</strong><br><span class="badge badge-owner">Owner &amp; Staf Internal</span></td>
+                <td>
+                    1. Login sebagai <strong>Owner</strong> di <code>/admin/users</code> (menu <strong>Master Data &rarr; Pengguna</strong>).<br>
+                    2. Klik tombol biru <span class="btn-ui btn-info">Token Telegram</span> pada baris pengguna.<br>
+                    3. Salin kode token 8 karakter yang tampil di notifikasi.<br>
+                    4. Buka <code>@OwnerBot</code> / <code>@ClientBot</code> di Telegram lalu ketik <code>/start &lt;TOKEN&gt;</code>.
+                </td>
+                <td>
+                    &bull; <code>/status &lt;nomor_order&gt;</code> &mdash; Cek status order lintas klien.<br>
+                    &bull; <strong>Notifikasi Keputusan Klien:</strong> Menerima kabar instan saat klien menyetujui atau meminta revisi penawaran harga.<br>
+                    &bull; <strong>Asisten AI Owner:</strong> Tanya jawab langsung ke data pabrik (mis. <em>"Ringkasan pabrik hari ini"</em>, <em>"Tagihan klien PT Maklon Demo"</em>).
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>10.2 Tabel Penyelesaian Kendala Umum (Troubleshooting / FAQ)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 4%;">No</th>
+                <th style="width: 29%;">Gejala / Kendala di Layar</th>
+                <th style="width: 32%;">Penyebab Sistem (Business Rule)</th>
+                <th style="width: 35%;">Solusi Langkah Penyelesaian</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1</strong></td>
+                <td>Tombol <span class="btn-ui btn-warning">Mulai Cutting</span> tidak muncul pada baris order di menu <em>Alur Bahan Pesanan</em>.</td>
+                <td>Status alur bahan belum mencapai <code>Standby (Bahan Lengkap)</code> karena masih ada item bahan yang jumlah diterimanya kurang dari kebutuhan order.</td>
+                <td>Klik tombol <span class="btn-ui btn-gray">Daftar Barang &amp; Bahan</span> untuk mengecek item mana yang masih kurang, lalu lakukan <span class="btn-ui btn-success">ACC Kedatangan Gudang</span> sampai seluruh item berstatus <code>Standby di Gudang</code>.</td>
+            </tr>
+            <tr>
+                <td><strong>2</strong></td>
+                <td>Muncul error merah saat mengeluarkan/mentransfer stok di menu <em>Pergerakan Stok</em>.</td>
+                <td>Pesanan tujuan (<code>destination_order_id</code>) berbeda <code>client_id</code> atau <code>order_id</code>-nya dengan bahan yang dipilih (proteksi <em>Zero Cross-Contamination</em>).</td>
+                <td>Pastikan memilih item stok yang memiliki kode <code>TAG-{KLIEN}-{ORDER}</code> yang sama persis dengan pesanan tujuan dan pastikan kuantitas tidak melebihi saldo.</td>
+            </tr>
+            <tr>
+                <td><strong>3</strong></td>
+                <td>Saat Penjahit klik <span class="btn-ui btn-primary">Kerjakan</span>, kolom <em>Jumlah selesai (pcs)</em> terkunci (tidak bisa diisi).</td>
+                <td>Penjahit belum menjalankan dan menghentikan <strong>Stopwatch</strong> kerja pada modal tersebut.</td>
+                <td>Tekan tombol hijau <span class="btn-ui btn-success">Mulai</span> saat mulai menjahit, lalu tekan tombol merah <span class="btn-ui btn-danger">Stop</span> setelah selesai. Kolom input jumlah selesai akan langsung terbuka.</td>
+            </tr>
+            <tr>
+                <td><strong>4</strong></td>
+                <td>Tombol <span class="btn-ui btn-primary">Input Perakitan</span> di halaman <em>Output 30 Menit (Review)</em> tidak aktif (disabled).</td>
+                <td>Masih ada laporan output penjahit yang berstatus <code>Menunggu Verifikasi</code> atau ada komponen artikel yang belum memiliki output <code>Terverifikasi</code>.</td>
+                <td>Klik tombol <span class="btn-ui btn-success">Verifikasi Semua</span> terlebih dahulu, dan pastikan seluruh komponen artikel sudah dilaporkan oleh penjahitnya.</td>
+            </tr>
+            <tr>
+                <td><strong>5</strong></td>
+                <td>Saat Finance klik <span class="btn-ui btn-warning">Hitung</span> di <em>Periode Payroll</em>, muncul peringatan <em>"Tidak ada data pada periode ini"</em>.</td>
+                <td>Belum ada output berstatus <code>Terverifikasi (VERIFIED)</code> pada rentang tanggal periode tersebut, atau tanggal periode tidak mencakup hari kerja penjahit.</td>
+                <td>1. Pastikan Kepala Produksi sudah klik <code>Verifikasi</code> output.<br>2. Pastikan komponen sudah memiliki <code>Rate Card</code> berstatus <code>Disetujui</code>.<br>3. Sesuaikan rentang <code>Awal</code> &amp; <code>Akhir Periode</code>.</td>
+            </tr>
+            <tr>
+                <td><strong>6</strong></td>
+                <td>Pada form pembuatan <em>Invoice</em>, muncul peringatan kuning <em>"X komponen tanpa rate card aktif dikecualikan"</em>.</td>
+                <td>Tarif komponen jahit belum diinput oleh Kepala Produksi atau masih berstatus <code>Menunggu Persetujuan (PENDING)</code>.</td>
+                <td>Buka menu <strong>Sample Disetujui</strong> atau <strong>Rate Card</strong>, lalu klik <span class="btn-ui btn-success">Setujui</span> pada tarif komponen pesanan tersebut.</td>
+            </tr>
+            <tr>
+                <td><strong>7</strong></td>
+                <td>Tombol <span class="btn-ui btn-success">Tandai Lunas</span> pada baris <em>Invoice</em> tidak muncul bagi Finance.</td>
+                <td>Status invoice masih <code>Draf (DRAFT)</code> atau sudah berstatus <code>Lunas (PAID)</code>.</td>
+                <td>Klik tombol kuning <span class="btn-ui btn-warning">Terbitkan</span> terlebih dahulu agar status invoice menjadi <code>Terbit (ISSUED)</code>, barulah tombol <em>Tandai Lunas</em> muncul.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-success avoid-break" style="margin-top: 8px; margin-bottom: 0;">
+        <span class="callout-title">✅ Ringkasan Kunci Keberhasilan Operasional Lukla Operations Engine</span>
+        Dengan mengikuti urutan alur pada buku panduan ini: <strong>(1) Klien Buat Order &rarr; (2) Owner Kirim Quotation &rarr; (3) Klien ACC Quotation &rarr; (4) Tim Sample Buat Sample &amp; Time Study &rarr; (5) Klien ACC Sample &rarr; (6) Mandor &amp; Finance Tetapkan Rate Card &rarr; (7) Konversi ke Order Massal &rarr; (8) Gudang Kelola PO, Kedatangan, Cutting &amp; Kirim ke Produksi &rarr; (9) Mandor ACC Bahan &amp; Mulai Produksi &rarr; (10) Penjahit Catat Output Stopwatch &rarr; (11) Mandor Verifikasi &amp; Input Perakitan &rarr; (12) QC Periksa Kualitas &rarr; (13) Finance Hitung Payroll &amp; Terbitkan Invoice &rarr; (14) Klien Konfirmasi Bayar &rarr; (15) Finance Tandai Lunas (Order CLOSED)</strong>, seluruh proses bisnis pabrik tercatat secara akurat, transparan, dan bebas dari risiko tertukarnya stok antar-klien.
+    </div>
+
+</body>
+</html>
