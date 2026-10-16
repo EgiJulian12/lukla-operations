@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
@@ -12,7 +13,7 @@ use Filament\Support\Contracts\HasLabel;
  *
  * @see docs/lukla-operations-engine.md — Actor scope and permissions
  */
-enum UserRole: string implements HasLabel
+enum UserRole: string implements HasColor, HasLabel
 {
     case OWNER_EXECUTIVE = 'owner_eksekutif';
     case SAMPLE_TEAM = 'tim_sample';
@@ -37,6 +38,34 @@ enum UserRole: string implements HasLabel
         };
     }
 
+    public function getShortLabel(): string
+    {
+        return match ($this) {
+            self::OWNER_EXECUTIVE => 'Owner',
+            self::SAMPLE_TEAM => 'Tim Sample',
+            self::WAREHOUSE => 'Gudang',
+            self::PRODUCTION_LEAD => 'Kepala Produksi',
+            self::TAILOR_OPERATOR => 'Penjahit',
+            self::QC_INSPECTOR => 'QC Inspector',
+            self::FINANCE_PAYROLL => 'Finance',
+            self::CLIENT_MAKLON => 'Klien Maklon',
+        };
+    }
+
+    public function getColor(): string|array|null
+    {
+        return match ($this) {
+            self::OWNER_EXECUTIVE => 'warning',
+            self::SAMPLE_TEAM => 'info',
+            self::WAREHOUSE => 'warning',
+            self::PRODUCTION_LEAD => 'danger',
+            self::TAILOR_OPERATOR => 'gray',
+            self::QC_INSPECTOR => 'success',
+            self::FINANCE_PAYROLL => 'success',
+            self::CLIENT_MAKLON => 'primary',
+        };
+    }
+
     /**
      * Peran internal pabrik — memakai panel /admin dengan akses lintas klien.
      */
@@ -58,12 +87,14 @@ enum UserRole: string implements HasLabel
     }
 
     /**
-     * Persetujuan versi sample (FR-003, FR-026). Matriks RBAC SRS menempatkan
-     * "Setujui versi sample" pada Tim Sample; Owner tetap berwenang menyetujui.
+     * Persetujuan versi sample (FR-003, FR-026).
+     *
+     * Berdasarkan prinsip pemisahan tugas (separation of duties), hanya Klien Maklon
+     * yang berhak menyetujui (ACC) atau menolak versi sample hasil evaluasi fisik pakaian.
      */
     public function canApproveSamples(): bool
     {
-        return in_array($this, [self::OWNER_EXECUTIVE, self::SAMPLE_TEAM], true);
+        return $this === self::CLIENT_MAKLON;
     }
 
     /**

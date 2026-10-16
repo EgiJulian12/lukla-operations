@@ -17,7 +17,12 @@ class SampleRevisionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageSamples()
+            || $role->canApproveSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, SampleRevision $revision): bool
@@ -43,11 +48,19 @@ class SampleRevisionPolicy
 
     public function approve(User $user, SampleRevision $revision): bool
     {
+        if ($user->client_id !== null && (int) $user->client_id !== (int) $revision->client_id) {
+            return false;
+        }
+
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canApproveSamples());
     }
 
     public function reject(User $user, SampleRevision $revision): bool
     {
+        if ($user->client_id !== null && (int) $user->client_id !== (int) $revision->client_id) {
+            return false;
+        }
+
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canApproveSamples());
     }
 

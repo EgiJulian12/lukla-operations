@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\PayrollPeriods;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\PayrollPeriods\Pages\CreatePayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\EditPayrollPeriod;
 use App\Filament\Resources\PayrollPeriods\Pages\ListPayrollPeriods;
@@ -9,6 +11,7 @@ use App\Filament\Resources\PayrollPeriods\RelationManagers\PayrollEntriesRelatio
 use App\Filament\Resources\PayrollPeriods\Schemas\PayrollPeriodForm;
 use App\Filament\Resources\PayrollPeriods\Tables\PayrollPeriodsTable;
 use App\Models\PayrollPeriod;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -25,6 +28,8 @@ use UnitEnum;
  */
 class PayrollPeriodResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = PayrollPeriod::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
@@ -61,5 +66,18 @@ class PayrollPeriodResource extends Resource
             'create' => CreatePayrollPeriod::route('/create'),
             'edit' => EditPayrollPeriod::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola periode payroll; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

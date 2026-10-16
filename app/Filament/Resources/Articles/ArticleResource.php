@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\Articles;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Articles\Pages\CreateArticle;
 use App\Filament\Resources\Articles\Pages\EditArticle;
 use App\Filament\Resources\Articles\Pages\ListArticles;
 use App\Filament\Resources\Articles\Schemas\ArticleForm;
 use App\Filament\Resources\Articles\Tables\ArticlesTable;
 use App\Models\Article;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,6 +26,8 @@ use UnitEnum;
  */
 class ArticleResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Article::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
@@ -54,5 +59,21 @@ class ArticleResource extends Resource
             'create' => CreateArticle::route('/create'),
             'edit' => EditArticle::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance dan Owner dapat melihat artikel untuk keperluan invoice dan reporting.
+     * Warehouse, Penjahit, dan Client tidak memerlukan akses Master Data artikel.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::WAREHOUSE
+                || $role === UserRole::TAILOR_OPERATOR
+                || $role === UserRole::CLIENT_MAKLON,
+        );
     }
 }

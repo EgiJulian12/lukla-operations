@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreatePayrollPeriod extends CreateRecord
 {
     protected static string $resource = PayrollPeriodResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

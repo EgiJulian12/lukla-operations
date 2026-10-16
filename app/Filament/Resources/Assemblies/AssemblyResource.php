@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\Assemblies;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Assemblies\Pages\CreateAssembly;
 use App\Filament\Resources\Assemblies\Pages\ListAssemblies;
 use App\Filament\Resources\Assemblies\Schemas\AssemblyForm;
 use App\Filament\Resources\Assemblies\Tables\AssembliesTable;
 use App\Models\Assembly;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -19,9 +22,16 @@ use UnitEnum;
  *
  * Perakitan menyatukan output terverifikasi dari beberapa penjahit, lalu
  * memindahkan produk ke keadaan siap QC.
+ *
+ * Seperti Line Produksi, menunya tidak berdiri di sidebar Kepala Produksi:
+ * perakitan dijalankan dari halaman Output 30 Menit milik order yang
+ * bersangkutan. Halamannya tetap dapat dibuka lewat URL; yang diatur matriks
+ * RoleMenuAccess hanya pendaftaran menunya.
  */
 class AssemblyResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Assembly::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
@@ -50,5 +60,22 @@ class AssemblyResource extends Resource
             'index' => ListAssemblies::route('/'),
             'create' => CreateAssembly::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola perakitan; itu domain lantai produksi.
+     * Tim Sample juga tidak mengelola perakitan — itu berlangsung setelah produksi selesai.
+     * QC Inspector menginspeksi perakitan via Antrean Pesanan QC, bukan menu Perakitan.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::QC_INSPECTOR,
+        );
     }
 }

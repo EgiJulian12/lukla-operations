@@ -33,6 +33,8 @@ class OutputEntry extends Model
         'status',
         'verified_by',
         'verified_at',
+        'rejection_reason',
+        'rejected_by',
         'notes',
     ];
 
@@ -70,6 +72,11 @@ class OutputEntry extends Model
     public function verifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function rejectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 
     public function assemblies(): BelongsToMany

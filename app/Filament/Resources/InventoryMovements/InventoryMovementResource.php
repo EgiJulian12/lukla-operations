@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\InventoryMovements;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\InventoryMovements\Pages\CreateInventoryMovement;
 use App\Filament\Resources\InventoryMovements\Pages\ListInventoryMovements;
 use App\Filament\Resources\InventoryMovements\Schemas\InventoryMovementForm;
 use App\Filament\Resources\InventoryMovements\Tables\InventoryMovementsTable;
 use App\Models\InventoryMovement;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -27,6 +30,8 @@ use UnitEnum;
  */
 class InventoryMovementResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = InventoryMovement::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
@@ -55,5 +60,20 @@ class InventoryMovementResource extends Resource
             'index' => ListInventoryMovements::route('/'),
             'create' => CreateInventoryMovement::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak menyentuh pergerakan stok fisik; itu wewenang Gudang.
+     * Tim Sample juga tidak mengelola pergerakan stok.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

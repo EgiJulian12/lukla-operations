@@ -2,13 +2,17 @@
 
 namespace App\Filament\Resources\Samples;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\Samples\Pages\CreateSample;
 use App\Filament\Resources\Samples\Pages\EditSample;
 use App\Filament\Resources\Samples\Pages\ListSamples;
+use App\Filament\Resources\Samples\Pages\ViewSample;
 use App\Filament\Resources\Samples\RelationManagers\RevisionsRelationManager;
 use App\Filament\Resources\Samples\Schemas\SampleForm;
 use App\Filament\Resources\Samples\Tables\SamplesTable;
 use App\Models\Sample;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -25,6 +29,8 @@ use UnitEnum;
  */
 class SampleResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Sample::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSwatch;
@@ -61,7 +67,21 @@ class SampleResource extends Resource
         return [
             'index' => ListSamples::route('/'),
             'create' => CreateSample::route('/create'),
+            'view' => ViewSample::route('/{record}'),
             'edit' => EditSample::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola sample; itu domain Tim Sample.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+        );
     }
 }

@@ -24,7 +24,8 @@ class MaterialForm
                     ->required()
                     ->maxLength(255),
                 TextInput::make('name')
-                    ->label('Nama')
+                    ->label('Nama Bahan / Aksesoris')
+                    ->placeholder('Contoh: Kain Katun Combed 30s, Resleting YKK 50cm, Kancing')
                     ->required()
                     ->maxLength(255),
                 Select::make('client_id')
@@ -32,14 +33,16 @@ class MaterialForm
                     ->relationship('client', 'name')
                     ->searchable()
                     ->preload()
-                    ->helperText('Kosongkan untuk bahan generik yang dipakai lintas klien.'),
+                    ->helperText('Kosongkan untuk bahan/aksesoris generik yang dipakai lintas klien.'),
                 TextInput::make('uom')
                     ->label('Satuan')
                     ->required()
                     ->default('meter')
+                    ->helperText('Contoh: meter, yard, pcs, lusin, roll')
                     ->maxLength(20),
                 TextInput::make('category')
                     ->label('Kategori')
+                    ->placeholder('Kain Utama, Aksesoris, Benang, Kancing, Zipper')
                     ->maxLength(255),
             ]);
     }

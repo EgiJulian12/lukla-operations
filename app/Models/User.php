@@ -12,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -37,10 +38,14 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
 
     protected $fillable = [
         'client_id',
+        'telegram_chat_id',
         'name',
         'email',
         'password',
         'is_active',
+        'telegram_chat_id',
+        'telegram_user_id',
+        'telegram_linked_at',
     ];
 
     protected $hidden = [
@@ -54,6 +59,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'telegram_linked_at' => 'datetime',
         ];
     }
 
@@ -63,6 +69,17 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * Komponen yang dipegang penjahit ini pada order-order produksi (FR-009).
+     * Terisi hanya untuk peran Penjahit; peran lain tidak pernah ditugaskan.
+     *
+     * @return HasMany<OrderComponentAssignment, $this>
+     */
+    public function componentAssignments(): HasMany
+    {
+        return $this->hasMany(OrderComponentAssignment::class);
     }
 
     // -----------------------------------------------------------------
@@ -161,5 +178,15 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     public function primaryRoleLabel(): string
     {
         return $this->primaryRole()?->getLabel() ?? 'Tanpa Peran';
+    }
+
+    public function primaryRoleShortLabel(): string
+    {
+        return $this->primaryRole()?->getShortLabel() ?? $this->primaryRoleLabel();
+    }
+
+    public function primaryRoleColor(): string
+    {
+        return (string) ($this->primaryRole()?->getColor() ?? 'gray');
     }
 }

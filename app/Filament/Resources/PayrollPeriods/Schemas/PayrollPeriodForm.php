@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\PayrollPeriods\Schemas;
 
+use App\Models\PayrollPeriod;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 /**
  * Formulir periode payroll.
@@ -20,9 +24,21 @@ class PayrollPeriodForm
             ->components([
                 DatePicker::make('period_start')
                     ->label('Awal Periode')
-                    ->required(),
+                    ->default(fn () => now()->startOfWeek())
+                    ->helperText('Tanggal awal rentang kerja penjahit yang akan dihitung upahnya (default: Senin).')
+                    ->required()
+                    ->rules([
+                        fn (Get $get, ?PayrollPeriod $record): Unique => Rule::unique('payroll_periods', 'period_start')
+                            ->where('period_end', $get('period_end'))
+                            ->when($record, fn ($rule) => $rule->ignore($record->id)),
+                    ])
+                    ->validationMessages([
+                        'unique' => 'Periode dengan tanggal awal dan akhir yang sama sudah ada.',
+                    ]),
                 DatePicker::make('period_end')
                     ->label('Akhir Periode')
+                    ->default(fn () => now()->endOfWeek())
+                    ->helperText('Tanggal akhir rentang kerja penjahit (default: Minggu).')
                     ->required()
                     ->afterOrEqual('period_start'),
                 TextInput::make('meal_allowance_percent')
@@ -31,7 +47,8 @@ class PayrollPeriodForm
                     ->suffix('%')
                     ->minValue(0)
                     ->maxValue(100)
-                    ->helperText('Persentase dari total dana ongkos jahit periode ini.'),
+                    ->default(10)
+                    ->helperText('Persentase dari total dana ongkos jahit periode ini untuk dialokasikan ke uang makan.'),
                 TextInput::make('qc_bonus_rate_per_unit')
                     ->label('Tarif Bonus QC')
                     ->numeric()

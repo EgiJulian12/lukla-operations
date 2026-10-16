@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\OutputEntries;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OutputEntries\Pages\CreateOutputEntry;
 use App\Filament\Resources\OutputEntries\Pages\ListOutputEntries;
 use App\Filament\Resources\OutputEntries\Schemas\OutputEntryForm;
 use App\Filament\Resources\OutputEntries\Tables\OutputEntriesTable;
 use App\Models\OutputEntry;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,6 +26,8 @@ use UnitEnum;
  */
 class OutputEntryResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = OutputEntry::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
@@ -51,5 +56,20 @@ class OutputEntryResource extends Resource
             'index' => ListOutputEntries::route('/'),
             'create' => CreateOutputEntry::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola output produksi; itu domain Kepala Produksi.
+     * Tim Sample tidak mengelola output 30 menit.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

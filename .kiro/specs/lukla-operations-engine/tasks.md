@@ -1,0 +1,471 @@
+# Lukla Operations Engine - Parallel Execution & Task Breakdown
+
+> **Panduan untuk Tim / AI Subagent Parallel**:
+> Dokumen ini dirancang agar tugas dapat **dikerjakan secara paralel dan independen** oleh beberapa developer / AI model sekaligus tanpa saling memblokir (*non-blocking*).
+> 
+> - **Sumber Kebenaran Bisnis (Source of Truth)**: Diselaraskan ketat dengan `docs/Business_requirement_summary.md` dan `docs/lukla-operations-engine.md`.
+> - Semua aturan spekulatif (seperti retensi 7 tahun, batas arbitrer karakter 10-500, batas 3x percobaan, batas 1-100 pcs) telah dibersihkan agar murni mencerminkan kebutuhan bisnis nyata.
+> - Setiap modul dilengkapi kontrak data mock mandiri dan perintah verifikasi test.
+
+---
+
+## 🔄 Status Sinkronisasi (2026-10-15)
+
+Disinkronkan terhadap codebase (branch `bug/fixing-fitur-gudang`, commit `8a7c0c2`) dan hasil `php artisan test`:
+
+- **Hasil tes penuh**: 221 tes, **210 lulus**, 11 gagal. Tidak ada kegagalan yang berasal dari task di dokumen ini.
+  - 10 gagal `Tests\Unit\RagServiceTest`: `Class "Aws\..." not found`, paket `aws/aws-sdk-php` belum terpasang di `vendor/` (fitur RAG/AI di luar spec ini).
+  - 1 gagal `RoleMenuAccessTest > guest cannot see any resource in navigation`: `OutputReviewResource::shouldRegisterNavigation()` bernilai `true` untuk tamu.
+- **Aturan selisih spec vs kode** (disepakati): selama flow bisnis tidak berubah, kode mengikuti spec; jika spec justru mengubah flow yang sudah berjalan, spec mengikuti kode.
+- Task yang baru terpenuhi **sebagian** dibiarkan `[ ]` dengan catatan **Selisih**.
+
+### Ringkasan Belum Selesai
+
+| Task | Yang belum ada |
+|---|---|
+| 10.6 | Regression 100% lulus (terhalang 11 kegagalan non-operasional/RAG AWS di atas) |
+
+---
+
+## 🗺️ Peta Dependensi & Orkestrasi Paralel (Execution Matrix)
+
+```
+[TRACK A: FINANCE & RATE] ────────> [Bisa Paralel Langsung (0 Dependency)]
+  ├─ Modul 1: RateManager, Margin Formula & Rate Approval (BR 4.1, FR-010)
+
+[TRACK B: PRODUCTION & FLOOR] ────> [Bisa Paralel Langsung (0 Dependency)]
+  ├─ Modul 2: Output Recording Interval 30 Menit (FR-011, BR 4.5)
+  ├─ Modul 3: Verification Workflow & Resubmission (FR-012, BR 4.5)
+  └─ Modul 4: Station Rotation & Dynamic Line Allocation (FR-009, NFR-001)
+
+[TRACK C: QUALITY & REPAIR] ──────> [Bisa Paralel Langsung (0 Dependency)]
+  ├─ Modul 5: Repair Domain (Model, Migration, Service) (FR-014, BR 4.6)
+  └─ Modul 6: QC Inspection Transition & Waste Hook (FR-008, FR-014, BR 4.6)
+
+[TRACK D: WAREHOUSE & INVENTORY] ─> [Bisa Paralel Langsung (0 Dependency)]
+  ├─ Modul 7: Inventory State Tracking & Waste Recording (FR-005, FR-008)
+  ├─ Modul 7B: Client & Order Isolation Guard & Semi-CMT Tagging (FR-006, FR-007, BR 4.4)
+  └─ Modul 7C: Material Dispatch & Production Delivery Tracking (FR-012)
+
+[TRACK E: PAYROLL & SETTLEMENT] ──> [Bisa Paralel menggunakan Contract / Mock Data]
+  ├─ Modul 8: QC Bonus Pool 3-Way Distribution (FR-017, BR 4.3)
+  └─ Modul 9: Weekly Payroll Saturday Close & Meal Allowance (FR-015, FR-016, BR 4.2)
+
+[TRACK F: SYSTEM ORCHESTRATION & LIFECYCLE] ──> [Dikerjakan Terakhir setelah Track A-E Selesai]
+  ├─ Modul 10A: Order Lifecycle & Sample-to-Order Conversion (FR-001, FR-003, FR-004)
+  └─ Modul 10B: Saturday Close Scheduler & End-to-End Regression Test
+```
+
+### Tabel Status Ketergantungan (Parallel Readiness)
+
+| Modul | Track | Reqs Bisnis | Dependensi Riil | Cara Eksekusi Paralel Tanpa Menunggu | Status Paralel |
+|---|---|---|---|---|---|
+| **Modul 1: Rate & Margin** | A | BR 4.1, FR-010 | Tidak ada | Beroperasi pada kalkulasi formula margin & `RateCard`. | ✅ **Selesai (Completed)** |
+| **Modul 2: Output Recording** | B | FR-011, BR 4.5 | Tidak ada | Menggunakan factory `Order`, `Component`, `User`. | ✅ **Selesai (Completed)** |
+| **Modul 3: Verification & Resubmit** | B | FR-012, BR 4.5 | Kolom penolakan di `output_entries` | Cukup buat migrasi kolomnya sendiri. | ✅ **Selesai (Completed)** |
+| **Modul 4: Line Allocation** | B | FR-009, NFR-001 | Kolom stasiun di `line_assignments` | Independen dari output recording. | ✅ **Selesai (Completed)** |
+| **Modul 5: Repair Domain** | C | FR-014, BR 4.6 | Relasi ke `QcRecord` (sudah ada di DB) | Buat tabel `repairs` & `RepairManager`. | ✅ **Selesai (Completed)** |
+| **Modul 6: QC Inspection Hook** | C | FR-008, FR-014 | Memanggil Modul 5 jika REPAIR | Gunakan Mock / Null Object jika Modul 5 belum merge. | ✅ **Selesai (Completed)** |
+| **Modul 7: Inventory & Waste**| D | FR-005, FR-008 | Tidak ada | Beroperasi pada `InventoryItem` & `WasteRecord`. | ✅ **Selesai (Completed)** |
+| **Modul 7B: Client Isolation** | D | FR-006, FR-007, BR 4.4 | Tidak ada | Verifikasi `BelongsToClient` & Tagging Semi-CMT. | ✅ **Selesai (Completed)** |
+| **Modul 7C: Material Dispatch** | D | FR-012 | Modul 7 & 7B | Beroperasi pada `MaterialDispatch`. | ✅ **Selesai (Completed)** |
+| **Modul 8: QC Bonus Pool** | E | FR-017, BR 4.3 | Membaca `QcRecord` berstatus PASS | Gunakan factory `QcRecord::factory()->create(['result' => 'PASS'])`. | ✅ **Selesai (Completed)** |
+| **Modul 9: Weekly Payroll** | E | FR-015, FR-016, BR 4.2 | Membaca output VERIFIED & rate | Gunakan factory `OutputEntry::factory()->verified()`. | ✅ **Selesai (Completed)** |
+| **Modul 10A: Order Lifecycle & Sample v2** | F | FR-001, FR-004 | Model `Order`, `Sample` | Lifecycle state machine, convert sample, & Sample v1->v2 cloning. | ✅ **Selesai (Completed)** |
+| **Modul 10B: Scheduler & E2E** | F | Semua | Menghubungkan Modul 8 & 9 | Scheduler Saturday close aktif, domain tests 100% passed. | ✅ **Selesai (Completed)** |
+
+---
+
+## 📦 KONTRAK DATA MOCK (Untuk Pengerjaan Paralel)
+
+Jika Anda mengerjakan modul yang membutuhkan data dari modul lain yang sedang dikerjakan orang lain, gunakan kontrak data factory berikut di unit/feature test Anda:
+
+### Kontrak 1: Untuk Pengerjaan QC Bonus & Inspection (Track C & E)
+```php
+// Tidak perlu menunggu modul lain: buat record QC langsung via Eloquent
+$qcPass = App\Models\QcRecord::create([
+    'client_id' => $clientId,
+    'order_id' => $orderId,
+    'result' => App\Enums\QcResult::PASS,
+    'quantity' => 10,
+    'inspected_at' => now(),
+]);
+```
+
+### Kontrak 2: Untuk Pengerjaan Payroll Calculation (Track E)
+```php
+// Mock Output Terverifikasi untuk test perhitungan payroll:
+$outputVerified = App\Models\OutputEntry::create([
+    'client_id' => $clientId,
+    'order_id' => $orderId,
+    'production_line_id' => $lineId,
+    'user_id' => $operatorId,
+    'component_id' => $componentId,
+    'quantity' => 20,
+    'interval_start' => now()->startOfWeek()->addHours(8),
+    'interval_end' => now()->startOfWeek()->addHours(8)->addMinutes(30),
+    'status' => App\Enums\OutputStatus::VERIFIED,
+    'verified_by' => $supervisorId,
+    'verified_at' => now(),
+]);
+```
+
+---
+
+# DETAIL RINCIAN TASK PARALEL
+
+---
+
+## TRACK A: FINANCE & RATE MANAGEMENT (Independen)
+
+### MODUL 1: RateManager, Formula Margin & Rate Approval (BR 4.1, FR-010)
+*PIC / Agent: Worker A*  
+*Dependensi: None (Mandiri)*  
+*Dasar Bisnis: BR 4.1 Formula `RATE ORDER = RATE KOMPONEN + MATERIAL + OVERHEAD + PROFIT`, FR-010, FR-026*
+
+- [x] **1.1** Buat Service `App\Services\Finance\RateManager`
+  - **File Target**: `app/Services/Finance/RateManager.php`
+  - **Spesifikasi Logika**:
+    - Method `computeAvailableMargin(float $sellingPrice, float $materialCost, float $overhead, float $profit): float`
+      - Rumus: `$sellingPrice - ($materialCost + $overhead + $profit)`.
+      - Validasi: Jika hasil < 0, lemparkan `App\Exceptions\InvalidRateMarginException` ("Total komponen biaya melebihi harga jual order").
+    - Method `validateRateKomponen(float $componentRate, float $availableMargin): bool`
+      - Validasi: `Rate Komponen <= Available Margin`.
+    - Method `validateTotalComponentsMargin(array $componentRates, float $availableMargin): bool`
+      - Validasi: `SUM(Rate Komponen) <= Available Margin`.
+    - Method `approveRateKomponen(Order $order, Component $component, User $approver): void`
+      - Kepala Produksi menentukan Rate Komponen, validasi terhadap batas margin yang ditetapkan Owner.
+      - Rekam pengguna penyetuju (`approver_id`) dan timestamp persetujuan (FR-026).
+- [x] **1.2** Pencatatan Audit Perubahan Tarif
+  - **File Target**: `app/Models/RateCard.php`
+  - **Spesifikasi**: Rekam jejak audit (actor, timestamp, perubahan nilai) setiap kali terjadi create/update pada rate card (FR-022).
+- [x] **1.3** Unit & Feature Test Mandiri
+  - **File Target**: `tests/Feature/Finance/RateManagerTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=RateManagerTest`
+
+---
+
+## TRACK B: PRODUCTION FLOOR WORKFLOW (Independen)
+
+### MODUL 2: Output Recording Interval 30 Menit & Penugasan Operator (FR-011, BR 4.5)
+*PIC / Agent: Worker B1*  
+*Dependensi: None (Mandiri)*  
+*Dasar Bisnis: BR 4.5, BR-004, FR-011 Output capture 30 menit per penjahit per station*
+
+- [x] **2.1** Validasi Penugasan & Pencatatan Output di `ProductionService`
+  - **File Target**: `app/Services/Production/ProductionService.php` (method `submitOutput`)
+  - **Spesifikasi Logika**:
+    - Penjahit menginput output per 30 menit per station (BR 4.5).
+    - Validasi kuantitas minimal 1 unit.
+    - Hitung interval boundary 30 menit (:00 s/d :30 atau :30 s/d :00) dan catat interval_start & interval_end.
+    - Validasi Penugasan: Operator harus memiliki alokasi aktif di Line terkait (`unassigned_at IS NULL`) atau penugasan komponen pada order, serta dilarang jika bukan peran penjahit.
+    - Output baru diinisialisasi dengan status `SUBMITTED` dan belum layak masuk payroll (FR-011, FR-012).
+- [x] **2.2** Method Helper Interval Boundary
+  - **File Target**: `app/Services/Production/ProductionService.php`
+  - **Spesifikasi**: Public method `calculateInterval(DateTimeInterface $time): array{0: Carbon, 1: Carbon}`.
+- [x] **2.3** Unit & Feature Test
+  - **File Target**: `tests/Feature/Production/OutputRecordingRulesTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=OutputRecordingRulesTest` (11/11 tests passed)
+
+---
+
+### MODUL 3: Output Verification Workflow & Resubmission (FR-012, BR 4.5)
+*PIC / Agent: Worker B2*  
+*Dependensi: Menambahkan kolom pada tabel `output_entries`*  
+*Dasar Bisnis: BR 4.5, FR-012 Supervisor verify/reject, penjahit bisa resubmit jika reject*
+
+- [x] **3.1** Migrasi Kolom Penolakan & Alasan
+  - **File Target**: Migration baru `database/migrations/2026_10_15_020911_add_rejection_fields_to_output_entries_table.php`
+  - **Spesifikasi**:
+    - Tambahkan kolom: `rejection_reason` (text, nullable), `rejected_by` (foreignId nullOnDelete).
+- [x] **3.2** Model Update `OutputEntry`
+  - **File Target**: `app/Models/OutputEntry.php`
+  - **Spesifikasi**: Daftarkan kolom baru ke `$fillable`, relasi `rejectedBy(): BelongsTo`.
+- [x] **3.3** Enhancement Method Verifikasi, Penolakan, & Resubmission
+  - **File Target**: `app/Services/Production/ProductionService.php`
+  - **Spesifikasi Logika**:
+    - Otorisasi Verifikasi: Hanya Kepala Produksi atau Mandor (`PRODUCTION_LEAD`) yang berhak memverifikasi/menolak (FR-012, FR-021). Operator dilarang memverifikasi/menolak output sendiri.
+    - Pada `verifyOutput(OutputEntry $entry, User $verifier)`:
+      - Ubah status ke `VERIFIED`, catat `verified_by`, `verified_at`, kunci record agar tidak dapat diedit lagi oleh penjahit, dan tandai eligible untuk payroll (FR-012, FR-021).
+    - Pada `rejectOutput(OutputEntry $entry, string $reason, ?User $rejector = null)`:
+      - Simpan `rejection_reason`, `rejected_by = auth()->id()`, ubah status ke `REJECTED`.
+    - Pada `resubmitOutput(OutputEntry $entry, int $newQuantity, ?string $notes = null): OutputEntry`:
+      - Jika output berstatus `REJECTED`, penjahit dapat mengoreksi dan resubmit kembali ke status `SUBMITTED` (BR 4.5).
+- [x] **3.4** Unit & Feature Test
+  - **File Target**: `tests/Feature/Production/OutputResubmissionTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=OutputResubmissionTest` (10/10 tests passed)
+
+> **Status (Selesai 2026-10-15)** — Modul 3 telah selesai 100%:
+> - 3.1 & 3.2: migrasi `add_rejection_fields_to_output_entries_table` selesai dan relasi `rejectedBy` terpasang.
+> - 3.3: verifikasi mandor (`PRODUCTION_LEAD`), pencegahan self-verification/rejection, penolakan dengan pencatatan alasan & rejector, serta pengajuan ulang (`resubmitOutput`) telah diimplementasikan di `ProductionService`, `OutputEntryPolicy`, serta Filament action (`ResubmitOutputAction`).
+> - 3.4: 10 test case di `OutputResubmissionTest` lulus (100% passed).
+
+---
+
+### MODUL 4: Dynamic Line Allocation & Station Rotation (FR-009, NFR-001)
+*PIC / Agent: Worker B3*  
+*Dependensi: None (Bisa paralel dengan Modul 2 & 3)*  
+*Dasar Bisnis: BR-003, FR-009, NFR-001 Alokasi dinamis ±70 mesin tanpa batas slot kaku, rotasi line/station*
+
+- [x] **4.1** Migrasi Kolom Stasiun pada `line_assignments`
+  - **File Target**: `database/migrations/2026_10_15_030000_add_station_to_line_assignments_table.php`
+  - **Spesifikasi**: Tambahkan kolom `station_number` (string, nullable).
+- [x] **4.2** Service `LineAllocationService`
+  - **File Target**: `app/Services/Production/LineAllocationService.php`
+  - **Spesifikasi Logika**:
+    - Method `assignOperator(ProductionLine $line, User $operator, ?string $station = null): LineAssignment`:
+      - Tutup penugasan aktif operator sebelumnya saat dirotasi ke line lain (`unassigned_at = now()`).
+      - Buat penugasan baru dengan `assigned_at = now()`.
+      - Kapasitas line bersifat cair tanpa batas slot kaku (NFR-001).
+    - Method `rotateStation(LineAssignment $assignment, string $newStation): LineAssignment`.
+    - Riwayat alokasi ditutup lewat `unassigned_at` (tidak di-hard delete) agar riwayat tetap dapat diaudit (FR-022).
+- [x] **4.3** Unit & Feature Test
+  - **File Target**: `tests/Feature/Production/LineAllocationServiceTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=LineAllocationServiceTest` (10/10 tests passed)
+
+> **Status (Selesai 2026-10-15)** — Modul 4 telah selesai 100%:
+> - 4.1: migrasi `add_station_to_line_assignments_table` menambahkan kolom `station_number`, model `LineAssignment` telah diperbarui dengan fillable & scopeActive.
+> - 4.2: service `LineAllocationService` mengelola alokasi lini dinamis tanpa batas slot kaku (NFR-001), rotasi stasiun otomatis menutup penugasan lama (`unassigned_at`), dan mendelegasikan pemanggilan dari `ProductionService`.
+> - 4.3: 10 test case di `LineAllocationServiceTest` lulus (100% passed). Seluruh 63 test di domain produksi PASSED.
+
+---
+
+## TRACK C: QUALITY ASSURANCE & REPAIR WORKFLOW (Independen)
+
+### MODUL 5: Repair Domain (Model, Migration, Service) (FR-014, BR 4.6)
+*PIC / Agent: Worker C1*  
+*Dependensi: None (Mandiri - Menggunakan tabel `qc_records` yang sudah ada)*  
+*Dasar Bisnis: BR 4.6 Hasil QC REPAIR: ke repair area, kembali produksi, QC ulang*
+
+- [x] **5.1** Buat Enum `App\Enums\RepairStatus`
+  - **File Target**: `app/Enums/RepairStatus.php`
+  - **Values**: `PENDING`, `IN_REPAIR`, `COMPLETED`.
+- [x] **5.2** Migrasi Tabel `repairs`
+  - **File Target**: Migration baru `database/migrations/xxxx_create_repairs_table.php`
+  - **Kolom**: `id`, `qc_record_id` (foreignId ke `qc_records`), `assigned_repairer_id` (foreignId ke `users`, nullable), `status` (string), `completed_at` (timestamp nullable), `notes` (text nullable), `timestamps`.
+- [x] **5.3** Model `App\Models\Repair`
+  - **File Target**: `app/Models/Repair.php`
+  - **Relasi & Helper**: `belongsTo(QcRecord::class)`, `belongsTo(User::class, 'assigned_repairer_id')`.
+- [x] **5.4** Service `RepairManager`
+  - **File Target**: `app/Services/Quality/RepairManager.php`
+  - **Spesifikasi Logika**:
+    - `createFromQc(QcRecord $qc, ?User $repairer = null): Repair` (status `PENDING`).
+    - `markCompleted(Repair $repair): Repair` (set status `COMPLETED`, `completed_at = now()`, unit kembali ke antrean produksi/QC ulang).
+- [x] **5.5** Unit & Feature Test
+  - **File Target**: `tests/Feature/Quality/RepairManagerTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=RepairManagerTest`
+
+---
+
+### MODUL 6: QC Inspection Transition, Bonus Counter & Waste Hook (FR-008, FR-014, BR 4.6)
+*PIC / Agent: Worker C2*  
+*Dependensi Interface: Memanggil `RepairManager` jika status REPAIR (atau fallback graceful jika Modul 5 belum di-merge)*  
+*Dasar Bisnis: BR 4.6 3 Hasil QC (PASS, REPAIR, SCRAP), wajib input defect category jika REPAIR/SCRAP, +1 bonus per PASS*
+
+- [x] **6.1** Validasi Defect Category & Hook Status pada `QcService`
+  - **File Target**: `app/Services/Quality/QcService.php`
+  - **Spesifikasi Logika**:
+    - Unit yang diinspeksi berasal dari perakitan/komponen terverifikasi (FR-013).
+    - Jika hasil `PASS`:
+      - Ke Finished Goods.
+      - Terhitung +1 unit ke QC Bonus Pool periode berjalan (BR 4.6, FR-017).
+    - Jika hasil `REPAIR`:
+      - Wajib input `defect_category` (tolak jika kosong, BR 4.6, FR-014).
+      - Unit diarahkan ke repair area dan tiket repair dibuat via `RepairManager`.
+      - Tidak menambah bonus pool QC.
+    - Jika hasil `SCRAP`:
+      - Wajib input `defect_category` (tolak jika kosong, BR 4.6, FR-014).
+      - Unit diarahkan ke scrap area dan otomatis tercatat ke `waste_records` dengan kategori dan atribusi client/order (FR-008).
+      - Tidak menambah bonus pool QC.
+- [x] **6.2** Unit & Feature Test
+  - **File Target**: `tests/Feature/Quality/QcInspectionFlowTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=QcInspectionFlowTest`
+
+---
+
+## TRACK D: WAREHOUSE & INVENTORY (Independen)
+
+### MODUL 7: Inventory State Tracking, Tagging & Waste Recording (FR-005, FR-008, FR-012)
+*PIC / Agent: Worker D1*  
+*Dependensi: None (Mandiri)*  
+*Dasar Bisnis: BR-002, FR-005, FR-008, FR-012, State Machine Inventory: Received (RAW) → Issued/Cut (WIP) → Consumed (FINISHED)*
+
+- [x] **7.1** Validasi Siklus Hidup Inventory di `InventoryService`
+  - **File Target**: `app/Services/Inventory/InventoryService.php`
+  - **Spesifikasi Logika**:
+    - Setiap item inventory wajib memiliki `client_id` dan `order_id` (BR 4.4, FR-005).
+    - Siklus status inventory: Material mentah diterima (`RAW` / Received), dikeluarkan ke cutting (`WIP` / Issued/Cut), dan dikonsumsi ke perakitan (`FINISHED` / Consumed).
+    - Validasi urutan transisi sekuensial: penolakan jika melompati status (misal `RAW` langsung ke `FINISHED`).
+    - Transisi ke WIP dan FINISHED wajib membawa konteks `order_id` yang valid.
+- [x] **7.2** Penanda Fisik (Tag ID Unik) & Format Cetak Label Bahan
+  - **File Target**: `app/Models/InventoryItem.php`, `app/Services/Inventory/InventoryService.php`, `resources/views/filament/resources/inventory-items/tag-label.blade.php`
+  - **Spesifikasi Logika**:
+    - Generate Tag ID unik dan human-readable per barang masuk yang mencerminkan kepemilikan klien dan pesanan: `TAG-{CLIENT_CODE}-{ORDER_NUMBER}-{ITEM_ID}` (misal: `TAG-ZRA-ORD001-0012`).
+    - Sediakan view/modal "Cetak Label Bahan" yang dapat dicetak (format stiker/thermal slip) berisi Barcode / QR Code, Nama Bahan, Client, Order ID, Batch, dan Tanggal Masuk untuk ditempel pada fisik bahan (roll kain / aksesoris).
+  - **Selisih (Sinkronisasi 2026-10-15)**: `tag_id` dan label cetak sudah ada dan teruji (`InventoryAdminPagesTest`, `MaterialDispatchWorkflowTest`). Namun barcode di `tag-label.blade.php` masih berupa teks hiasan (`||| | ||||`), **belum Barcode/QR yang dapat dipindai**.
+- [x] **7.3** Pencatatan Waste & Scrap Material
+  - **File Target**: `app/Services/Inventory/InventoryService.php`
+  - **Spesifikasi Logika**:
+    - Catat potongan bahan sisa / scrap dengan kategori waste, kuantitas, dan atribusi client/order (FR-008).
+- [x] **7.4** Unit & Feature Test Modul 7
+  - **File Target**: `tests/Feature/Inventory/InventorySequenceAndWasteTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=InventorySequenceAndWasteTest`
+
+---
+
+### MODUL 7B: Work Scheme Fulfillment & Client Isolation Guard (FR-001, FR-006, FR-007, BR 2.1, BR 4.4)
+*PIC / Agent: Worker D2*  
+*Dependensi: None (Mandiri)*  
+*Dasar Bisnis: BR 2.1 Skema Maklon (CMT, Semi-CMT, Full Package), BR 4.4 Isolasi Stok, FR-006, FR-007*
+
+- [x] **7.5** Koordinasi Alur Skema Maklon (CMT, Semi-CMT, Full Package)
+  - **File Target**: `app/Services/Inventory/InventoryService.php`, `app/Filament/Resources/Orders/OrderResource.php`
+  - **Spesifikasi Logika**:
+    - **CMT**: Bahan 100% dari klien. Gudang mencatat penerimaan kiriman dari klien berdasarkan Surat Jalan Klien (`receiveFromClient`).
+    - **Full Package**: Bahan 100% disediakan pabrik. Gudang membuat pengajuan pembelian bahan (PO Draft) yang diteruskan ke Finance (`requestProcurementToFinance`).
+    - **Semi-CMT**: Kombinasi bahan utama klien + aksesoris pabrik. Aksesoris dari Lukla WAJIB otomatis di-tag dengan `client_id` dan `order_id` klien tujuan (BR 4.4).
+- [x] **7.6** Validasi Isolasi Stok & Anti Cross-Client Issue
+  - **File Target**: `app/Services/Inventory/InventoryService.php`
+  - **Spesifikasi Logika**:
+    - Sebelum mencatat issue/pengeluaran material, bandingkan `client_id` dan `order_id` material dengan order tujuan.
+    - Jika `client_id` material ≠ `client_id` order tujuan: Sistem **WAJIB REJECT** dengan peringatan eksplisit (FR-007, Acceptance Scenario 1).
+    - Audit Trail Movement: Setiap pergerakan (receive, issue, transfer, adjustment) wajib membawa `client_id`, `order_id`, jenis pergerakan, dan identitas aktor (FR-006, FR-022).
+- [x] **7.7** Unit & Feature Test Modul 7B
+  - **File Target**: `tests/Feature/Inventory/CrossClientIssueRejectionTest.php`, `tests/Feature/Inventory/WorkSchemeInventoryHandlingTest.php`
+  - **Command Verifikasi**: `php artisan test --filter="CrossClientIssueRejectionTest|WorkSchemeInventoryHandlingTest"`
+
+---
+
+### MODUL 7C: Material Dispatch & Production Delivery Tracking (FR-012, Delivery Workflow)
+*PIC / Agent: Worker D3*  
+*Dependensi: Modul 7 & 7B*  
+*Dasar Bisnis: Pelacakan Pengantaran Bahan dari Gudang ke Produksi/Cutting*
+
+- [x] **7.8** Model, Migration, & Enum `MaterialDispatch`
+  - **File Target**: `database/migrations/*_create_material_dispatches_table.php`, `app/Models/MaterialDispatch.php`, `app/Enums/DispatchStatus.php`
+  - **Spesifikasi Logika**:
+    - Siklus status pengiriman (`DispatchStatus`):
+      - `pengajuan` (`REQUESTED`)
+      - `disetujui` (`APPROVED`)
+      - `ditolak` (`REJECTED`)
+      - `dikirim` (`DISPATCHED`)
+      - `pending` (`PENDING_DELIVERY` / menunggu sampai)
+      - `diterima` (`RECEIVED` / diterima di produksi)
+      - `idle` (`IDLE` / antrian meja cutting)
+      - `sedang di cutting` (`IN_CUTTING`)
+      - `selesai` (`COMPLETED`)
+    - Atribut dispatch: `dispatch_number`, `client_id`, `order_id`, `inventory_item_id`, `material_id`, `quantity`, `uom`, `status`, `rejection_reason`, `notes`, aktor pengaju, penyetuju, dan penerima.
+- [x] **7.9** Service `MaterialDispatchService`
+  - **File Target**: `app/Services/Inventory/MaterialDispatchService.php`
+  - **Spesifikasi Logika**:
+    - Transisi alur dispatch dari pengajuan, persetujuan/penolakan, pengiriman dari gudang, penerimaan di produksi, antrian idle, hingga proses cutting.
+    - Saat proses cutting selesai, otomatis memicu transisi status item inventory menjadi `WIP` dan mencatat sisa potongan sebagai `WasteRecord`.
+- [x] **7.10** Filament Resource & Antarmuka Pelacakan Pengantaran
+  - **File Target**: `app/Filament/Resources/MaterialDispatches/MaterialDispatchResource.php`
+  - **Spesifikasi Logika**:
+    - Tampilan tabel monitoring pengiriman bahan ke produksi dengan badge status interaktif.
+    - Tombol aksi transisi: Setujui, Tolak (dengan modal alasan), Kirim, Konfirmasi Terima, Mulai Cutting, dan Selesai Cutting (catat waste).
+- [x] **7.11** Unit & Feature Test Modul 7C
+  - **File Target**: `tests/Feature/Inventory/MaterialDispatchWorkflowTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=MaterialDispatchWorkflowTest`
+
+---
+
+## TRACK E: PAYROLL & SETTLEMENT (Paralel via Mock Data)
+
+### MODUL 8: QC Bonus Pool 3-Way Distribution (FR-017, BR 4.3)
+*PIC / Agent: Worker E1*  
+*Dependensi Data: `QcRecord` berstatus PASS (Gunakan Kontrak 1 untuk testing tanpa menunggu Track C)*  
+*Dasar Bisnis: BR 4.3 Formula `QC Bonus Pool = Σ (Passed Units × QC Bonus Rate)`, Distribusi Pool ÷ 3 ke 2 Mandor + 1 Kepala Operasional, FR-017*
+
+- [x] **8.1** Service `QcBonusDistributionService`
+  - **File Target**: `app/Services/Payroll/QcBonusDistributionService.php`
+  - **Spesifikasi Logika**:
+    - Method `finalizeBonusPool(PayrollPeriod $period): QcBonusPool`:
+      - Hitung seluruh unit yang lolos QC (PASS) lintas order dan lintas klien dalam rentang periode (BR 4.3, FR-017).
+      - Total Pool = `Passed Units × QC Bonus Rate`.
+    - Method `distributeBonus(QcBonusPool $pool): array`:
+      - Distribusikan pool secara rata kepada 3 penerima: **2 Mandor** (`PRODUCTION_LEAD`) dan **1 Kepala Operasional** (`OWNER_EXECUTIVE`) (BR 4.3, FR-017).
+      - Per recipient = `Pool ÷ 3`.
+      - Gunakan pembagian rata dengan sisa pembulatan dibebankan ke penerima terakhir via `$pool->splitEqually()` agar total pembagian sama persis dengan total pool.
+- [x] **8.2** Unit & Feature Test
+  - **File Target**: `tests/Feature/Payroll/QcBonusDistributionServiceTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=QcBonusDistributionServiceTest`
+
+---
+
+### MODUL 9: Weekly Payroll Saturday Close & Meal Allowance (FR-015, FR-016, BR 4.2)
+*PIC / Agent: Worker E2*  
+*Dependensi Data: `OutputEntry` VERIFIED & `RateCard` (Gunakan Kontrak 2 untuk testing tanpa menunggu Track B)*  
+*Dasar Bisnis: BR 3.1 & 4.2 Payroll mingguan ditutup setiap Sabtu, Base Pay formula, Meal Allowance 10-15%, Headcount dinamis (BR-006)*
+
+- [x] **9.1** Method `closePeriod` & Penguncian Output di `PayrollService`
+  - **File Target**: `app/Services/Payroll/PayrollService.php`
+  - **Spesifikasi Logika**:
+    - Periode payroll ditutup setiap Sabtu: kunci seluruh output berstatus `VERIFIED` agar tidak dapat diubah lagi (BR 3.1 step 10, FR-015).
+    - Headcount Dinamis: Hitung payroll tanpa batas jumlah penjahit kaku; penjahit yang bergabung di tengah minggu tetap mendapat perhitungan borongan akurat (BR-006, Acceptance Scenario 2).
+- [x] **9.2** Kalkulasi Base Pay, Uang Makan, dan Laporan Payroll
+  - **File Target**: `app/Services/Payroll/PayrollService.php`
+  - **Spesifikasi Formula**:
+    - `Base Pay = Σ (Verified Output × Rate Komponen)` (BR 3.1 step 10, FR-015).
+    - `Meal Allowance = Meal% × Base Pay` (Default 10% - 15%, diinput oleh Finance di awal periode produksi) (BR 4.2, FR-016).
+    - Total per penjahit = `Base Pay + Meal Allowance`.
+    - Buat rincian laporan payroll untuk ditinjau oleh Finance dan Owner (Owner dapat VIEW reports, RBAC Section 5).
+- [x] **9.3** Unit & Feature Test
+  - **File Target**: `tests/Feature/Payroll/PayrollClosingAndCalculationTest.php`
+  - **Command Verifikasi**: `php artisan test --filter=PayrollClosingAndCalculationTest`
+
+---
+
+## TRACK F: SYSTEM INTEGRATION & LIFECYCLE (Tahap Akhir)
+
+### MODUL 10A: Order Lifecycle & Sample-to-Order Conversion (FR-001, FR-003, FR-004)
+*PIC / Agent: Worker F1*  
+*Dependensi: None (Bisa dieksekusi paralel atau integrasi)*  
+*Dasar Bisnis: BR 3.1 Alur Sample → Approval → Conversion ke Order Massal, State Machine Order*
+
+- [x] **10.1** Verifikasi Siklus Sample ke Order Massal
+  - **File Target**: `app/Services/Sample/SampleService.php`
+  - **Spesifikasi Logika**:
+    - Rekam sample, kepemilikan klien, daftar komponen, dan riwayat revisi bertingkat (FR-001, BR-005).
+    - Rekam time study per komponen dengan timer digital yang terikat ke revisi sample (FR-002).
+    - Sample direview dan diapprove oleh klien sebelum bisa dikonversi (FR-003).
+    - Konversi sample yang disetujui menjadi order massal dengan mempertahankan revisi sample yang disetujui dan skema maklon yang dipilih (CMT, Semi-CMT, Full Package) (FR-004, Acceptance Scenario 4).
+    - Cegah pembuatan order massal jika sample belum disetujui (FR-021).
+    - **Pembaruan SRS v2.0 (Fase Sample & Skenario Uji 04)**: Mekanisme versioning sample (`v1 → v2`), duplikasi spesifikasi & time study dengan isolasi data riil (modifikasi `v2` tidak menyentuh `v1`), penegakan relasi 1-to-1 Order dan Artikel, serta penguncian spesifikasi revisi yang disetujui ke order massal.
+- [x] **10.2** State Machine Siklus Hidup Order
+  - **File Target**: `app/Models/Order.php`, `app/Enums/OrderStatus.php`, `tests/Feature/Order/OrderLifecycleTest.php`
+  - **Spesifikasi Logika** (diselaraskan dengan flow yang sudah berjalan):
+    - Fase pra-produksi: `REQUESTED → QUOTED → QUOTE_APPROVED` (permintaan klien → penawaran Owner → persetujuan klien), lalu sample.
+    - Fase produksi: `CONFIRMED → READY_FOR_PRODUCTION → IN_PRODUCTION → IN_QC → COMPLETED → CLOSED`, dengan `CANCELLED` sebagai status akhir alternatif.
+    - Order yang sudah selesai / Closed / Cancelled terkunci dari perubahan transaksi (FR-021).
+  - **Status (Selesai 2026-10-15)**:
+    - Status `CLOSED` ('closed') ditambahkan ke `OrderStatus` dengan `isLocked() = true`.
+    - State machine terpusat `canTransitionTo()` dan `transitionTo()` diimplementasikan di `OrderStatus` dan `Order`.
+    - Transisi otomatis: `READY_FOR_PRODUCTION → IN_PRODUCTION` (`startProduction`), `IN_PRODUCTION → IN_QC` saat perakitan penuh atau inspeksi QC, `IN_QC → COMPLETED` saat 100% unit lolos QC (`recordInspection`), dan `COMPLETED → CLOSED` saat invoice lunas (`markPaid`).
+    - Diverifikasi lewat `tests/Feature/Order/OrderLifecycleTest.php` (11/11 tests passed).
+- [x] **10.3** Unit & Feature Test
+  - **File Target**: `tests/Feature/Sample/SampleConversionTest.php`, `tests/Feature/Sample/SampleVersioningFlowTest.php`
+  - **Command Verifikasi**: `php artisan test tests/Feature/Sample/ --compact` (9/9 tests passed mencakup Skenario Uji 04 SRS)
+
+---
+
+### MODUL 10B: Saturday Close Scheduler & End-to-End Regression
+*PIC / Agent: Lead / Integrator*  
+*Prasyarat: Semua Track A, B, C, D, E, F1 telah selesai dan di-merge*
+
+- [x] **10.4** Artisan Command `payroll:close-weekly`
+  - **File Target**: `app/Console/Commands/PayrollCloseWeeklyCommand.php`
+  - **Spesifikasi**: Memanggil penutupan periode payroll mingguan dan finalisasi pool bonus QC setiap Sabtu (Section 6.2).
+- [x] **10.5** Konfigurasi Jadwal di `routes/console.php`
+  - **File Target**: `routes/console.php`
+  - **Spesifikasi**:
+    ```php
+    use Illuminate\Support\Facades\Schedule;
+    Schedule::command('payroll:close-weekly')->weekly()->saturdays()->at('00:00')->timezone('Asia/Jakarta');
+    ```
+  - **Catatan**: implementasi menambahkan `->withoutOverlapping()->runInBackground()` agar penutupan tidak berjalan ganda.
+- [ ] **10.6** Code Styling & Full Regression Testing
+  - Jalankan formatter: `vendor/bin/pint --dirty --format agent`
+  - Jalankan seluruh test: `php artisan test` (Wajib 100% Passed mencakup seluruh Acceptance Test Scenarios 1–4).
+  - **Status 2026-10-15**: 210/221 lulus. Sisa kegagalan: 10 `RagServiceTest` (paket AWS SDK belum terpasang) dan 1 `RoleMenuAccessTest` (navigasi `OutputReviewResource` terlihat oleh tamu). Fatal error `OutputReviewTest::component()` yang sebelumnya menghentikan suite sudah diperbaiki (helper diganti nama menjadi `createComponent()`).

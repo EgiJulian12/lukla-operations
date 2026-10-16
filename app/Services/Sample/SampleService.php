@@ -13,7 +13,10 @@ use App\Models\Sample;
 use App\Models\SampleRevision;
 use App\Models\TimeStudy;
 use App\Models\User;
+use App\Services\Inventory\OrderMaterialFlowService;
+use App\Services\Telegram\TelegramNotifier;
 use DateTimeInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -27,12 +30,18 @@ use InvalidArgumentException;
  */
 class SampleService
 {
+    public function __construct(private readonly TelegramNotifier $telegram) {}
+
     /**
      * Membuat sample baru dalam status draf (FR-001). Pemilik klien mengikuti
      * artikel, bukan input pemanggil.
      */
-    public function createSample(Article $article, string $code, string $title, ?string $notes = null): Sample
-    {
+    public function createSample(
+        Article $article,
+        string $code,
+        string $title,
+        ?string $notes = null,
+    ): Sample {
         return Sample::create([
             'client_id' => $article->client_id,
             'article_id' => $article->getKey(),
@@ -56,14 +65,16 @@ class SampleService
         array $specs = [],
         array $materialUsage = [],
         ?string $notes = null,
+        ?string $resultImagePath = null,
     ): SampleRevision {
-        return DB::transaction(function () use ($sample, $specs, $materialUsage, $notes): SampleRevision {
+        return DB::transaction(function () use ($sample, $specs, $materialUsage, $notes, $resultImagePath): SampleRevision {
             $revision = SampleRevision::create([
                 'client_id' => $sample->client_id,
                 'sample_id' => $sample->getKey(),
                 'version' => $sample->nextRevisionNumber(),
                 'specs' => $specs,
                 'material_usage' => $materialUsage,
+                'result_image_path' => $resultImagePath,
                 'status' => SampleStatus::DRAFT,
                 'notes' => $notes,
                 'created_by' => auth()->id(),
@@ -79,7 +90,209 @@ class SampleService
     }
 
     /**
+     * Inisialisasi Artikel dan Sample v1 (DRAFT) dari sebuah Order yang sudah di-ACC.
+     *
+     * @param  array{article_mode?: string, article_id?: ?int, name?: string, code?: string, description?: ?string}  $articleData
+     */
+    public function initializeSampleFromOrder(Order $order, array $articleData): Sample
+    {
+        return DB::transaction(function () use ($order, $articleData): Sample {
+            $isExisting = ($articleData['article_mode'] ?? null) === 'existing'
+                || (! empty($articleData['article_id']) && empty($articleData['name']));
+
+            if ($isExisting && ! empty($articleData['article_id'])) {
+                $article = Article::where('client_id', $order->client_id)->findOrFail($articleData['article_id']);
+            } else {
+                $article = Article::create([
+                    'client_id' => $order->client_id,
+                    'order_id' => $order->getKey(),
+                    'name' => $articleData['name'] ?? ('Artikel '.$order->order_number),
+                    'code' => $articleData['code'] ?? $order->order_number,
+                    'description' => $articleData['description'] ?? $order->description,
+                ]);
+            }
+
+            $order->update([
+                'article_id' => $article->getKey(),
+                'sample_requested_at' => $order->sample_requested_at ?? now(),
+            ]);
+
+            $preferredCode = $articleData['sample_code']
+                ?? $order->order_number
+                ?? $article->code
+                ?? ('SMP-'.$order->getKey());
+
+            $sampleCode = $this->generateUniqueSampleCode($order->client_id, (string) $preferredCode);
+
+            $sample = $this->createSample(
+                article: $article,
+                code: $sampleCode,
+                title: $article->name,
+                notes: $articleData['description'] ?? $order->description ?? $article->description,
+            );
+
+            $this->addRevision(
+                sample: $sample,
+                specs: [
+                    'design_images' => $order->design_images ?? [],
+                    'description' => $order->description,
+                    'order_number' => $order->order_number,
+                ],
+                materialUsage: [],
+                notes: 'Sample perdana (v1)',
+            );
+
+            $order->update([
+                'sample_id' => $sample->getKey(),
+            ]);
+
+            return $sample->refresh();
+        });
+    }
+
+    /**
+     * Menghasilkan kode sample yang unik untuk satu klien (mempertimbangkan record aktif dan soft-deleted).
+     */
+    public function generateUniqueSampleCode(int $clientId, string $preferredCode): string
+    {
+        $preferredCode = trim($preferredCode);
+        $code = $preferredCode;
+        $counter = 1;
+
+        while (Sample::withTrashed()->where('client_id', $clientId)->where('code', $code)->exists()) {
+            $counter++;
+            $code = "{$preferredCode}-{$counter}";
+        }
+
+        return $code;
+    }
+
+    /**
+     * Menyinkronkan daftar komponen artikel dan time study pada suatu revisi sample (FR-001, FR-002).
+     *
+     * @param  array<int, array{component_name: string, duration_seconds: int|numeric, notes?: ?string}>  $items
+     */
+    public function syncComponentsAndTimeStudies(SampleRevision $revision, array $items): void
+    {
+        if (! $revision->isEditable()) {
+            throw InvalidSampleState::notEditable($revision);
+        }
+
+        DB::transaction(function () use ($revision, $items): void {
+            $article = $revision->sample->article;
+            $updatedTimeStudyIds = [];
+
+            foreach ($items as $item) {
+                $componentName = trim((string) ($item['component_name'] ?? ''));
+                if ($componentName === '') {
+                    continue;
+                }
+
+                $component = Component::where('article_id', $article->getKey())
+                    ->where('name', $componentName)
+                    ->first();
+
+                if (! $component) {
+                    $nextSeq = ((int) Component::where('article_id', $article->getKey())->max('sequence')) + 1;
+                    $code = sprintf('KOMP-%03d', $nextSeq);
+                    while (Component::where('article_id', $article->getKey())->where('code', $code)->exists()) {
+                        $nextSeq++;
+                        $code = sprintf('KOMP-%03d', $nextSeq);
+                    }
+
+                    $component = Component::create([
+                        'article_id' => $article->getKey(),
+                        'name' => $componentName,
+                        'code' => $code,
+                        'sequence' => $nextSeq,
+                    ]);
+                }
+
+                $duration = (int) ($item['duration_seconds'] ?? 0);
+                $timeStudy = TimeStudy::updateOrCreate(
+                    [
+                        'sample_revision_id' => $revision->getKey(),
+                        'component_id' => $component->getKey(),
+                    ],
+                    [
+                        'client_id' => $revision->client_id,
+                        'duration_seconds' => max(1, $duration),
+                        'notes' => $item['notes'] ?? null,
+                        'recorded_by' => auth()->id(),
+                        'recorded_at' => now(),
+                    ]
+                );
+
+                $updatedTimeStudyIds[] = $timeStudy->getKey();
+            }
+
+            TimeStudy::where('sample_revision_id', $revision->getKey())
+                ->whereNotIn('id', $updatedTimeStudyIds)
+                ->delete();
+        });
+    }
+
+    /**
+     * Membuat revisi berikutnya dari revisi yang sudah ada (Cloning Revisi v1 -> v2) (FR-3.1, Skenario Uji 04).
+     *
+     * Revisi lama ditandai sebagai REVISED (read-only, append-only audit trail).
+     * Seluruh spesifikasi, estimasi bahan, dan komponen time study disalin ke revisi baru (DRAFT).
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function createRevisionFromPrevious(
+        SampleRevision $previous,
+        array $overrides = [],
+        ?string $notes = null,
+    ): SampleRevision {
+        if (! $previous->canBeRevised()) {
+            throw InvalidSampleState::cannotBeRevised($previous);
+        }
+
+        return DB::transaction(function () use ($previous, $overrides, $notes): SampleRevision {
+            // Tandai revisi sebelumnya sebagai telah direvisi (REVISED)
+            $previous->update(['status' => SampleStatus::REVISED]);
+
+            $sample = $previous->sample;
+
+            $newRevision = SampleRevision::create([
+                'client_id' => $previous->client_id,
+                'sample_id' => $previous->sample_id,
+                'parent_revision_id' => $previous->getKey(),
+                'version' => $sample->nextRevisionNumber(),
+                'specs' => $overrides['specs'] ?? $previous->specs,
+                'material_usage' => $overrides['material_usage'] ?? $previous->material_usage,
+                'result_image_path' => $overrides['result_image_path'] ?? $previous->result_image_path,
+                'status' => SampleStatus::DRAFT,
+                'notes' => $notes ?? $overrides['notes'] ?? sprintf('Revisi dari %s', $previous->version_label),
+                'created_by' => auth()->id(),
+            ]);
+
+            // Salin seluruh baris time study dari revisi lama ke revisi baru
+            foreach ($previous->timeStudies as $timeStudy) {
+                TimeStudy::create([
+                    'client_id' => $newRevision->client_id,
+                    'sample_revision_id' => $newRevision->getKey(),
+                    'component_id' => $timeStudy->component_id,
+                    'duration_seconds' => $timeStudy->duration_seconds,
+                    'recorded_by' => auth()->id(),
+                    'recorded_at' => now(),
+                    'notes' => $timeStudy->notes,
+                ]);
+            }
+
+            $sample->update([
+                'current_revision_id' => $newRevision->getKey(),
+                'status' => SampleStatus::DRAFT,
+            ]);
+
+            return $newRevision->refresh();
+        });
+    }
+
+    /**
      * Mencatat durasi time study sebuah komponen pada satu revisi (FR-002).
+     * Jika durasi untuk komponen pada revisi ini sudah ada, perbarui nilainya.
      */
     public function recordTimeStudy(
         SampleRevision $revision,
@@ -89,6 +302,22 @@ class SampleService
     ): TimeStudy {
         if ($durationSeconds <= 0) {
             throw new InvalidArgumentException('Durasi time study harus lebih besar dari nol detik.');
+        }
+
+        $existing = TimeStudy::query()
+            ->where('sample_revision_id', $revision->getKey())
+            ->where('component_id', $component->getKey())
+            ->first();
+
+        if ($existing !== null) {
+            $existing->update([
+                'duration_seconds' => $durationSeconds,
+                'recorded_by' => auth()->id(),
+                'recorded_at' => now(),
+                'notes' => $notes ?? $existing->notes,
+            ]);
+
+            return $existing->refresh();
         }
 
         return TimeStudy::create([
@@ -123,7 +352,7 @@ class SampleService
             throw InvalidSampleState::notApprovable($revision);
         }
 
-        return DB::transaction(function () use ($revision, $approver): SampleRevision {
+        $revision = DB::transaction(function () use ($revision, $approver): SampleRevision {
             $revision->update([
                 'status' => SampleStatus::APPROVED,
                 'approved_by' => $approver?->getKey() ?? auth()->id(),
@@ -137,11 +366,15 @@ class SampleService
 
             return $revision->refresh();
         });
+
+        $this->telegram->notifySampleRevisionApproved($revision);
+
+        return $revision;
     }
 
     public function rejectRevision(SampleRevision $revision, ?string $reason = null): SampleRevision
     {
-        return DB::transaction(function () use ($revision, $reason): SampleRevision {
+        $revision = DB::transaction(function () use ($revision, $reason): SampleRevision {
             $revision->update([
                 'status' => SampleStatus::REJECTED,
                 'notes' => $reason ?? $revision->notes,
@@ -151,6 +384,10 @@ class SampleService
 
             return $revision->refresh();
         });
+
+        $this->telegram->notifySampleRevisionRejected($revision);
+
+        return $revision;
     }
 
     /**
@@ -163,7 +400,7 @@ class SampleService
         Sample $sample,
         WorkScheme $scheme,
         int $quantity,
-        ?DateTimeInterface $dueDate = null,
+        DateTimeInterface|string|null $dueDate = null,
         ?string $notes = null,
     ): Order {
         if (! $sample->isReadyForMassProduction()) {
@@ -174,21 +411,30 @@ class SampleService
             throw new InvalidArgumentException('Jumlah order massal harus minimal satu unit.');
         }
 
-        return DB::transaction(function () use ($sample, $scheme, $quantity, $dueDate, $notes): Order {
+        $parsedDueDate = is_string($dueDate) && filled($dueDate)
+            ? Carbon::parse($dueDate)
+            : $dueDate;
+
+        return DB::transaction(function () use ($sample, $scheme, $quantity, $parsedDueDate, $notes): Order {
             $revision = $sample->approvedRevision;
 
-            return Order::create([
+            $order = Order::create([
                 'client_id' => $sample->client_id,
+                'article_id' => $sample->article_id,
                 'sample_id' => $sample->getKey(),
                 'sample_revision_id' => $revision->getKey(),
                 'order_number' => $this->nextOrderNumber($sample, $revision),
                 'work_scheme' => $scheme,
                 'quantity' => $quantity,
                 'status' => OrderStatus::CONFIRMED,
-                'due_date' => $dueDate,
+                'due_date' => $parsedDueDate,
                 'notes' => $notes,
                 'created_by' => auth()->id(),
             ]);
+
+            app(OrderMaterialFlowService::class)->initializeRequirements($order);
+
+            return $order;
         });
     }
 

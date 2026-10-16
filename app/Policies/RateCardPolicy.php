@@ -9,15 +9,14 @@ use App\Models\User;
 /**
  * Rate card ongkos potong/jahit (FR-010).
  *
- * Tarif per komponen ditentukan Kepala Produksi, Finance, dan Owner (matriks
- * RBAC SRS). Tarif lama tidak dihapus, melainkan ditutup dengan effective_to
- * supaya payroll periode lama dapat dihitung ulang dengan tarif saat itu.
+ * Tarif per komponen diusulkan Kepala Produksi, namun disetujui (approve)
+ * oleh Owner atau Finance agar terjaga dari kebocoran plafon kontrak CMT.
  */
 class RateCardPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $this->canManage($user);
     }
 
     public function view(User $user, RateCard $rateCard): bool
@@ -39,6 +38,20 @@ class RateCardPolicy
     public function delete(User $user, RateCard $rateCard): bool
     {
         return false;
+    }
+
+    public function approve(User $user, RateCard $rateCard): bool
+    {
+        return $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role->canConfigureSystem() || $role->canManagePayroll(),
+        );
+    }
+
+    public function reject(User $user, RateCard $rateCard): bool
+    {
+        return $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role->canConfigureSystem() || $role->canManagePayroll(),
+        );
     }
 
     private function canManage(User $user): bool

@@ -17,7 +17,14 @@ class SamplePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageSamples()
+            || $role->canApproveSamples()
+            || $role->canConfigureSystem()
+            || $role->canManageProduction()
+            || $role->canManagePayroll()
+            || $role->canManageRateCards()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Sample $sample): bool
@@ -46,22 +53,33 @@ class SamplePolicy
      */
     public function approve(User $user, Sample $sample): bool
     {
+        if ($user->client_id !== null && (int) $user->client_id !== (int) $sample->client_id) {
+            return false;
+        }
+
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canApproveSamples());
     }
 
     public function reject(User $user, Sample $sample): bool
     {
+        if ($user->client_id !== null && (int) $user->client_id !== (int) $sample->client_id) {
+            return false;
+        }
+
         return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canApproveSamples());
     }
 
     /**
      * Konversi ke order produksi massal (FR-004).
+     *
+     * Hanya Owner yang berhak mengonversi sample disetujui menjadi order produksi massal,
+     * dan hanya jika sample belum memiliki order yang sudah berstatus Siap Produksi.
      */
     public function convertToOrder(User $user, Sample $sample): bool
     {
-        $canManage = $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageOrders());
+        $isOwner = $user->hasRoleSatisfying(fn (UserRole $role): bool => $role === UserRole::OWNER_EXECUTIVE);
 
-        return $canManage && $sample->isReadyForMassProduction();
+        return $isOwner && $sample->isReadyForMassProduction() && ! $sample->hasReadyForProductionOrder();
     }
 
     private function canManage(User $user): bool

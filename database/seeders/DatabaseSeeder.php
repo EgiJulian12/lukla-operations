@@ -23,7 +23,10 @@ class DatabaseSeeder extends Seeder
         $this->call(RoleSeeder::class);
 
         $this->seedInternalUsers();
+        $this->seedTailorUsers();
         $this->seedClientUsers();
+
+        $this->call(ApprovedSampleDemoSeeder::class);
     }
 
     /**
@@ -39,6 +42,28 @@ class DatabaseSeeder extends Seeder
             ]);
 
             $user->assignRole($role->value);
+        }
+    }
+
+    /**
+     * 3 Akun penjahit tambahan untuk pengujian antrean dan penugasan perakitan.
+     */
+    private function seedTailorUsers(): void
+    {
+        $tailors = [
+            ['name' => 'Penjahit 1 (Agus)', 'email' => 'penjahit1@lukla.test'],
+            ['name' => 'Penjahit 2 (Bambang)', 'email' => 'penjahit2@lukla.test'],
+            ['name' => 'Penjahit 3 (Citra)', 'email' => 'penjahit3@lukla.test'],
+        ];
+
+        foreach ($tailors as $data) {
+            $user = User::factory()->create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'is_active' => true,
+            ]);
+
+            $user->assignRole(UserRole::TAILOR_OPERATOR->value);
         }
     }
 

@@ -11,6 +11,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Carbon;
 
 /**
  * Daftar biaya overhead dengan aksi perhitungan overhead per unit (FR-018).
@@ -39,7 +40,9 @@ class ListOverheadRecords extends ListRecords
                         ->helperText('Pilih tanggal mana pun pada bulan yang ingin dihitung.'),
                 ])
                 ->action(function (array $data): void {
-                    $allocation = app(PayrollService::class)->allocateOverhead($data['month']);
+                    $allocation = app(PayrollService::class)->allocateOverhead(
+                        Carbon::parse($data['month'])
+                    );
 
                     Notification::make()
                         ->title('Overhead per unit dihitung')

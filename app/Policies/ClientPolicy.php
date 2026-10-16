@@ -17,7 +17,13 @@ class ClientPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canConfigureSystem()
+            || $role->canManageClients()
+            || $role->canManageSamples()
+            || $role->canManageProduction()
+            || $role->canManageMaterials()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, Client $client): bool

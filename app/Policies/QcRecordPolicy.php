@@ -17,7 +17,12 @@ class QcRecordPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canInspectQuality()
+            || $role->canManageProduction()
+            || $role->canConfigureSystem()
+            || $role->canManagePayroll()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, QcRecord $record): bool

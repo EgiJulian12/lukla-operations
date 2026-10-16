@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Samples\Pages;
 
 use App\Filament\Resources\Samples\SampleResource;
+use App\Filament\Resources\Samples\Widgets\PendingSampleOrdersWidget;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
@@ -14,7 +15,14 @@ class ListSamples extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('Tambah Sample'),
+                ->label('Buat Sample Mandiri'),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PendingSampleOrdersWidget::class,
         ];
     }
 }

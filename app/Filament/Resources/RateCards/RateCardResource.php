@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\RateCards;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\RateCards\Pages\CreateRateCard;
 use App\Filament\Resources\RateCards\Pages\EditRateCard;
 use App\Filament\Resources\RateCards\Pages\ListRateCards;
 use App\Filament\Resources\RateCards\Schemas\RateCardForm;
 use App\Filament\Resources\RateCards\Tables\RateCardsTable;
 use App\Models\RateCard;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -24,6 +27,8 @@ use UnitEnum;
  */
 class RateCardResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = RateCard::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
@@ -53,5 +58,18 @@ class RateCardResource extends Resource
             'create' => CreateRateCard::route('/create'),
             'edit' => EditRateCard::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola rate card; itu domain Finance, Owner, dan Kepala Produksi.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM,
+        );
     }
 }

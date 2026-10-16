@@ -19,6 +19,10 @@ use Tests\TestCase;
 
 /**
  * Output 30 menit dan gerbang verifikasinya (FR-011, FR-012).
+ *
+ * Line pada catatan output bersifat opsional: penugasan penjahit ditetapkan per
+ * komponen, sehingga hasil kerja tetap dapat dilaporkan oleh penjahit yang tidak
+ * sedang terdaftar di line mana pun.
  */
 class OutputVerificationTest extends TestCase
 {
@@ -103,6 +107,27 @@ class OutputVerificationTest extends TestCase
 
         $this->assertSame('08:00', $entry->interval_start->format('H:i'));
         $this->assertSame('08:30', $entry->interval_end->format('H:i'));
+    }
+
+    public function test_output_can_be_reported_without_a_production_line(): void
+    {
+        $service = app(ProductionService::class);
+
+        $entry = $service->submitOutput(
+            order: Order::factory()->create(),
+            line: null,
+            operator: User::factory()->create(),
+            component: Component::factory()->create(),
+            quantity: 18,
+            intervalAt: Carbon::parse('2026-10-12 09:05'),
+        );
+
+        $this->assertNull($entry->production_line_id);
+        $this->assertSame('09:00', $entry->interval_start->format('H:i'));
+        $this->assertDatabaseHas('output_entries', [
+            'id' => $entry->getKey(),
+            'production_line_id' => null,
+        ]);
     }
 
     public function test_assembly_refuses_output_that_is_not_verified(): void

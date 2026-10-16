@@ -2,12 +2,17 @@
 
 namespace App\Filament\Resources\Orders;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
+use App\Filament\Portal\Resources\Orders\Schemas\PortalOrderInfolist;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Resources\Orders\Tables\OrdersTable;
 use App\Models\Order;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -23,6 +28,8 @@ use UnitEnum;
  */
 class OrderResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -31,15 +38,22 @@ class OrderResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $modelLabel = 'Order Massal';
+    protected static ?string $modelLabel = 'Pesanan';
 
-    protected static ?string $pluralModelLabel = 'Order Massal';
+    protected static ?string $pluralModelLabel = 'Daftar Pesanan';
+
+    protected static ?string $navigationLabel = 'Daftar Pesanan';
 
     protected static ?string $recordTitleAttribute = 'order_number';
 
     public static function form(Schema $schema): Schema
     {
         return OrderForm::configure($schema);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return PortalOrderInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
@@ -52,7 +66,32 @@ class OrderResource extends Resource
         return [
             'index' => ListOrders::route('/'),
             'create' => CreateOrder::route('/create'),
+            'view' => ViewOrder::route('/{record}'),
             'edit' => EditOrder::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Finance hanya boleh melihat daftar pesanan (read-only) untuk keperluan
+     * penagihan dan rekonsiliasi — tanpa hak ubah atau buat order baru.
+     */
+    public static function canCreate(): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+        );
+    }
+
+    public static function canEdit(mixed $record): bool
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL,
+        );
     }
 }

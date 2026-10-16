@@ -24,9 +24,11 @@ class SampleRevision extends Model
     protected $fillable = [
         'client_id',
         'sample_id',
+        'parent_revision_id',
         'version',
         'specs',
         'material_usage',
+        'result_image_path',
         'status',
         'notes',
         'created_by',
@@ -48,6 +50,16 @@ class SampleRevision extends Model
     public function sample(): BelongsTo
     {
         return $this->belongsTo(Sample::class);
+    }
+
+    public function parentRevision(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_revision_id');
+    }
+
+    public function childRevisions(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_revision_id');
     }
 
     public function timeStudies(): HasMany
@@ -76,6 +88,16 @@ class SampleRevision extends Model
     public function isApproved(): bool
     {
         return $this->status === SampleStatus::APPROVED;
+    }
+
+    public function isEditable(): bool
+    {
+        return $this->status->isEditable();
+    }
+
+    public function canBeRevised(): bool
+    {
+        return $this->status->canBeRevised();
     }
 
     /**

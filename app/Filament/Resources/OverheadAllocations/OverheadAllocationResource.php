@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\OverheadAllocations;
 
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\OverheadAllocations\Pages\ListOverheadAllocations;
 use App\Filament\Resources\OverheadAllocations\Tables\OverheadAllocationsTable;
 use App\Models\OverheadAllocation;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -18,6 +21,8 @@ use UnitEnum;
  */
 class OverheadAllocationResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = OverheadAllocation::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
@@ -40,5 +45,23 @@ class OverheadAllocationResource extends Resource
         return [
             'index' => ListOverheadAllocations::route('/'),
         ];
+    }
+
+    /**
+     * Tim Sample tidak mengelola overhead; itu domain Finance.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::OWNER_EXECUTIVE,
+        );
     }
 }

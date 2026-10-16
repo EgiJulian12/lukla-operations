@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\RateCards\Schemas;
 
+use App\Enums\RateCardStatus;
 use App\Enums\RateType;
+use App\Enums\UserRole;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -12,8 +14,8 @@ use Filament\Schemas\Schema;
 /**
  * Formulir rate card.
  *
- * Artikel dan komponen boleh dikosongkan: tarif paling umum adalah tarif dasar
- * klien, tarif artikel menengah, dan tarif komponen paling spesifik.
+ * Mendukung penetapan status persetujuan. Mandor membuat tarif baru dengan status
+ * PENDING secara otomatis; Owner dan Finance dapat langsung menentukan statusnya.
  */
 class RateCardForm
 {
@@ -49,6 +51,15 @@ class RateCardForm
                     ->numeric()
                     ->prefix('Rp')
                     ->minValue(0)
+                    ->required(),
+                Select::make('status')
+                    ->label('Status Persetujuan')
+                    ->options(RateCardStatus::class)
+                    ->default(RateCardStatus::PENDING->value)
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                        UserRole::OWNER_EXECUTIVE->value,
+                        UserRole::FINANCE_PAYROLL->value,
+                    ]) ?? false)
                     ->required(),
                 DatePicker::make('effective_from')
                     ->label('Berlaku Sejak')

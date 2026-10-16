@@ -16,7 +16,11 @@ class WasteRecordPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canRecordWaste()
+            || $role->canConfigureSystem()
+            || $role->canManagePayroll()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, WasteRecord $record): bool

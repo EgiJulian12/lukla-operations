@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\QcRecords;
 
-use App\Filament\Resources\QcRecords\Pages\CreateQcRecord;
+use App\Enums\UserRole;
+use App\Filament\Concerns\RestrictsNavigationToFullAction;
 use App\Filament\Resources\QcRecords\Pages\ListQcRecords;
 use App\Filament\Resources\QcRecords\Schemas\QcRecordForm;
 use App\Filament\Resources\QcRecords\Tables\QcRecordsTable;
 use App\Models\QcRecord;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -22,6 +24,8 @@ use UnitEnum;
  */
 class QcRecordResource extends Resource
 {
+    use RestrictsNavigationToFullAction;
+
     protected static ?string $model = QcRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCheckBadge;
@@ -44,11 +48,35 @@ class QcRecordResource extends Resource
         return QcRecordsTable::configure($table);
     }
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListQcRecords::route('/'),
-            'create' => CreateQcRecord::route('/create'),
         ];
+    }
+
+    /**
+     * Finance tidak mengelola inspeksi QC; itu domain QC Inspector.
+     * Tim Sample tidak mengelola inspeksi QC.
+     */
+    public static function canAccess(): bool
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return ! $user->hasRoleSatisfying(
+            fn (UserRole $role): bool => $role === UserRole::FINANCE_PAYROLL
+                || $role === UserRole::SAMPLE_TEAM
+                || $role === UserRole::OWNER_EXECUTIVE,
+        );
     }
 }

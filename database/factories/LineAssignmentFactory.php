@@ -33,4 +33,9 @@ class LineAssignmentFactory extends Factory
     {
         return $this->state(fn (): array => ['unassigned_at' => now()]);
     }
+
+    public function station(?string $station = 'ST-01'): static
+    {
+        return $this->state(fn (): array => ['station_number' => $station]);
+    }
 }

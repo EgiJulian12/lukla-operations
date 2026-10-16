@@ -23,14 +23,27 @@ class PurchaseOrder extends Model
     use HasFactory;
 
     protected $fillable = [
+        'order_id',
+        'client_id',
         'po_number',
         'supplier',
         'status',
         'ordered_at',
         'expected_at',
+        'requested_by',
         'approved_by',
         'approved_at',
         'notes',
+    ];
+
+    /**
+     * Status default untuk model baru yang belum disimpan, agar policy
+     * tidak menemui null saat authorization dievaluasi.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'draft',
     ];
 
     protected function casts(): array
@@ -43,6 +56,21 @@ class PurchaseOrder extends Model
         ];
     }
 
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);
@@ -53,9 +81,14 @@ class PurchaseOrder extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    /**
+     * PO yang sudah disetujui terkunci dan tidak dapat disunting lagi (NFR-005).
+     *
+     * Null-safe: status bisa null pada model yang belum disimpan saat policy dievaluasi.
+     */
     public function isLocked(): bool
     {
-        return $this->status->isLocked();
+        return $this->status?->isLocked() ?? false;
     }
 
     public function totalAmount(): float

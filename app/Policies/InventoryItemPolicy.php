@@ -25,7 +25,13 @@ class InventoryItemPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRoleSatisfying(fn (UserRole $role): bool => $role->canManageInventory()
+            || $role->canConfigureSystem()
+            || $role->canManagePayroll()
+            || $role->canManageSamples()
+            || $role->canManageProduction()
+            || $role->isClientFacing()
+        );
     }
 
     public function view(User $user, InventoryItem $item): bool
@@ -41,6 +47,11 @@ class InventoryItemPolicy
 
     public function update(User $user, InventoryItem $item): bool
     {
+        // Barang yang sudah diterima oleh produksi artinya sudah keluar dari gudang dan tidak dapat diedit lagi
+        if ($item->isReceivedByProduction()) {
+            return false;
+        }
+
         return $this->canManageInventory($user);
     }
 

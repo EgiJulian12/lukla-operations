@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
@@ -9,7 +10,7 @@ use Filament\Support\Contracts\HasLabel;
  * yang sama dengan item yang dipindahkan (FR-006), dan divalidasi sebelum
  * transaksi tercatat (FR-007, NFR-002).
  */
-enum MovementType: string implements HasLabel
+enum MovementType: string implements HasColor, HasLabel
 {
     case RECEIPT = 'receipt';
     case ISSUE_TO_CUTTING = 'issue_to_cutting';
@@ -21,10 +22,20 @@ enum MovementType: string implements HasLabel
     {
         return match ($this) {
             self::RECEIPT => 'Penerimaan Bahan',
-            self::ISSUE_TO_CUTTING => 'Keluar ke Cutting',
+            self::ISSUE_TO_CUTTING => 'Masuk Proses Cutting',
             self::TRANSFER => 'Transfer',
             self::ADJUSTMENT => 'Penyesuaian (Stock Opname)',
             self::FG_IN => 'Masuk Barang Jadi',
+        };
+    }
+
+    public function getColor(): string
+    {
+        return match ($this) {
+            self::RECEIPT, self::FG_IN => 'success',
+            self::ISSUE_TO_CUTTING => 'info',
+            self::TRANSFER => 'warning',
+            self::ADJUSTMENT => 'gray',
         };
     }
 
