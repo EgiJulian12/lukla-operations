@@ -452,6 +452,52 @@ class SampleVersioningFlowTest extends TestCase
         $this->assertFalse($clientUserB->can('reject', $v1));
     }
 
+    public function test_approved_sample_using_existing_article_from_completed_order_remains_convertible_to_mass_production(): void
+    {
+        $client = Client::factory()->create();
+        $clientUser = User::factory()->create(['client_id' => $client->getKey()]);
+        $clientUser->assignRole(UserRole::CLIENT_MAKLON->value);
+        $owner = $this->createOwner();
+
+        // Order 1 membuat artikel baru dan sudah selesai produksi (COMPLETED)
+        $order1 = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'status' => OrderStatus::QUOTE_APPROVED,
+            'order_number' => 'REQ-202610-0001',
+        ]);
+
+        $sample1 = $this->sampleService->initializeSampleFromOrder($order1, [
+            'article_mode' => 'new',
+            'name' => 'Tote Bag Anak Gaol',
+            'code' => 'REQ-202610-0001',
+        ]);
+
+        $order1->update(['status' => OrderStatus::COMPLETED]);
+
+        // Order 2 menggunakan artikel yang sudah ada (existing article dari Order 1)
+        $order2 = Order::factory()->create([
+            'client_id' => $client->getKey(),
+            'status' => OrderStatus::QUOTE_APPROVED,
+            'order_number' => 'REQ-202610-0003',
+        ]);
+
+        $sample2 = $this->sampleService->initializeSampleFromOrder($order2, [
+            'article_mode' => 'existing',
+            'article_id' => $sample1->article_id,
+        ]);
+
+        $v1Sample2 = $sample2->currentRevision;
+        $this->sampleService->submitForReview($v1Sample2);
+        $this->sampleService->approveRevision($v1Sample2, $clientUser);
+
+        $sample2->refresh();
+
+        $this->assertTrue($sample2->isReadyForMassProduction());
+        $this->assertFalse($sample2->hasReadyForProductionOrder());
+        $this->assertSame($order2->getKey(), $sample2->primaryOrder()?->getKey());
+        $this->assertTrue($owner->can('convertToOrder', $sample2));
+    }
+
     private function createOwner(): User
     {
         $user = User::factory()->create(['name' => 'Owner Eksekutif']);

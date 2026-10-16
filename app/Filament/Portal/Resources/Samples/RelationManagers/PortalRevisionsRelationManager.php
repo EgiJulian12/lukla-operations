@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Samples\RelationManagers;
 
+use App\Filament\Resources\Samples\RelationManagers\RevisionsRelationManager;
 use App\Models\SampleRevision;
 use App\Services\Sample\SampleService;
 use Filament\Actions\Action;
@@ -87,10 +88,24 @@ class PortalRevisionsRelationManager extends RelationManager
                             ->all();
 
                         $internalKeys = ['design_images', 'description', 'order_number'];
-                        $userSpecs = array_diff_key($data['specs'] ?? [], array_flip($internalKeys));
-                        if (! empty($userSpecs)) {
-                            $data['specs'] = $userSpecs;
+                        $rawSpecs = $data['specs'] ?? [];
+                        $cleanSpecs = [];
+                        foreach ($rawSpecs as $k => $v) {
+                            if (! in_array($k, $internalKeys, true) && is_scalar($v)) {
+                                $cleanSpecs[$k] = (string) $v;
+                            }
                         }
+                        $data['specs'] = $cleanSpecs;
+
+                        $designImages = $record->specs['design_images']
+                            ?? $record->sample?->designImages()
+                            ?? [];
+                        $data['design_images'] = is_array($designImages) ? $designImages : [$designImages];
+                        $data['design_description'] = $record->specs['description']
+                            ?? $record->sample?->designDescription()
+                            ?? 'Tidak ada deskripsi khusus.';
+
+                        $data['material_usage_items'] = RevisionsRelationManager::hydrateMaterialUsageItems($record->material_usage ?? []);
 
                         return $data;
                     })
@@ -147,65 +162,109 @@ class PortalRevisionsRelationManager extends RelationManager
     /**
      * Skema form read-only untuk menampilkan detail revisi kepada klien.
      *
-     * Spesifikasi dan estimasi bahan ditampilkan read-only, dan daftar
-     * komponen time study ditampilkan tanpa stopwatch interaktif.
+     * Menampilkan perbandingan berdampingan antara Acuan Desain dari Klien
+     * dengan Foto Hasil Fisik Sample dari Pabrik, beserta spesifikasi & kebutuhan bahan.
      *
      * @return array<int, Section>
      */
     private function getReadOnlyFormSchema(): array
     {
         return [
-            Section::make('Spesifikasi & Estimasi Bahan')
-                ->description('Spesifikasi fisik produk dan perkiraan pemakaian bahan per unit.')
+            Section::make('Komparasi: Acuan Desain vs Hasil Sample Fisik')
+                ->description('Bandingkan desain acuan yang diajukan dengan foto fisik hasil pengerjaan tim sample.')
+                ->columns(2)
+                ->schema([
+                    Section::make('Acuan Desain dari Klien')
+                        ->schema([
+                            FileUpload::make('design_images')
+                                ->label('Gambar Desain Acuan')
+                                ->multiple()
+                                ->image()
+                                ->disk(config('filesystems.default', 'local'))
+                                ->imagePreviewHeight('180')
+                                ->disabled()
+                                ->dehydrated(false),
+                            Textarea::make('design_description')
+                                ->label('Deskripsi Permintaan Desain')
+                                ->rows(3)
+                                ->disabled()
+                                ->dehydrated(false),
+                        ])
+                        ->columnSpan(1),
+
+                    Section::make('Hasil Fisik Sample & Review Pabrik')
+                        ->schema([
+                            FileUpload::make('result_image_path')
+                                ->label('Foto Hasil Sample Fisik')
+                                ->image()
+                                ->disk(config('filesystems.default', 'local'))
+                                ->imagePreviewHeight('180')
+                                ->disabled(),
+                            Textarea::make('notes')
+                                ->label('Catatan Hasil / Feedback Tim')
+                                ->rows(3)
+                                ->disabled(),
+                        ])
+                        ->columnSpan(1),
+                ]),
+
+            Section::make('Spesifikasi & Kebutuhan Bahan Baku')
+                ->description('Spesifikasi fisik produk dan estimasi kebutuhan bahan baku per 1 pcs.')
                 ->collapsible()
                 ->columns(2)
                 ->schema([
                     KeyValue::make('specs')
-                        ->label('Spesifikasi Produk')
+                        ->label('Spesifikasi Fisik Produk')
                         ->keyLabel('Atribut')
-                        ->valueLabel('Nilai'),
-                    KeyValue::make('material_usage')
-                        ->label('Estimasi Pemakaian Bahan')
-                        ->keyLabel('Bahan')
-                        ->valueLabel('Jumlah & Satuan'),
-                ]),
-
-            Section::make('Komponen & Waktu Pengerjaan')
-                ->description('Daftar komponen jahit beserta waktu pengerjaan yang dicatat oleh Tim Sample.')
-                ->schema([
-                    Repeater::make('component_time_studies')
-                        ->label('Komponen')
+                        ->valueLabel('Nilai')
+                        ->disabled(),
+                    Repeater::make('material_usage_items')
+                        ->label('Estimasi Pemakaian Bahan Baku & Aksesoris (Per 1 Pcs)')
                         ->schema([
-                            TextInput::make('component_name')
-                                ->label('Nama Komponen')
+                            TextInput::make('item_name')
+                                ->label('Nama Bahan / Aksesoris')
+                                ->disabled()
                                 ->columnSpan(5),
-                            TextInput::make('duration_seconds')
-                                ->label('Waktu (Detik)')
-                                ->suffix('detik')
+                            TextInput::make('qty')
+                                ->label('Konsumsi')
+                                ->disabled()
                                 ->columnSpan(3),
-                            TextInput::make('notes')
-                                ->label('Catatan')
+                            TextInput::make('uom')
+                                ->label('Satuan')
+                                ->disabled()
                                 ->columnSpan(4),
                         ])
                         ->columns(12)
                         ->addable(false)
-                        ->deletable(false),
+                        ->deletable(false)
+                        ->reorderable(false),
                 ]),
 
-            Section::make('Hasil Akhir & Catatan')
-                ->description('Dokumentasi foto hasil pembuatan sample fisik.')
-                ->columns(2)
+            Section::make('Komponen & Waktu Pengerjaan')
+                ->description('Daftar tahapan operasi jahit beserta durasi yang dicatat oleh Tim Sample.')
+                ->collapsible()
                 ->schema([
-                    FileUpload::make('result_image_path')
-                        ->label('Foto Hasil Sample')
-                        ->image()
-                        ->disk(config('filesystems.default', 'local'))
-                        ->imagePreviewHeight('200')
-                        ->columnSpan(1),
-                    Textarea::make('notes')
-                        ->label('Catatan Review')
-                        ->rows(5)
-                        ->columnSpan(1),
+                    Repeater::make('component_time_studies')
+                        ->label('Tahapan Operasi Jahit')
+                        ->schema([
+                            TextInput::make('component_name')
+                                ->label('Nama Komponen / Operasi')
+                                ->columnSpan(5)
+                                ->disabled(),
+                            TextInput::make('duration_seconds')
+                                ->label('Waktu (Detik)')
+                                ->suffix('detik')
+                                ->columnSpan(3)
+                                ->disabled(),
+                            TextInput::make('notes')
+                                ->label('Catatan')
+                                ->columnSpan(4)
+                                ->disabled(),
+                        ])
+                        ->columns(12)
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false),
                 ]),
         ];
     }

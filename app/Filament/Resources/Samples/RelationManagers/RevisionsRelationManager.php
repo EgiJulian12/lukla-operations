@@ -36,6 +36,11 @@ class RevisionsRelationManager extends RelationManager
 
     protected static ?string $title = 'Revisi & Ruang Kerja Sample';
 
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -110,8 +115,8 @@ class RevisionsRelationManager extends RelationManager
                     ->icon(Heroicon::OutlinedPencilSquare)
                     ->color('primary')
                     ->modalWidth('6xl')
-                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Pengerjaan Sample %s (DRAFT)', $record->version_label))
-                    ->visible(fn (SampleRevision $record): bool => $record->status === SampleStatus::DRAFT && (bool) auth()->user()?->can('update', $record))
+                    ->modalHeading(fn (SampleRevision $record): string => sprintf('Pengerjaan Sample %s (%s)', $record->version_label, $record->status->getLabel()))
+                    ->visible(fn (SampleRevision $record): bool => in_array($record->status, [SampleStatus::DRAFT, SampleStatus::IN_REVIEW], true) && (bool) auth()->user()?->can('update', $record))
                     ->mutateRecordDataUsing(function (SampleRevision $record, array $data): array {
                         $data['component_time_studies'] = $record->timeStudies()
                             ->with('component')
@@ -134,14 +139,16 @@ class RevisionsRelationManager extends RelationManager
                     ->form(fn () => self::getRevisionFormSchema($this->getOwnerRecord()))
                     ->action(function (SampleRevision $record, array $data): void {
                         $materialUsage = self::normalizeMaterialUsageInput($data['material_usage_items'] ?? ($data['material_usage'] ?? []));
+                        $internalKeys = ['design_images', 'description', 'order_number'];
+                        $preservedKeys = array_intersect_key($record->specs ?? [], array_flip($internalKeys));
                         $record->update([
-                            'specs' => $data['specs'] ?? [],
+                            'specs' => array_merge($preservedKeys, $data['specs'] ?? []),
                             'material_usage' => $materialUsage,
                             'result_image_path' => $data['result_image_path'] ?? null,
                             'notes' => $data['notes'] ?? null,
                         ]);
 
-                        if (isset($data['component_time_studies'])) {
+                        if ($record->isEditable() && isset($data['component_time_studies'])) {
                             app(SampleService::class)->syncComponentsAndTimeStudies($record, $data['component_time_studies']);
                         }
 
@@ -170,9 +177,7 @@ class RevisionsRelationManager extends RelationManager
 
                         $internalKeys = ['design_images', 'description', 'order_number'];
                         $userSpecs = array_diff_key($data['specs'] ?? [], array_flip($internalKeys));
-                        if (! empty($userSpecs)) {
-                            $data['specs'] = $userSpecs;
-                        }
+                        $data['specs'] = $userSpecs;
                         $data['material_usage_items'] = self::hydrateMaterialUsageItems($data['material_usage'] ?? []);
 
                         return $data;
@@ -330,8 +335,7 @@ class RevisionsRelationManager extends RelationManager
                         ])
                         ->columns(12)
                         ->defaultItems(1)
-                        ->addActionLabel('Tambah Bahan / Aksesoris')
-                        ->dehydrated(false),
+                        ->addActionLabel('Tambah Bahan / Aksesoris'),
                 ]),
 
             Section::make('Section 2 — Tahapan Pengerjaan Jahit & Waktu Stopwatch (Time Study)')

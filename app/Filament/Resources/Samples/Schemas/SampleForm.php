@@ -31,13 +31,13 @@ class SampleForm
                     ->schema([
                         Placeholder::make('order_number')
                             ->label('Nomor Order')
-                            ->content(fn (?Sample $record): string => $record?->article?->order?->order_number ?? '-'),
+                            ->content(fn (?Sample $record): string => $record?->primaryOrder()?->order_number ?? '-'),
                         Placeholder::make('client_name')
                             ->label('Klien')
                             ->content(fn (?Sample $record): string => $record?->client?->name ?? '-'),
                         Placeholder::make('work_scheme')
                             ->label('Skema Maklon')
-                            ->content(fn (?Sample $record): string => $record?->article?->order?->work_scheme?->getLabel() ?? '-'),
+                            ->content(fn (?Sample $record): string => $record?->primaryOrder()?->work_scheme?->getLabel() ?? '-'),
                         Placeholder::make('sample_status')
                             ->label('Status Sample')
                             ->content(fn (?Sample $record): string => $record?->status?->getLabel() ?? 'Draf'),
