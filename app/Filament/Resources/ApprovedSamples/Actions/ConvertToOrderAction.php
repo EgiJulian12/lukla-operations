@@ -93,7 +93,7 @@ class ConvertToOrderAction
                     ? $rawScheme
                     : (is_string($rawScheme) || is_int($rawScheme) ? WorkScheme::tryFrom($rawScheme) : null) ?? WorkScheme::CMT;
                 $quantity = (int) $data['quantity'];
-                $existingOrder = $record->article?->order;
+                $existingOrder = $record->primaryOrder();
 
                 if ($existingOrder !== null) {
                     $existingOrder->update([
@@ -129,6 +129,6 @@ class ConvertToOrderAction
      */
     private static function latestOrder(Sample $sample): ?Order
     {
-        return $sample->orders()->latest('id')->first();
+        return $sample->primaryOrder();
     }
 }

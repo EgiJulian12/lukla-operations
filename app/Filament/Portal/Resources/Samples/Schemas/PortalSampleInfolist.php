@@ -5,6 +5,7 @@ namespace App\Filament\Portal\Resources\Samples\Schemas;
 use App\Models\Sample;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -67,6 +68,42 @@ class PortalSampleInfolist
                             ->placeholder('Belum ada gambar desain.')
                             ->columnSpanFull(),
                     ]),
+
+                Section::make('Spesifikasi & Estimasi Pemakaian Bahan Baku')
+                    ->description('Spesifikasi fisik produk dan estimasi pemakaian bahan baku & aksesoris (per 1 pcs) pada revisi terkini.')
+                    ->columns(2)
+                    ->schema([
+                        KeyValueEntry::make('current_specs')
+                            ->label('Spesifikasi Fisik Produk')
+                            ->keyLabel('Atribut')
+                            ->valueLabel('Nilai')
+                            ->state(function (Sample $record): array {
+                                $revision = $record->approvedRevision ?? $record->currentRevision;
+                                $rawSpecs = $revision?->specs ?? [];
+                                $internalKeys = ['design_images', 'description', 'order_number'];
+                                $cleanSpecs = [];
+
+                                foreach ($rawSpecs as $k => $v) {
+                                    if (! in_array($k, $internalKeys, true) && is_scalar($v)) {
+                                        $cleanSpecs[$k] = (string) $v;
+                                    }
+                                }
+
+                                return $cleanSpecs;
+                            })
+                            ->placeholder('Belum ada spesifikasi fisik yang diinput.'),
+                        KeyValueEntry::make('current_material_usage')
+                            ->label('Estimasi Pemakaian Bahan Baku & Aksesoris (Per 1 Pcs)')
+                            ->keyLabel('Nama Bahan / Aksesoris')
+                            ->valueLabel('Konsumsi / Pcs')
+                            ->state(function (Sample $record): array {
+                                $revision = $record->approvedRevision ?? $record->currentRevision;
+
+                                return $revision?->material_usage ?? [];
+                            })
+                            ->placeholder('Belum ada estimasi pemakaian bahan baku yang diinput oleh Tim Sample.'),
+                    ])
+                    ->collapsible(),
 
                 Section::make('Catatan')
                     ->schema([

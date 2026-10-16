@@ -117,25 +117,47 @@ class Sample extends Model
     }
 
     /**
+     * Mengambil order utama yang terikat pada sample ini.
+     *
+     * Memprioritaskan order yang memiliki `sample_id` ke sample ini, lalu
+     * fallback ke order pada artikel hanya jika order artikel tersebut belum
+     * terikat ke sample lain.
+     */
+    public function primaryOrder(): ?Order
+    {
+        $directOrder = $this->orders()->latest('id')->first();
+        if ($directOrder !== null) {
+            return $directOrder;
+        }
+
+        $articleOrder = $this->article?->order;
+        if ($articleOrder !== null && ($articleOrder->sample_id === null || (int) $articleOrder->sample_id === (int) $this->getKey())) {
+            return $articleOrder;
+        }
+
+        return null;
+    }
+
+    /**
      * Memeriksa apakah sample ini telah memiliki order yang berstatus Siap Produksi
      * atau telah masuk ke tahap produksi massal (Dalam Produksi, QC, atau Selesai).
      */
     public function hasReadyForProductionOrder(): bool
     {
-        return $this->orders()
-            ->whereIn('status', [
-                OrderStatus::READY_FOR_PRODUCTION,
-                OrderStatus::IN_PRODUCTION,
-                OrderStatus::IN_QC,
-                OrderStatus::COMPLETED,
-            ])
-            ->exists()
-            || ($this->article?->order !== null && in_array($this->article->order->status, [
-                OrderStatus::READY_FOR_PRODUCTION,
-                OrderStatus::IN_PRODUCTION,
-                OrderStatus::IN_QC,
-                OrderStatus::COMPLETED,
-            ], true));
+        $productionStatuses = [
+            OrderStatus::READY_FOR_PRODUCTION,
+            OrderStatus::IN_PRODUCTION,
+            OrderStatus::IN_QC,
+            OrderStatus::COMPLETED,
+        ];
+
+        if ($this->orders()->whereIn('status', $productionStatuses)->exists()) {
+            return true;
+        }
+
+        $primaryOrder = $this->primaryOrder();
+
+        return $primaryOrder !== null && in_array($primaryOrder->status, $productionStatuses, true);
     }
 
     /**
@@ -145,8 +167,8 @@ class Sample extends Model
      */
     public function designImages(): array
     {
-        return $this->article?->order?->design_images
-            ?? $this->currentRevision?->specs['design_images']
+        return $this->currentRevision?->specs['design_images']
+            ?? $this->primaryOrder()?->design_images
             ?? [];
     }
 
@@ -155,8 +177,8 @@ class Sample extends Model
      */
     public function designDescription(): ?string
     {
-        return $this->article?->order?->description
-            ?? $this->currentRevision?->specs['description']
+        return $this->currentRevision?->specs['description']
+            ?? $this->primaryOrder()?->description
             ?? null;
     }
 
@@ -167,8 +189,9 @@ class Sample extends Model
      */
     public function designImageUrls(): array
     {
-        if ($this->article?->order) {
-            return $this->article->order->designImageUrls();
+        $primaryOrder = $this->primaryOrder();
+        if ($primaryOrder !== null && ! empty($primaryOrder->design_images)) {
+            return $primaryOrder->designImageUrls();
         }
 
         $images = $this->designImages();
